@@ -35,7 +35,6 @@
         .home-footer img { max-width: 100%; max-width: 700px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
         .home-footer p { margin-top: 20px; font-size: 1.1em; color: #333; }
 
-        /* Novo estilo para a informação do dia */
         #today-info-container {
             background-color: #fff;
             padding: 20px;
@@ -87,31 +86,94 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <script>
         const db = firebase.firestore();
+        const settingsCollection = db.collection("game_settings");
+        const appointmentsCollection = db.collection("rpg-appointments");
 
-        // Código para a seção de 'Hoje'
+        // Código para a seção de 'Hoje' (usando a data do jogo)
         const todayInfoContainer = document.getElementById('today-info-container');
         const months = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-        const today = new Date();
-        const dateStr = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
-        const formattedDate = `${today.getDate()} de ${months[today.getMonth()]} de ${today.getFullYear()}`;
 
-        db.collection("rpg-appointments").where("dateStr", "==", dateStr).onSnapshot(snapshot => {
-            let infoHTML = `<h3>Hoje é ${formattedDate}</h3>`;
-            if (!snapshot.empty) {
-                infoHTML += '<h4>Compromissos do dia:</h4><ul>';
-                snapshot.docs.forEach(doc => {
-                    const app = doc.data();
-                    infoHTML += `<li>${app.text}</li>`;
-                });
-                infoHTML += '</ul>';
-            } else {
-                infoHTML += '<p>Nenhum compromisso agendado para hoje.</p>';
+        settingsCollection.doc("current_date").onSnapshot(settingsDoc => {
+            let today = new Date();
+            if (settingsDoc.exists) {
+                today = new Date(settingsDoc.data().date);
             }
-            todayInfoContainer.innerHTML = infoHTML;
+            const dateStr = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+            const formattedDate = `${today.getDate()} de ${months[today.getMonth()]} de ${today.getFullYear()}`;
+            
+            appointmentsCollection.where("dateStr", "==", dateStr).onSnapshot(snapshot => {
+                let infoHTML = `<h3>Hoje no jogo é ${formattedDate}</h3>`;
+                if (!snapshot.empty) {
+                    infoHTML += '<h4>Compromissos do dia:</h4><ul>';
+                    snapshot.docs.forEach(doc => {
+                        const app = doc.data();
+                        infoHTML += `<li>${app.text}</li>`;
+                    });
+                    infoHTML += '</ul>';
+                } else {
+                    infoHTML += '<p>Nenhum compromisso agendado para hoje no jogo.</p>';
+                }
+                todayInfoContainer.innerHTML = infoHTML;
+            });
         });
 
         // Código existente para o dashboard (mantido)
-        const appointmentsList=document.getElementById("upcoming-appointments"),appointmentsCollection=db.collection("rpg-appointments");appointmentsCollection.onSnapshot(e=>{const t=new Date;t.setHours(0,0,0,0);const o=[];e.docs.forEach(e=>{const n=e.data(),[a,i,l]=n.dateStr.split("-").map(Number),s=new Date(a,i-1,l);s>=t&&o.push({date:s,text:n.text})}),o.sort((e,t)=>e.date-t.date);const n=o.slice(0,3);appointmentsList.innerHTML="",0===n.length?appointmentsList.innerHTML="<li>Nenhum compromisso futuro.</li>":n.forEach(e=>{const t=document.createElement("li");t.textContent=`${e.date.toLocaleDateString()}: ${e.text}`,appointmentsList.appendChild(t)})});const latestMissionEl=document.getElementById("latest-mission"),missionsCollection=db.collection("missions");missionsCollection.orderBy("createdAt","desc").limit(1).onSnapshot(e=>{e.empty?latestMissionEl.textContent="Nenhuma missão registrada.":latestMissionEl.innerHTML=`<span class="mission-title">${e.docs[0].data().name}</span><br><small>${e.docs[0].data().summary.substring(0,100)}...</small>`});const balancesList=document.getElementById("character-balances"),financesCollection=db.collection("finances"),characters=["Akane","Gemini","Tilas","Daemian","Bart"];financesCollection.onSnapshot(e=>{const t={Akane:0,Gemini:0,Tilas:0,Daemian:0,Bart:0};e.docs.forEach(e=>{const o=e.data();t.hasOwnProperty(o.character)&&(t[o.character]+=o.amount)}),balancesList.innerHTML="",characters.forEach(e=>{const o=document.createElement("li");o.className="balance-item",o.innerHTML=`<span>${e}</span> <strong>${t[e]} zenny</strong>`,balancesList.appendChild(o)})});
+        const upcomingAppointmentsList = document.getElementById("upcoming-appointments");
+        appointmentsCollection.onSnapshot(snapshot => {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const appointments = [];
+            snapshot.docs.forEach(doc => {
+                const app = doc.data();
+                const [year, month, day] = app.dateStr.split("-").map(Number);
+                const appDate = new Date(year, month - 1, day);
+                if (appDate >= today) {
+                    appointments.push({ date: appDate, text: app.text });
+                }
+            });
+            appointments.sort((a, b) => a.date - b.date);
+            const upcoming = appointments.slice(0, 3);
+            upcomingAppointmentsList.innerHTML = "";
+            if (upcoming.length === 0) {
+                upcomingAppointmentsList.innerHTML = "<li>Nenhum compromisso futuro.</li>";
+            } else {
+                upcoming.forEach(app => {
+                    const li = document.createElement("li");
+                    li.textContent = `${app.date.toLocaleDateString()}: ${app.text}`;
+                    upcomingAppointmentsList.appendChild(li);
+                });
+            }
+        });
+
+        const latestMissionEl = document.getElementById("latest-mission");
+        const missionsCollection = db.collection("missions");
+        missionsCollection.orderBy("createdAt", "desc").limit(1).onSnapshot(snapshot => {
+            if (snapshot.empty) {
+                latestMissionEl.textContent = "Nenhuma missão registrada.";
+            } else {
+                latestMissionEl.innerHTML = `<span class="mission-title">${snapshot.docs[0].data().name}</span><br><small>${snapshot.docs[0].data().summary.substring(0, 100)}...</small>`;
+            }
+        });
+
+        const balancesList = document.getElementById("character-balances");
+        const financesCollection = db.collection("finances");
+        const characters = ["Akane", "Gemini", "Tilas", "Daemian", "Bart"];
+        financesCollection.onSnapshot(snapshot => {
+            const balances = { Akane: 0, Gemini: 0, Tilas: 0, Daemian: 0, Bart: 0 };
+            snapshot.docs.forEach(doc => {
+                const finance = doc.data();
+                if (balances.hasOwnProperty(finance.character)) {
+                    balances[finance.character] += finance.amount;
+                }
+            });
+            balancesList.innerHTML = "";
+            characters.forEach(char => {
+                const li = document.createElement("li");
+                li.className = "balance-item";
+                li.innerHTML = `<span>${char}</span> <strong>${balances[char]} zenny</strong>`;
+                balancesList.appendChild(li);
+            });
+        });
     </script>
 </body>
 </html>
