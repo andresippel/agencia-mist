@@ -86,7 +86,6 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <script>
         const db = firebase.firestore();
-        // Ajustado para o nome da coleção que você usa
         const gameDateRef = db.collection("game_state").doc("current_date"); 
         const appointmentsCollection = db.collection("rpg-appointments");
 
@@ -94,26 +93,25 @@
         const upcomingAppointmentsList = document.getElementById("upcoming-appointments");
         const months = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
-        // Lógica para carregar a data do jogo e os compromissos
         gameDateRef.onSnapshot(settingsDoc => {
             let rpgCurrentDate;
             if (settingsDoc.exists) {
-                // Lê o objeto de data do Firebase
                 rpgCurrentDate = settingsDoc.data();
             } else {
-                // Se não existir, usa a data atual como padrão
                 const today = new Date();
                 rpgCurrentDate = { day: today.getDate(), month: today.getMonth(), year: today.getFullYear() };
             }
             
-            // Reconstroi a data do jogo a partir dos valores
-            const todayInGame = new Date(rpgCurrentDate.year, rpgCurrentDate.month, rpgCurrentDate.day);
+            const fullYear = (rpgCurrentDate.year < 100) ? rpgCurrentDate.year + 2000 : rpgCurrentDate.year;
+            
+            const todayInGame = new Date(fullYear, rpgCurrentDate.month, rpgCurrentDate.day);
             todayInGame.setHours(0, 0, 0, 0);
 
-            const dateStr = `${todayInGame.getFullYear()}-${todayInGame.getMonth() + 1}-${todayInGame.getDate()}`;
-            const formattedDate = `${todayInGame.getDate()} de ${months[todayInGame.getMonth()]} de ${todayInGame.getFullYear()}`;
+            const dateStr = `${fullYear}-${todayInGame.getMonth() + 1}-${todayInGame.getDate()}`;
             
-            // 1. Atualiza a seção "Hoje no jogo"
+            // AQUI ESTÁ A ÚNICA MUDANÇA: usa o ano original (rpgCurrentDate.year) para a exibição
+            const formattedDate = `${rpgCurrentDate.day} de ${months[rpgCurrentDate.month]} de ${rpgCurrentDate.year}`;
+            
             appointmentsCollection.where("dateStr", "==", dateStr).onSnapshot(snapshot => {
                 let infoHTML = `<h3>Hoje no jogo é ${formattedDate}</h3>`;
                 if (!snapshot.empty) {
@@ -129,14 +127,12 @@
                 todayInfoContainer.innerHTML = infoHTML;
             });
 
-            // 2. Atualiza a seção de "Próximos Compromissos"
             appointmentsCollection.onSnapshot(snapshot => {
                 const appointments = [];
                 snapshot.docs.forEach(doc => {
                     const app = doc.data();
                     const [year, month, day] = app.dateStr.split("-").map(Number);
                     const appDate = new Date(year, month - 1, day);
-                    // Compara com a data do jogo para filtrar os compromissos futuros
                     if (appDate >= todayInGame) {
                         appointments.push({ date: appDate, text: app.text });
                     }
@@ -156,7 +152,6 @@
             });
         });
 
-        // Código existente para o dashboard (mantido)
         const latestMissionEl = document.getElementById("latest-mission");
         const missionsCollection = db.collection("missions");
         missionsCollection.orderBy("createdAt", "desc").limit(1).onSnapshot(snapshot => {
