@@ -4,41 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Resumo de Missões - Agência MIST</title>
-
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="auth-check.js"></script>
-    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-
     <style>
-        /* CSS Final para a coluna Ações */
-        thead th:last-child,
-        tbody td:last-child {
-            width: 50px;
-            text-align: center;
-        }
-        .actions-cell {
-            padding: 5px 0;
-        }
-        .actions-cell button {
-            display: block;
-            margin: 0 auto;
-            width: 32px;
-            height: 32px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0;
-        }
-        .actions-cell button:first-child {
-            margin-bottom: 5px;
-        }
-        .edit-btn { background-color: #f39c12; }
-        .edit-btn:hover { background-color: #e67e22; }
-        .delete-btn { background-color: #e74c3c; }
-        .delete-btn:hover { background-color: #c0392b; }
+        .characters-input { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; }
+        .characters-input .form-group { flex-grow: 1; min-width: 120px; }
+        #missions-table th, #missions-table td { text-align: center; }
+        #missions-table .actions-cell { width: 120px; }
     </style>
 </head>
 <body>
@@ -50,110 +25,195 @@
                 <a href="#" onclick="logout()">Sair</a>
             </nav>
         </header>
-        
-        <table>
-            <thead>
-                <tr>
-                    <th>Missão</th>
-                    <th>Data</th>
-                    <th>Recompensa</th>
-                    <th>Agência</th>
-                    <th>Akane</th>
-                    <th>Gemini</th>
-                    <th>Tilas</th>
-                    <th>Daemian</th>
-                    <th>Bart</th>
-                    <th>Resumo</th>
-                    <th>Ações</th>
-                </tr>
-            </thead>
-            <tbody id="missions-table-body"></tbody>
-        </table>
 
         <div class="form-container">
             <h3 id="form-title">Adicionar Nova Missão</h3>
             <form id="mission-form">
                 <input type="hidden" id="mission-id">
-                <div class="form-group"><label for="mission-name">Nome da Missão</label><input type="text" id="mission-name" required></div>
-                <div class="form-group"><label for="mission-date">Data</label><input type="text" id="mission-date" placeholder="dd/mm/aaaa"></div>
-                <div class="form-group"><label for="mission-reward">Recompensa Total</label><input type="number" id="mission-reward" value="0"></div>
-                <div class="form-group"><label for="mission-agency">Agência</label><input type="number" id="mission-agency" value="0"></div>
-                <div class="form-group"><label for="mission-akane">Akane</label><input type="number" id="mission-akane" value="0"></div>
-                <div class="form-group"><label for="mission-gemini">Gemini</label><input type="number" id="mission-gemini" value="0"></div>
-                <div class="form-group"><label for="mission-tilas">Tilas</label><input type="number" id="mission-tilas" value="0"></div>
-                <div class="form-group"><label for="mission-daemian">Daemian</label><input type="number" id="mission-daemian" value="0"></div>
-                <div class="form-group"><label for="mission-bart">Bart</label><input type="number" id="mission-bart" value="0"></div>
-                <div class="form-group"><label for="mission-summary">Resumo</label><textarea id="mission-summary" rows="3"></textarea></div>
-                <button type="submit" id="submit-btn">Adicionar Missão</button>
+                <div class="form-group">
+                    <label for="name">Nome da Missão</label>
+                    <input type="text" id="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="date">Data (Ex: 01/01/20)</label>
+                    <input type="text" id="date" required>
+                </div>
+                <div class="form-group">
+                    <label for="totalReward">Recompensa Total</label>
+                    <input type="number" id="totalReward" min="0" value="0">
+                </div>
+                <div class="characters-input">
+                    <div class="form-group">
+                        <label for="akaneReward">Akane</label>
+                        <input type="number" id="akaneReward" min="0" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="geminiReward">Gemini</label>
+                        <input type="number" id="geminiReward" min="0" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="tilasReward">Tilas</label>
+                        <input type="number" id="tilasReward" min="0" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="daemianReward">Daemian</label>
+                        <input type="number" id="daemianReward" min="0" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="bartReward">Bart</label>
+                        <input type="number" id="bartReward" min="0" value="0">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="summary">Resumo</label>
+                    <textarea id="summary" rows="5"></textarea>
+                </div>
+                <button type="submit" id="submit-btn">Salvar Missão</button>
                 <button type="button" id="cancel-btn" style="display:none;">Cancelar Edição</button>
             </form>
         </div>
-    </div>
 
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+        <div class="table-container">
+            <table id="missions-table">
+                <thead>
+                    <tr>
+                        <th>Missão</th>
+                        <th>Data</th>
+                        <th>Recompensa</th>
+                        <th>Agência</th>
+                        <th>Akane</th>
+                        <th>Gemini</th>
+                        <th>Tilas</th>
+                        <th>Daemian</th>
+                        <th>Bart</th>
+                        <th>Resumo</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="missions-table-body">
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
     <script>
+        
         const db = firebase.firestore();
+
         const missionsCollection = db.collection("missions");
+        // ADICIONADO: Referência para a coleção de finanças
+        const financesCollection = db.collection("finances");
 
         const form = document.getElementById('mission-form');
-        const tableBody = document.getElementById('missions-table-body');
+        const listBody = document.getElementById('missions-table-body');
         const formTitle = document.getElementById('form-title');
         const submitBtn = document.getElementById('submit-btn');
         const cancelBtn = document.getElementById('cancel-btn');
+        const missionIdInput = document.getElementById('mission-id');
 
-        const resetForm = () => { form.reset(); form['mission-id'].value = ''; formTitle.textContent = 'Adicionar Nova Missão'; submitBtn.textContent = 'Adicionar Missão'; cancelBtn.style.display = 'none'; };
-        
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const missionId = form['mission-id'].value;
-            const missionData = {
-                name: form['mission-name'].value, date: form['mission-date'].value,
-                reward: Number(form['mission-reward'].value), agency: Number(form['mission-agency'].value),
-                akane: Number(form['mission-akane'].value), gemini: Number(form['mission-gemini'].value),
-                tilas: Number(form['mission-tilas'].value), daemian: Number(form['mission-daemian'].value),
-                bart: Number(form['mission-bart'].value), summary: form['mission-summary'].value
-            };
-            if (missionId) { await missionsCollection.doc(missionId).update(missionData); } 
-            else { await missionsCollection.add({ ...missionData, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); }
-            resetForm();
-        });
-        
-        const deleteMission = async (id) => { if (confirm("Tem certeza que deseja excluir esta missão?")) { await missionsCollection.doc(id).delete(); } };
-        
-        const editMission = (id, data) => {
-            form['mission-id'].value = id; form['mission-name'].value = data.name;
-            form['mission-date'].value = data.date; form['mission-reward'].value = data.reward;
-            form['mission-agency'].value = data.agency; form['mission-akane'].value = data.akane;
-            form['mission-gemini'].value = data.gemini; form['mission-tilas'].value = data.tilas;
-            form['mission-daemian'].value = data.daemian; form['mission-bart'].value = data.bart;
-            form['mission-summary'].value = data.summary;
-            formTitle.textContent = 'Editando Missão';
-            submitBtn.textContent = 'Salvar Alterações';
-            cancelBtn.style.display = 'inline-block';
-            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        const characters = ["Akane", "Gemini", "Tilas", "Daemian", "Bart"];
+
+        const resetForm = () => {
+            form.reset();
+            formTitle.textContent = 'Adicionar Nova Missão';
+            submitBtn.textContent = 'Salvar Missão';
+            cancelBtn.style.display = 'none';
+            missionIdInput.value = '';
         };
-        
+
+        const deleteMission = async (id) => {
+            if (confirm("Tem certeza que deseja excluir esta missão?")) {
+                await missionsCollection.doc(id).delete();
+            }
+        };
+
+        const editMission = (id, data) => {
+            missionIdInput.value = id;
+            document.getElementById('name').value = data.name;
+            document.getElementById('date').value = data.date;
+            document.getElementById('totalReward').value = data.totalReward || 0;
+            document.getElementById('akaneReward').value = data.Akane || 0;
+            document.getElementById('geminiReward').value = data.Gemini || 0;
+            document.getElementById('tilasReward').value = data.Tilas || 0;
+            document.getElementById('daemianReward').value = data.Daemian || 0;
+            document.getElementById('bartReward').value = data.Bart || 0;
+            document.getElementById('summary').value = data.summary;
+            formTitle.textContent = 'Editar Missão';
+            submitBtn.textContent = 'Atualizar Missão';
+            cancelBtn.style.display = 'inline-block';
+        };
+
         cancelBtn.addEventListener('click', resetForm);
 
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const missionData = {
+                name: document.getElementById('name').value,
+                date: document.getElementById('date').value,
+                totalReward: parseInt(document.getElementById('totalReward').value) || 0,
+                Akane: parseInt(document.getElementById('akaneReward').value) || 0,
+                Gemini: parseInt(document.getElementById('geminiReward').value) || 0,
+                Tilas: parseInt(document.getElementById('tilasReward').value) || 0,
+                Daemian: parseInt(document.getElementById('daemianReward').value) || 0,
+                Bart: parseInt(document.getElementById('bartReward').value) || 0,
+                summary: document.getElementById('summary').value,
+                createdAt: new Date().toISOString()
+            };
+
+            const missionId = missionIdInput.value;
+            try {
+                if (missionId) {
+                    await missionsCollection.doc(missionId).update(missionData);
+                } else {
+                    await missionsCollection.add(missionData);
+                    
+                    // NOVO CÓDIGO: Adiciona entradas de finanças automaticamente
+                    const financePromises = characters.map(char => {
+                        const reward = missionData[char];
+                        if (reward > 0) {
+                            return financesCollection.add({
+                                character: char,
+                                amount: reward,
+                                description: `Recompensa - ${missionData.name}`,
+                                type: 'ganho'
+                            });
+                        }
+                        return Promise.resolve(); // Retorna uma Promise resolvida para manter o array
+                    });
+                    
+                    await Promise.all(financePromises);
+                }
+                resetForm();
+            } catch (error) {
+                console.error("Erro ao salvar a missão: ", error);
+                alert("Erro ao salvar a missão. Verifique o console.");
+            }
+        });
+
         missionsCollection.orderBy("createdAt", "desc").onSnapshot(snapshot => {
-            tableBody.innerHTML = '';
+            listBody.innerHTML = '';
             snapshot.docs.forEach(doc => {
                 const mission = doc.data();
-                const missionId = doc.id;
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${mission.name}</td><td>${mission.date}</td><td>${mission.reward}</td>
-                    <td>${mission.agency}</td><td>${mission.akane}</td><td>${mission.gemini}</td>
-                    <td>${mission.tilas}</td><td>${mission.daemian}</td><td>${mission.bart}</td>
-                    <td>${mission.summary}</td>
+                    <td>${mission.name}</td>
+                    <td>${mission.date}</td>
+                    <td>${mission.totalReward || 0}</td>
+                    <td>${mission.agencyReward || 0}</td>
+                    <td>${mission.Akane || 0}</td>
+                    <td>${mission.Gemini || 0}</td>
+                    <td>${mission.Tilas || 0}</td>
+                    <td>${mission.Daemian || 0}</td>
+                    <td>${mission.Bart || 0}</td>
+                    <td><pre>${mission.summary}</pre></td>
                     <td class="actions-cell">
-                        <button class="edit-btn" title="Editar"><i class="fas fa-pencil-alt"></i></button>
-                        <br>
-                        <button class="delete-btn" title="Excluir"><i class="fas fa-times"></i></button>
-                    </td>`;
-                row.querySelector('.edit-btn').addEventListener('click', () => editMission(missionId, mission));
-                row.querySelector('.delete-btn').addEventListener('click', () => deleteMission(missionId));
-                tableBody.appendChild(row);
+                        <button class="edit-btn">Editar</button>
+                        <button class="delete-btn">Excluir</button>
+                    </td>
+                `;
+                row.querySelector('.edit-btn').addEventListener('click', () => editMission(doc.id, mission));
+                row.querySelector('.delete-btn').addEventListener('click', () => deleteMission(doc.id));
+                listBody.appendChild(row);
             });
         });
     </script>
