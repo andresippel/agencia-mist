@@ -112,7 +112,8 @@
     </div>
 
     <script>
-       
+        const firebaseConfig = { /* ...SEU OBJETO DE CONFIGURAÇÃO... */ };
+        firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
         const linksCollection = db.collection("social_links");
@@ -157,17 +158,15 @@
             }
         };
 
-        // Escuta as duas coleções para atualizar o mapa e as listas
+        // Lógica de escuta e atualização do mapa
         charactersCollection.orderBy("name").onSnapshot(charSnapshot => {
             linksCollection.onSnapshot(linkSnapshot => {
                 const characters = charSnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
                 const relationships = linkSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-                // Atualiza os dropdowns
                 char1Select.innerHTML = characters.map(char => `<option value="${char.name}">${char.name}</option>`).join('');
                 char2Select.innerHTML = characters.map(char => `<option value="${char.name}">${char.name}</option>`).join('');
 
-                // Atualiza a lista de gerenciamento de personagens
                 characterList.innerHTML = '';
                 characters.forEach(char => {
                     const li = document.createElement('li');
@@ -175,7 +174,6 @@
                     characterList.appendChild(li);
                 });
 
-                // Atualiza a tabela de relações
                 linksTableBody.innerHTML = '';
                 relationships.forEach(link => {
                     const row = document.createElement('tr');
@@ -206,14 +204,15 @@
                         from: link.char1, 
                         to: link.char2, 
                         color: { color: color },
-                        label: String(link.relationship) // Adiciona o valor da relação como texto
+                        label: String(link.relationship),
+                        arrows: 'to' // Adiciona a seta para indicar a direção
                     };
                 }));
 
                 const data = { nodes: nodes, edges: edges };
                 const options = {
                     physics: { enabled: true, stabilizing: false },
-                    edges: { smooth: false, width: 3 },
+                    edges: { smooth: true, width: 3 },
                     nodes: { shape: 'circle', size: 25 },
                     interaction: { hover: true, hoverConnectedEdges: true, selectable: true },
                     layout: { hierarchical: { enabled: false } }
@@ -226,6 +225,7 @@
             });
         });
 
+        // Funções do formulário (sem alteração)
         function resetForm() {
             form.reset();
             formTitle.textContent = 'Adicionar Nova Relação';
