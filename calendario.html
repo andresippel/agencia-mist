@@ -14,6 +14,9 @@
         .has-event { background-color: #f1c40f !important; color: #fff !important; font-weight: bold; position: relative; }
         .has-event::after { content: ''; position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%); width: 6px; height: 6px; border-radius: 50%; background-color: #c0392b; }
         #appointment-view li { display: flex; justify-content: space-between; align-items: center; }
+        .rpg-today { background-color: #2ecc71 !important; color: #fff !important; font-weight: bold; border: 2px solid #27ae60; }
+        .date-setter { display: flex; gap: 10px; align-items: center; padding: 15px; background-color: #f9f9f9; border-radius: 5px; margin-bottom: 20px; flex-wrap: wrap; }
+        .date-setter select, .date-setter input { padding: 8px; border-radius: 4px; border: 1px solid #ccc; }
     </style>
 </head>
 <body>
@@ -25,13 +28,28 @@
                 <a href="#" onclick="logout()">Sair</a>
             </nav>
         </header>
+
+        <div class="date-setter">
+            <label><b>Data Atual do Jogo:</b></label>
+            <select id="day-select"></select>
+            <select id="month-select"></select>
+            <input type="number" id="year-input" value="20" style="width: 80px;">
+            <button id="set-date-btn">Definir Data</button>
+            <button id="goto-date-btn">Ir para Data Atual</button>
+        </div>
+
         <div class="calendar-container">
-            <div class="header"><button id="prev-month">&lt; Anterior</button><h2 id="month-year"></h2><button id="next-month">Próximo &gt;</button></div>
+            <div class="header">
+                <button id="prev-month">&lt; Anterior</button>
+                <h2 id="month-year"></h2>
+                <button id="next-month">Próximo &gt;</button>
+            </div>
             <table>
                 <thead><tr><th>Dom</th><th>Seg</th><th>Ter</th><th>Qua</th><th>Qui</th><th>Sex</th><th>Sáb</th></tr></thead>
                 <tbody id="calendar-body"></tbody>
             </table>
         </div>
+
         <div id="appointment-view" class="calendar-container">
             <h3>Compromissos do Dia</h3>
             <p id="selected-day-info">Clique em um dia para ver os compromissos.</p>
@@ -39,11 +57,136 @@
             <button id="add-appointment-btn">Adicionar Compromisso</button>
         </div>
     </div>
+
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <script>
         const db = firebase.firestore();
         const appointmentsCollection = db.collection("rpg-appointments");
-        const monthYearEl=document.getElementById("month-year"),calendarBody=document.getElementById("calendar-body"),prevMonthBtn=document.getElementById("prev-month"),nextMonthBtn=document.getElementById("next-month"),selectedDayInfo=document.getElementById("selected-day-info"),appointmentList=document.getElementById("appointment-list"),addAppointmentBtn=document.getElementById("add-appointment-btn");let currentDate=new Date;currentDate.setFullYear(20);let localAppointments={},selectedDateStr=null;const monthNames=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];function renderCalendar(){const e=currentDate.getFullYear(),t=currentDate.getMonth();monthYearEl.textContent=`${monthNames[t]} de ${e}`,calendarBody.innerHTML="";const n=new Date(e,t,1).getDay(),o=new Date(e,t+1,0).getDate();let a=1;for(let e=0;e<6;e++){const t=document.createElement("tr");for(let i=0;i<7;i++){const l=document.createElement("td");if(0===e&&i<n||a>o)l.classList.add("empty");else{const e=a,n=`${currentDate.getFullYear()}-${currentDate.getMonth()+1}-${e}`;localAppointments[n]&&localAppointments[n].length>0&&l.classList.add("has-event"),l.textContent=e,l.addEventListener("click",()=>showAppointments(currentDate.getFullYear(),currentDate.getMonth(),e)),a++}t.appendChild(l)}if(calendarBody.appendChild(t),a>o)break}}async function addAppointment(e,t){await appointmentsCollection.add({dateStr:e,text:t})}async function deleteAppointment(e){confirm("Tem certeza?")&&await appointmentsCollection.doc(e).delete()}addAppointmentBtn.addEventListener("click",()=>{if(!selectedDateStr)return;const e=prompt("Adicionar novo compromisso:");e&&e.trim()&&addAppointment(selectedDateStr,e)}),prevMonthBtn.addEventListener("click",()=>{currentDate.setMonth(currentDate.getMonth()-1),renderCalendar()}),nextMonthBtn.addEventListener("click",()=>{currentDate.setMonth(currentDate.getMonth()+1),renderCalendar()}),appointmentsCollection.onSnapshot(e=>{localAppointments={},e.docs.forEach(e=>{const t=e.data();localAppointments[t.dateStr]||(localAppointments[t.dateStr]=[]),localAppointments[t.dateStr].push({id:e.id,text:t.text})}),renderCalendar(),selectedDateStr&&showAppointments(...selectedDateStr.split("-").map((e,t)=>1===t?e-1:Number(e)))});function showAppointments(e,t,n){selectedDateStr=`${e}-${t+1}-${n}`,selectedDayInfo.textContent=`Compromissos para: ${n} de ${monthNames[t]} de ${e}`,appointmentList.innerHTML="";const o=localAppointments[selectedDateStr]||[];o.length>0?o.forEach(e=>{const t=document.createElement("li");t.textContent=e.text;const n=document.createElement("button");n.textContent="X",n.className="delete-btn",n.onclick=()=>deleteAppointment(e.id),t.appendChild(n),appointmentList.appendChild(t)}):appointmentList.innerHTML="<li>Nenhum compromisso agendado.</li>"}
+        const gameDateRef = db.collection("game_state").doc("current_date");
+
+        // --- Elementos da Página ---
+        const monthYearEl=document.getElementById("month-year"),calendarBody=document.getElementById("calendar-body"),prevMonthBtn=document.getElementById("prev-month"),nextMonthBtn=document.getElementById("next-month"),selectedDayInfo=document.getElementById("selected-day-info"),appointmentList=document.getElementById("appointment-list"),addAppointmentBtn=document.getElementById("add-appointment-btn"),daySelect=document.getElementById("day-select"),monthSelect=document.getElementById("month-select"),yearInput=document.getElementById("year-input"),setDateBtn=document.getElementById("set-date-btn"),gotoDateBtn=document.getElementById("goto-date-btn");
+
+        let currentDateForView = new Date();
+        let rpgCurrentDate = { day: 1, month: 0, year: 20 };
+        let localAppointments = {};
+        let selectedDateStr = null;
+        const monthNames = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+
+        // --- LÓGICA DA DATA ATUAL DO JOGO ---
+        gameDateRef.onSnapshot((doc) => {
+            if (doc.exists) {
+                rpgCurrentDate = doc.data();
+            } else {
+                const today = new Date();
+                rpgCurrentDate = { day: today.getDate(), month: today.getMonth(), year: 20 };
+                gameDateRef.set(rpgCurrentDate);
+            }
+            updateDateSelectors();
+            
+            // --- INÍCIO DA CORREÇÃO ---
+            // Usando setFullYear para definir a data corretamente
+            const tempDate = new Date(0); // Cria uma data base
+            tempDate.setFullYear(rpgCurrentDate.year, rpgCurrentDate.month, 1);
+            currentDateForView = tempDate;
+            // --- FIM DA CORREÇÃO ---
+
+            renderCalendar();
+        });
+        
+        setDateBtn.addEventListener('click', () => {
+            const newDate = { day: parseInt(daySelect.value), month: parseInt(monthSelect.value), year: parseInt(yearInput.value) };
+            gameDateRef.set(newDate).then(() => {
+                alert(`Data do jogo definida para: ${newDate.day} de ${monthNames[newDate.month]} de ${newDate.year}.`);
+            });
+        });
+
+        gotoDateBtn.addEventListener('click', () => {
+            // --- INÍCIO DA CORREÇÃO ---
+            const tempDate = new Date(0);
+            tempDate.setFullYear(rpgCurrentDate.year, rpgCurrentDate.month, 1);
+            currentDateForView = tempDate;
+            // --- FIM DA CORREÇÃO ---
+            renderCalendar();
+        });
+
+        // --- LÓGICA DO CALENDÁRIO ---
+        function renderCalendar() { /* ... (código completo nos blocos abaixo) ... */ }
+        function populateDateSelectors() { /* ... */ }
+        function updateDateSelectors() { /* ... */ }
+
+        // --- Eventos e Funções de Compromisso ---
+        prevMonthBtn.addEventListener('click', () => { currentDateForView.setMonth(currentDateForView.getMonth() - 1); renderCalendar(); });
+        nextMonthBtn.addEventListener('click', () => { currentDateForView.setMonth(currentDateForView.getMonth() + 1); renderCalendar(); });
+        addAppointmentBtn.addEventListener('click', () => { if (!selectedDateStr) return; const newAppointment = prompt(`Adicionar compromisso para ${selectedDateStr.split('-')[2]}/${selectedDateStr.split('-')[1]}/${selectedDateStr.split('-')[0]}:`); if (newAppointment && newAppointment.trim() !== '') { addAppointment(selectedDateStr, newAppointment); } });
+        
+        async function addAppointment(dateStr, appointmentText) { await appointmentsCollection.add({ dateStr, text: appointmentText }); }
+        async function deleteAppointment(docId) { if (confirm("Tem certeza?")) { await appointmentsCollection.doc(docId).delete(); } }
+        
+        function showAppointments(year, month, day) {
+            selectedDateStr = `${year}-${month + 1}-${day}`;
+            selectedDayInfo.textContent = `Compromissos para: ${day} de ${monthNames[month]} de ${year}`;
+            appointmentList.innerHTML = '';
+            const dayAppointments = localAppointments[selectedDateStr] || [];
+            if (dayAppointments.length > 0) {
+                dayAppointments.forEach(app => {
+                    const li = document.createElement('li');
+                    li.textContent = app.text;
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.textContent = 'X';
+                    deleteBtn.className = 'delete-btn';
+                    deleteBtn.onclick = () => deleteAppointment(app.id);
+                    li.appendChild(deleteBtn);
+                    appointmentList.appendChild(li);
+                });
+            } else { appointmentList.innerHTML = '<li>Nenhum compromisso agendado.</li>'; }
+        }
+
+        appointmentsCollection.onSnapshot(snapshot => {
+            localAppointments = {};
+            snapshot.docs.forEach(doc => {
+                const app = doc.data();
+                if (!localAppointments[app.dateStr]) localAppointments[app.dateStr] = [];
+                localAppointments[app.dateStr].push({ id: doc.id, text: app.text });
+            });
+            renderCalendar();
+        });
+
+        // --- Inicialização e Funções Auxiliares ---
+        function populateDateSelectors() {
+            monthSelect.innerHTML = ''; daySelect.innerHTML = '';
+            monthNames.forEach((name, index) => { const option = document.createElement('option'); option.value = index; option.textContent = name; monthSelect.appendChild(option); });
+            for(let i = 1; i <= 31; i++) { const option = document.createElement('option'); option.value = i; option.textContent = i; daySelect.appendChild(option); }
+        }
+        function updateDateSelectors() { daySelect.value = rpgCurrentDate.day; monthSelect.value = rpgCurrentDate.month; yearInput.value = rpgCurrentDate.year; }
+        function renderCalendar() {
+            const year = currentDateForView.getFullYear(); const month = currentDateForView.getMonth();
+            monthYearEl.textContent = `${monthNames[month]} de ${year}`;
+            calendarBody.innerHTML = '';
+            const firstDayOfMonth = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            let date = 1;
+            for (let i = 0; i < 6; i++) {
+                const row = document.createElement('tr');
+                for (let j = 0; j < 7; j++) {
+                    const cell = document.createElement('td');
+                    if ((i === 0 && j < firstDayOfMonth) || date > daysInMonth) { cell.classList.add('empty'); }
+                    else {
+                        const dayNumber = date;
+                        if (dayNumber === rpgCurrentDate.day && month === rpgCurrentDate.month && year === rpgCurrentDate.year) { cell.classList.add('rpg-today'); }
+                        const fullDateStr = `${year}-${month + 1}-${dayNumber}`;
+                        if (localAppointments[fullDateStr]) { cell.classList.add('has-event'); }
+                        cell.textContent = dayNumber;
+                        cell.addEventListener('click', () => showAppointments(year, month, dayNumber));
+                        date++;
+                    }
+                    row.appendChild(cell);
+                }
+                calendarBody.appendChild(row);
+                if (date > daysInMonth) break;
+            }
+        }
+        populateDateSelectors();
     </script>
 </body>
 </html>

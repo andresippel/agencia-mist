@@ -11,6 +11,7 @@
     
     <link rel="stylesheet" href="style.css">
     <style>
+        /* Estilos da página inicial (sem alterações) */
         .home-header { position: relative; text-align: center; }
         #auth-status-container { position: absolute; top: 20px; right: 20px; font-size: 0.9em; z-index: 10; }
         .home-header img { max-width: 150px; margin-bottom: 10px; }
@@ -23,16 +24,7 @@
         .dashboard-widget li { padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
         .mission-title { font-weight: bold; }
         .balance-item { display: flex; justify-content: space-between; }
-        
-        /* --- INÍCIO DA ALTERAÇÃO --- */
-        .home-footer {
-            text-align: center;
-            display: flex; /* Adicionado */
-            flex-direction: column; /* Adicionado */
-            align-items: center; /* Adicionado para centralizar a imagem */
-        }
-        /* --- FIM DA ALTERAÇÃO --- */
-
+        .home-footer { display: flex; flex-direction: column; align-items: center; text-align: center; }
         .home-footer img { max-width: 100%; max-width: 700px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
         .home-footer p { margin-top: 20px; font-size: 1.1em; color: #333; }
     </style>
@@ -72,10 +64,75 @@
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <script>
-        // O firebaseApp já foi inicializado em auth-check.js
         const db = firebase.firestore();
-        // Script completo do dashboard
-        const appointmentsList=document.getElementById("upcoming-appointments"),appointmentsCollection=db.collection("rpg-appointments");appointmentsCollection.onSnapshot(e=>{const t=new Date;t.setHours(0,0,0,0);const o=[];e.docs.forEach(e=>{const n=e.data(),[a,i,l]=n.dateStr.split("-").map(Number),s=new Date(a,i-1,l);s>=t&&o.push({date:s,text:n.text})}),o.sort((e,t)=>e.date-t.date);const n=o.slice(0,3);appointmentsList.innerHTML="",0===n.length?appointmentsList.innerHTML="<li>Nenhum compromisso futuro.</li>":n.forEach(e=>{const t=document.createElement("li");t.textContent=`${e.date.toLocaleDateString()}: ${e.text}`,appointmentsList.appendChild(t)})});const latestMissionEl=document.getElementById("latest-mission"),missionsCollection=db.collection("missions");missionsCollection.orderBy("createdAt","desc").limit(1).onSnapshot(e=>{e.empty?latestMissionEl.textContent="Nenhuma missão registrada.":latestMissionEl.innerHTML=`<span class="mission-title">${e.docs[0].data().name}</span><br><small>${e.docs[0].data().summary.substring(0,100)}...</small>`});const balancesList=document.getElementById("character-balances"),financesCollection=db.collection("finances"),characters=["Akane","Gemini","Tilas","Daemian","Bart"];financesCollection.onSnapshot(e=>{const t={Akane:0,Gemini:0,Tilas:0,Daemian:0,Bart:0};e.docs.forEach(e=>{const o=e.data();t.hasOwnProperty(o.character)&&(t[o.character]+=o.amount)}),balancesList.innerHTML="",characters.forEach(e=>{const o=document.createElement("li");o.className="balance-item",o.innerHTML=`<span>${e}</span> <strong>${t[e]} zenny</strong>`,balancesList.appendChild(o)})});
+
+        // --- INÍCIO DA LÓGICA DO DASHBOARD ATUALIZADA ---
+        
+        let rpgToday = null;
+        let allAppointments = [];
+
+        const appointmentsList = document.getElementById('upcoming-appointments');
+        const appointmentsCollection = db.collection("rpg-appointments");
+        const gameDateRef = db.collection("game_state").doc("current_date");
+
+        // Função central que renderiza os compromissos
+        function renderUpcomingAppointments() {
+            if (!rpgToday || allAppointments.length === 0) {
+                return; // Aguarda os dois dados carregarem
+            }
+
+            const todayInGame = new Date(0);
+            todayInGame.setFullYear(rpgToday.year, rpgToday.month, rpgToday.day);
+            todayInGame.setHours(0, 0, 0, 0);
+
+            const upcoming = [];
+            allAppointments.forEach(app => {
+                const [year, month, day] = app.dateStr.split('-').map(Number);
+                const appDate = new Date(0);
+                appDate.setFullYear(year, month - 1, day);
+                appDate.setHours(0, 0, 0, 0);
+
+                if (appDate >= todayInGame) {
+                    upcoming.push({ date: appDate, text: app.text });
+                }
+            });
+
+            upcoming.sort((a, b) => a.date - b.date);
+            const nextThree = upcoming.slice(0, 3);
+
+            appointmentsList.innerHTML = '';
+            if (nextThree.length === 0) {
+                appointmentsList.innerHTML = '<li>Nenhum compromisso futuro a partir da data do jogo.</li>';
+            } else {
+                nextThree.forEach(app => {
+                    const li = document.createElement('li');
+                    li.textContent = `${app.date.toLocaleDateString('pt-BR')}: ${app.text}`;
+                    appointmentsList.appendChild(li);
+                });
+            }
+        }
+
+        // Listener 1: Ouve por mudanças na data do jogo
+        gameDateRef.onSnapshot(doc => {
+            if (doc.exists) {
+                rpgToday = doc.data();
+                renderUpcomingAppointments();
+            } else {
+                // Se a data do jogo ainda não foi definida, usa a data real como base
+                const today = new Date();
+                rpgToday = { day: today.getDate(), month: today.getMonth(), year: 20 };
+                renderUpcomingAppointments();
+            }
+        });
+
+        // Listener 2: Ouve por mudanças nos compromissos
+        appointmentsCollection.onSnapshot(snapshot => {
+            allAppointments = snapshot.docs.map(doc => doc.data());
+            renderUpcomingAppointments();
+        });
+
+        // --- O restante do dashboard continua igual ---
+        const latestMissionEl=document.getElementById("latest-mission"),missionsCollection=db.collection("missions");missionsCollection.orderBy("createdAt","desc").limit(1).onSnapshot(e=>{e.empty?latestMissionEl.textContent="Nenhuma missão registrada.":latestMissionEl.innerHTML=`<span class="mission-title">${e.docs[0].data().name}</span><br><small>${e.docs[0].data().summary.substring(0,100)}...</small>`});const balancesList=document.getElementById("character-balances"),financesCollection=db.collection("finances"),characters=["Akane","Gemini","Tilas","Daemian","Bart"];financesCollection.onSnapshot(e=>{const t={Akane:0,Gemini:0,Tilas:0,Daemian:0,Bart:0};e.docs.forEach(e=>{const o=e.data();t.hasOwnProperty(o.character)&&(t[o.character]+=o.amount)}),balancesList.innerHTML="",characters.forEach(e=>{const o=document.createElement("li");o.className="balance-item",o.innerHTML=`<span>${e}</span> <strong>${t[e]} zenny</strong>`,balancesList.appendChild(o)})});
     </script>
 </body>
 </html>
