@@ -202,7 +202,12 @@
                     } else if (link.relationship < 0) {
                         color = '#c0392b'; // Vermelho para desgosto
                     }
-                    return { from: link.char1, to: link.char2, color: { color: color } };
+                    return { 
+                        from: link.char1, 
+                        to: link.char2, 
+                        color: { color: color },
+                        label: String(link.relationship) // Adiciona o valor da relação como texto
+                    };
                 }));
 
                 const data = { nodes: nodes, edges: edges };
