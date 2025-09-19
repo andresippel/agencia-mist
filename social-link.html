@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relações entre Personagens - Agência MIST</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="auth-check.js"></script>
+    
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .form-container { background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 30px; }
+        .form-container h3 { margin-top: 0; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group select, .form-group input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .table-actions button { margin-right: 5px; }
+        .edit-btn { background-color: #3498db; }
+        .delete-btn { background-color: #e74c3c; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Relações entre Personagens</h1>
+            <nav>
+                <a href="index.html" style="margin-right: 20px;">Página Inicial</a>
+                <a href="#" onclick="logout()">Sair</a>
+            </nav>
+        </header>
+
+        <main>
+            <div class="form-container">
+                <h3 id="form-title">Adicionar Nova Relação</h3>
+                <form id="social-link-form">
+                    <input type="hidden" id="link-id">
+                    <div class="form-group">
+                        <label for="char1">Personagem 1:</label>
+                        <select id="char1" required>
+                            </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="char2">Personagem 2:</label>
+                        <select id="char2" required>
+                            </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="relationship">Nível de Relação (Ex: -100 a 100)</label>
+                        <input type="number" id="relationship" required>
+                    </div>
+                    <button type="submit" id="submit-btn">Salvar Relação</button>
+                    <button type="button" id="cancel-btn" style="display:none;">Cancelar Edição</button>
+                </form>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Personagem 1</th>
+                            <th>Personagem 2</th>
+                            <th>Nível de Relação</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="links-table-body">
+                        </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const firebaseConfig = { /* ...SEU OBJETO DE CONFIGURAÇÃO... */ };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const linksCollection = db.collection("social_links");
+
+        const form = document.getElementById('social-link-form');
+        const char1Select = document.getElementById('char1');
+        const char2Select = document.getElementById('char2');
+        const relationshipInput = document.getElementById('relationship');
+        const linksTableBody = document.getElementById('links-table-body');
+        const formTitle = document.getElementById('form-title');
+        const submitBtn = document.getElementById('submit-btn');
+        const cancelBtn = document.getElementById('cancel-btn');
+        const linkIdInput = document.getElementById('link-id');
+
+        // Personagens do seu RPG. Adicione ou remova conforme a necessidade.
+        const characters = ["Akane", "Gemini", "Tilas", "Daemian", "Bart", "NPC A", "NPC B"];
+
+        function populateCharacters() {
+            char1Select.innerHTML = characters.map(char => `<option value="${char}">${char}</option>`).join('');
+            char2Select.innerHTML = characters.map(char => `<option value="${char}">${char}</option>`).join('');
+        }
+
+        function resetForm() {
+            form.reset();
+            formTitle.textContent = 'Adicionar Nova Relação';
+            submitBtn.textContent = 'Salvar Relação';
+            cancelBtn.style.display = 'none';
+            linkIdInput.value = '';
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                char1: char1Select.value,
+                char2: char2Select.value,
+                relationship: parseInt(relationshipInput.value),
+            };
+
+            const linkId = linkIdInput.value;
+            try {
+                if (linkId) {
+                    await linksCollection.doc(linkId).update(data);
+                } else {
+                    await linksCollection.add(data);
+                }
+                resetForm();
+            } catch (error) {
+                console.error("Erro ao salvar a relação: ", error);
+                alert("Erro ao salvar a relação. Verifique o console.");
+            }
+        });
+
+        const deleteLink = async (id) => {
+            if (confirm("Tem certeza que deseja excluir esta relação?")) {
+                await linksCollection.doc(id).delete();
+            }
+        };
+
+        const editLink = (id, data) => {
+            linkIdInput.value = id;
+            char1Select.value = data.char1;
+            char2Select.value = data.char2;
+            relationshipInput.value = data.relationship;
+            formTitle.textContent = 'Editar Relação';
+            submitBtn.textContent = 'Atualizar Relação';
+            cancelBtn.style.display = 'inline-block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+
+        cancelBtn.addEventListener('click', resetForm);
+
+        linksCollection.onSnapshot(snapshot => {
+            linksTableBody.innerHTML = '';
+            snapshot.docs.forEach(doc => {
+                const link = doc.data();
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${link.char1}</td>
+                    <td>${link.char2}</td>
+                    <td>${link.relationship}</td>
+                    <td class="table-actions">
+                        <button class="edit-btn">Editar</button>
+                        <button class="delete-btn">Excluir</button>
+                    </td>
+                `;
+                row.querySelector('.edit-btn').addEventListener('click', () => editLink(doc.id, link));
+                row.querySelector('.delete-btn').addEventListener('click', () => deleteLink(doc.id));
+                linksTableBody.appendChild(row);
+            });
+        });
+
+        populateCharacters();
+    </script>
+</body>
+</html>
