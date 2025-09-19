@@ -82,12 +82,12 @@
                 <form id="social-link-form">
                     <input type="hidden" id="link-id">
                     <div class="form-group">
-                        <label for="char1">Personagem 1:</label>
+                        <label for="char1">Remetente:</label>
                         <select id="char1" required>
                             </select>
                     </div>
                     <div class="form-group">
-                        <label for="char2">Personagem 2:</label>
+                        <label for="char2">Alvo:</label>
                         <select id="char2" required>
                             </select>
                     </div>
@@ -104,11 +104,11 @@
 
             <div class="filter-options">
                 <div class="form-group">
-                    <label for="filter-char1">Filtrar por Personagem 1:</label>
+                    <label for="filter-char1">Filtrar por Remetente:</label>
                     <select id="filter-char1"></select>
                 </div>
                 <div class="form-group">
-                    <label for="filter-char2">Filtrar por Personagem 2:</label>
+                    <label for="filter-char2">Filtrar por Alvo:</label>
                     <select id="filter-char2"></select>
                 </div>
             </div>
@@ -117,8 +117,8 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>Personagem 1</th>
-                            <th>Personagem 2</th>
+                            <th>Remetente</th>
+                            <th>Alvo</th>
                             <th>Nível de Relação</th>
                             <th>Ações</th>
                         </tr>
@@ -138,7 +138,7 @@
     </div>
 
     <script>
-       
+        
         const db = firebase.firestore();
 
         const linksCollection = db.collection("social_links");
@@ -188,7 +188,6 @@
             }
         };
 
-        // Escuta os personagens e links para atualizar o mapa
         charactersCollection.orderBy("name").onSnapshot(charSnapshot => {
             allCharacters = charSnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
 
@@ -211,7 +210,6 @@
                 characterList.appendChild(li);
             });
 
-            // Atualiza o mapa de relações com os dados completos
             linksCollection.onSnapshot(linkSnapshot => {
                 allRelationships = linkSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
@@ -249,7 +247,6 @@
             });
         });
 
-        // Adiciona os eventos de filtro
         filterChar1Select.addEventListener('change', updateTable);
         filterChar2Select.addEventListener('change', updateTable);
 
