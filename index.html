@@ -102,16 +102,17 @@
                 rpgCurrentDate = { day: today.getDate(), month: today.getMonth(), year: today.getFullYear() };
             }
             
+            // AQUI ESTÁ A CORREÇÃO: Converte o ano para 4 dígitos para uso interno
             const fullYear = (rpgCurrentDate.year < 100) ? rpgCurrentDate.year + 2000 : rpgCurrentDate.year;
             
             const todayInGame = new Date(fullYear, rpgCurrentDate.month, rpgCurrentDate.day);
             todayInGame.setHours(0, 0, 0, 0);
 
-            const dateStr = `${fullYear}-${todayInGame.getMonth() + 1}-${todayInGame.getDate()}`;
-            
-            // AQUI ESTÁ A ÚNICA MUDANÇA: usa o ano original (rpgCurrentDate.year) para a exibição
+            // AQUI ESTÁ A CORREÇÃO: Usamos o ano original para o formato de string
+            const dateStr = `${rpgCurrentDate.year}-${rpgCurrentDate.month + 1}-${rpgCurrentDate.day}`;
             const formattedDate = `${rpgCurrentDate.day} de ${months[rpgCurrentDate.month]} de ${rpgCurrentDate.year}`;
             
+            // 1. Atualiza a seção "Hoje no jogo"
             appointmentsCollection.where("dateStr", "==", dateStr).onSnapshot(snapshot => {
                 let infoHTML = `<h3>Hoje no jogo é ${formattedDate}</h3>`;
                 if (!snapshot.empty) {
@@ -127,12 +128,17 @@
                 todayInfoContainer.innerHTML = infoHTML;
             });
 
+            // 2. Atualiza a seção de "Próximos Compromissos"
             appointmentsCollection.onSnapshot(snapshot => {
                 const appointments = [];
                 snapshot.docs.forEach(doc => {
                     const app = doc.data();
                     const [year, month, day] = app.dateStr.split("-").map(Number);
-                    const appDate = new Date(year, month - 1, day);
+
+                    // AQUI ESTÁ A CORREÇÃO PRINCIPAL: Cria a data completa para comparação
+                    const fullAppYear = (year < 100) ? year + 2000 : year;
+                    const appDate = new Date(fullAppYear, month - 1, day);
+
                     if (appDate >= todayInGame) {
                         appointments.push({ date: appDate, text: app.text });
                     }
