@@ -1,7 +1,14 @@
 // auth-check.js
 
 // --- COLE AQUI O SEU MESMO OBJETO 'firebaseConfig' ---
-const firebaseConfig =  
+const firebaseConfig = {
+  apiKey: "AIzaSyC6TISU_HCLmGWV1OXGe1coTmlbBpM8How",
+  authDomain: "agencia-mist.firebaseapp.com",
+  projectId: "agencia-mist",
+  storageBucket: "agencia-mist.firebasestorage.app",
+  messagingSenderId: "656856565972",
+  appId: "1:656856565972:web:ab5fa40e1928df124bd341"
+};
 
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
