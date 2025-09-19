@@ -2,7 +2,7 @@
 
 // --- COLE AQUI O SEU MESMO OBJETO 'firebaseConfig' ---
  const firebaseConfig = {
-          apiKey: "",
+          apiKey: "AIzaSyC6TISU_HCLmGWV1OXGe1coTmlbBpM8How",
           authDomain: "agencia-mist.firebaseapp.com",
           projectId: "agencia-mist",
           storageBucket: "agencia-mist.firebasestorage.app",
