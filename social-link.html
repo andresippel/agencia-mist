@@ -36,6 +36,19 @@
             border-radius: 8px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
+
+        .filter-options {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .filter-options .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
     </style>
 </head>
 <body>
@@ -87,6 +100,19 @@
                 </form>
             </div>
 
+            <hr style="margin: 40px 0;">
+
+            <div class="filter-options">
+                <div class="form-group">
+                    <label for="filter-char1">Filtrar por Personagem 1:</label>
+                    <select id="filter-char1"></select>
+                </div>
+                <div class="form-group">
+                    <label for="filter-char2">Filtrar por Personagem 2:</label>
+                    <select id="filter-char2"></select>
+                </div>
+            </div>
+
             <div class="table-container">
                 <table>
                     <thead>
@@ -134,8 +160,12 @@
         const newCharNameInput = document.getElementById('new-char-name');
         const characterList = document.getElementById('character-list');
 
+        const filterChar1Select = document.getElementById('filter-char1');
+        const filterChar2Select = document.getElementById('filter-char2');
+
         const mapContainer = document.getElementById('relationship-map');
         let network;
+        let allRelationships = [];
 
         showAddCharBtn.addEventListener('click', () => {
             const isVisible = addCharFormContainer.style.display === 'block';
@@ -157,73 +187,102 @@
             }
         };
 
-        // Lógica de escuta e atualização do mapa
+        // Escuta e atualiza todas as listas e o mapa
         charactersCollection.orderBy("name").onSnapshot(charSnapshot => {
-            linksCollection.onSnapshot(linkSnapshot => {
-                const characters = charSnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
-                const relationships = linkSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const characters = charSnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
 
-                char1Select.innerHTML = characters.map(char => `<option value="${char.name}">${char.name}</option>`).join('');
-                char2Select.innerHTML = characters.map(char => `<option value="${char.name}">${char.name}</option>`).join('');
-
-                characterList.innerHTML = '';
-                characters.forEach(char => {
-                    const li = document.createElement('li');
-                    li.innerHTML = `${char.name} <button class="delete-btn" onclick="deleteCharacter('${char.id}')">X</button>`;
-                    characterList.appendChild(li);
+            // Funções de preenchimento dos selects
+            const populateSelects = (selectElement, chars) => {
+                selectElement.innerHTML = `<option value="">Todos</option>`;
+                chars.forEach(char => {
+                    selectElement.innerHTML += `<option value="${char.name}">${char.name}</option>`;
                 });
+            };
 
-                linksTableBody.innerHTML = '';
-                relationships.forEach(link => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>${link.char1}</td>
-                        <td>${link.char2}</td>
-                        <td>${link.relationship}</td>
-                        <td class="table-actions">
-                            <button class="edit-btn">Editar</button>
-                            <button class="delete-btn">Excluir</button>
-                        </td>
-                    `;
-                    row.querySelector('.edit-btn').addEventListener('click', () => editLink(link.id, link));
-                    row.querySelector('.delete-btn').addEventListener('click', () => deleteLink(link.id));
-                    linksTableBody.appendChild(row);
-                });
+            populateSelects(char1Select, characters);
+            populateSelects(char2Select, characters);
+            populateSelects(filterChar1Select, characters);
+            populateSelects(filterChar2Select, characters);
 
-                // Cria o mapa de relações
-                const nodes = new vis.DataSet(characters.map(char => ({ id: char.name, label: char.name })));
-                const edges = new vis.DataSet(relationships.map(link => {
-                    let color = 'gray';
-                    if (link.relationship > 0) {
-                        color = '#27ae60'; // Verde para afeição
-                    } else if (link.relationship < 0) {
-                        color = '#c0392b'; // Vermelho para desgosto
-                    }
-                    return { 
-                        from: link.char1, 
-                        to: link.char2, 
-                        color: { color: color },
-                        label: String(link.relationship),
-                        arrows: 'to' // Adiciona a seta para indicar a direção
-                    };
-                }));
-
-                const data = { nodes: nodes, edges: edges };
-                const options = {
-                    physics: { enabled: true, stabilizing: false },
-                    edges: { smooth: true, width: 3 },
-                    nodes: { shape: 'circle', size: 25 },
-                    interaction: { hover: true, hoverConnectedEdges: true, selectable: true },
-                    layout: { hierarchical: { enabled: false } }
-                };
-
-                if (network) {
-                    network.destroy();
-                }
-                network = new vis.Network(mapContainer, data, options);
+            characterList.innerHTML = '';
+            characters.forEach(char => {
+                const li = document.createElement('li');
+                li.innerHTML = `${char.name} <button class="delete-btn" onclick="deleteCharacter('${char.id}')">X</button>`;
+                characterList.appendChild(li);
             });
+
+            // Atualiza o mapa, que usa a lista completa de personagens
+            const nodes = new vis.DataSet(characters.map(char => ({ id: char.name, label: char.name })));
+            const edges = new vis.DataSet(allRelationships.map(link => {
+                let color = 'gray';
+                if (link.relationship > 0) {
+                    color = '#27ae60';
+                } else if (link.relationship < 0) {
+                    color = '#c0392b';
+                }
+                return { 
+                    from: link.char1, 
+                    to: link.char2, 
+                    color: { color: color },
+                    label: String(link.relationship),
+                    arrows: 'to'
+                };
+            }));
+
+            const data = { nodes: nodes, edges: edges };
+            const options = {
+                physics: { enabled: true, stabilizing: false },
+                edges: { smooth: true, width: 3 },
+                nodes: { shape: 'circle', size: 25 },
+                interaction: { hover: true, hoverConnectedEdges: true, selectable: true },
+                layout: { hierarchical: { enabled: false } }
+            };
+
+            if (network) {
+                network.destroy();
+            }
+            network = new vis.Network(mapContainer, data, options);
         });
 
+        // Escuta os links e atualiza a lista de relações e o mapa
+        linksCollection.onSnapshot(linkSnapshot => {
+            allRelationships = linkSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            updateTable();
+        });
+
+        // Adiciona os eventos de filtro
+        filterChar1Select.addEventListener('change', updateTable);
+        filterChar2Select.addEventListener('change', updateTable);
+
+        // Lógica para filtrar e atualizar a tabela
+        function updateTable() {
+            const filter1 = filterChar1Select.value;
+            const filter2 = filterChar2Select.value;
+            
+            linksTableBody.innerHTML = '';
+            const filteredRelationships = allRelationships.filter(link => {
+                const matchesChar1 = filter1 === "" || link.char1 === filter1;
+                const matchesChar2 = filter2 === "" || link.char2 === filter2;
+                return matchesChar1 && matchesChar2;
+            });
+
+            filteredRelationships.forEach(link => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${link.char1}</td>
+                    <td>${link.char2}</td>
+                    <td>${link.relationship}</td>
+                    <td class="table-actions">
+                        <button class="edit-btn">Editar</button>
+                        <button class="delete-btn">Excluir</button>
+                    </td>
+                `;
+                row.querySelector('.edit-btn').addEventListener('click', () => editLink(link.id, link));
+                row.querySelector('.delete-btn').addEventListener('click', () => deleteLink(link.id));
+                linksTableBody.appendChild(row);
+            });
+        }
+        
         // Funções do formulário (sem alteração)
         function resetForm() {
             form.reset();
