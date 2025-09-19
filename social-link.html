@@ -9,6 +9,8 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <script src="auth-check.js"></script>
+
+    <script type="text/javascript" src="https://unpkg.com/vis-network@9.1.0/dist/vis-network.min.js"></script>
     
     <link rel="stylesheet" href="style.css">
     <style>
@@ -25,6 +27,15 @@
         .delete-btn { background-color: #e74c3c; }
         .character-management { margin-bottom: 20px; text-align: right; }
         .add-character-form { display: none; margin-top: 15px; }
+        
+        /* Estilos do novo mapa de relações */
+        #relationship-map {
+            width: 100%;
+            height: 600px;
+            border: 1px solid lightgray;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
     </style>
 </head>
 <body>
@@ -90,10 +101,19 @@
                         </tbody>
                 </table>
             </div>
+
+            <hr style="margin: 40px 0;">
+
+            <div class="form-container">
+                <h3>Mapa de Relações</h3>
+                <div id="relationship-map"></div>
+            </div>
         </main>
     </div>
 
     <script>
+        const firebaseConfig = { /* ...SEU OBJETO DE CONFIGURAÇÃO... */ };
+        firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
         const linksCollection = db.collection("social_links");
@@ -115,6 +135,9 @@
         const newCharNameInput = document.getElementById('new-char-name');
         const characterList = document.getElementById('character-list');
 
+        const mapContainer = document.getElementById('relationship-map');
+        let network;
+
         showAddCharBtn.addEventListener('click', () => {
             const isVisible = addCharFormContainer.style.display === 'block';
             addCharFormContainer.style.display = isVisible ? 'none' : 'block';
@@ -135,17 +158,67 @@
             }
         };
 
-        charactersCollection.orderBy("name").onSnapshot(snapshot => {
-            const characters = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            
-            char1Select.innerHTML = characters.map(char => `<option value="${char.name}">${char.name}</option>`).join('');
-            char2Select.innerHTML = characters.map(char => `<option value="${char.name}">${char.name}</option>`).join('');
+        // Escuta as duas coleções para atualizar o mapa e as listas
+        charactersCollection.orderBy("name").onSnapshot(charSnapshot => {
+            linksCollection.onSnapshot(linkSnapshot => {
+                const characters = charSnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
+                const relationships = linkSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-            characterList.innerHTML = '';
-            characters.forEach(char => {
-                const li = document.createElement('li');
-                li.innerHTML = `${char.name} <button class="delete-btn" onclick="deleteCharacter('${char.id}')">X</button>`;
-                characterList.appendChild(li);
+                // Atualiza os dropdowns
+                char1Select.innerHTML = characters.map(char => `<option value="${char.name}">${char.name}</option>`).join('');
+                char2Select.innerHTML = characters.map(char => `<option value="${char.name}">${char.name}</option>`).join('');
+
+                // Atualiza a lista de gerenciamento de personagens
+                characterList.innerHTML = '';
+                characters.forEach(char => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `${char.name} <button class="delete-btn" onclick="deleteCharacter('${char.id}')">X</button>`;
+                    characterList.appendChild(li);
+                });
+
+                // Atualiza a tabela de relações
+                linksTableBody.innerHTML = '';
+                relationships.forEach(link => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${link.char1}</td>
+                        <td>${link.char2}</td>
+                        <td>${link.relationship}</td>
+                        <td class="table-actions">
+                            <button class="edit-btn">Editar</button>
+                            <button class="delete-btn">Excluir</button>
+                        </td>
+                    `;
+                    row.querySelector('.edit-btn').addEventListener('click', () => editLink(link.id, link));
+                    row.querySelector('.delete-btn').addEventListener('click', () => deleteLink(link.id));
+                    linksTableBody.appendChild(row);
+                });
+
+                // Cria o mapa de relações
+                const nodes = new vis.DataSet(characters.map(char => ({ id: char.name, label: char.name })));
+                const edges = new vis.DataSet(relationships.map(link => {
+                    let color = 'gray';
+                    if (link.relationship > 0) {
+                        color = '#27ae60'; // Verde para afeição
+                    } else if (link.relationship < 0) {
+                        color = '#c0392b'; // Vermelho para desgosto
+                    }
+                    return { from: link.char1, to: link.char2, color: { color: color } };
+                }));
+
+                const data = { nodes: nodes, edges: edges };
+                const options = {
+                    physics: { enabled: true, stabilizing: false },
+                    edges: { smooth: false, width: 3 },
+                    nodes: { shape: 'circle', size: 25 },
+                    interaction: { hover: true, hoverConnectedEdges: true, selectable: true },
+                    layout: { hierarchical: { enabled: false } }
+                };
+
+                if (network) {
+                    network.destroy();
+                }
+                network = new vis.Network(mapContainer, data, options);
             });
         });
 
@@ -164,7 +237,6 @@
                 char2: char2Select.value,
                 relationship: parseInt(relationshipInput.value),
             };
-
             const linkId = linkIdInput.value;
             try {
                 if (linkId) {
@@ -197,26 +269,6 @@
         };
 
         cancelBtn.addEventListener('click', resetForm);
-
-        linksCollection.onSnapshot(snapshot => {
-            linksTableBody.innerHTML = '';
-            snapshot.docs.forEach(doc => {
-                const link = doc.data();
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${link.char1}</td>
-                    <td>${link.char2}</td>
-                    <td>${link.relationship}</td>
-                    <td class="table-actions">
-                        <button class="edit-btn">Editar</button>
-                        <button class="delete-btn">Excluir</button>
-                    </td>
-                `;
-                row.querySelector('.edit-btn').addEventListener('click', () => editLink(doc.id, link));
-                row.querySelector('.delete-btn').addEventListener('click', () => deleteLink(doc.id));
-                linksTableBody.appendChild(row);
-            });
-        });
         
         window.deleteCharacter = deleteCharacter;
     </script>
