@@ -89,18 +89,24 @@
         const settingsCollection = db.collection("game_settings");
         const appointmentsCollection = db.collection("rpg-appointments");
 
-        // Código para a seção de 'Hoje' (usando a data do jogo)
         const todayInfoContainer = document.getElementById('today-info-container');
+        const upcomingAppointmentsList = document.getElementById("upcoming-appointments");
         const months = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
+        // Lógica para carregar a data do jogo e os compromissos
         settingsCollection.doc("current_date").onSnapshot(settingsDoc => {
             let today = new Date();
             if (settingsDoc.exists) {
+                // Usa a data do jogo salva no Firebase
                 today = new Date(settingsDoc.data().date);
             }
+            // Garante que a data de "hoje" (do jogo) comece à meia-noite para a comparação
+            today.setHours(0, 0, 0, 0);
+
             const dateStr = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
             const formattedDate = `${today.getDate()} de ${months[today.getMonth()]} de ${today.getFullYear()}`;
             
+            // 1. Atualiza a seção "Hoje no jogo"
             appointmentsCollection.where("dateStr", "==", dateStr).onSnapshot(snapshot => {
                 let infoHTML = `<h3>Hoje no jogo é ${formattedDate}</h3>`;
                 if (!snapshot.empty) {
@@ -115,36 +121,35 @@
                 }
                 todayInfoContainer.innerHTML = infoHTML;
             });
+
+            // 2. Atualiza a seção de "Próximos Compromissos"
+            appointmentsCollection.onSnapshot(snapshot => {
+                const appointments = [];
+                snapshot.docs.forEach(doc => {
+                    const app = doc.data();
+                    const [year, month, day] = app.dateStr.split("-").map(Number);
+                    const appDate = new Date(year, month - 1, day);
+                    // Compara com a data do jogo para filtrar os compromissos futuros
+                    if (appDate >= today) {
+                        appointments.push({ date: appDate, text: app.text });
+                    }
+                });
+                appointments.sort((a, b) => a.date - b.date);
+                const upcoming = appointments.slice(0, 3);
+                upcomingAppointmentsList.innerHTML = "";
+                if (upcoming.length === 0) {
+                    upcomingAppointmentsList.innerHTML = "<li>Nenhum compromisso futuro.</li>";
+                } else {
+                    upcoming.forEach(app => {
+                        const li = document.createElement("li");
+                        li.textContent = `${app.date.toLocaleDateString()}: ${app.text}`;
+                        upcomingAppointmentsList.appendChild(li);
+                    });
+                }
+            });
         });
 
         // Código existente para o dashboard (mantido)
-        const upcomingAppointmentsList = document.getElementById("upcoming-appointments");
-        appointmentsCollection.onSnapshot(snapshot => {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const appointments = [];
-            snapshot.docs.forEach(doc => {
-                const app = doc.data();
-                const [year, month, day] = app.dateStr.split("-").map(Number);
-                const appDate = new Date(year, month - 1, day);
-                if (appDate >= today) {
-                    appointments.push({ date: appDate, text: app.text });
-                }
-            });
-            appointments.sort((a, b) => a.date - b.date);
-            const upcoming = appointments.slice(0, 3);
-            upcomingAppointmentsList.innerHTML = "";
-            if (upcoming.length === 0) {
-                upcomingAppointmentsList.innerHTML = "<li>Nenhum compromisso futuro.</li>";
-            } else {
-                upcoming.forEach(app => {
-                    const li = document.createElement("li");
-                    li.textContent = `${app.date.toLocaleDateString()}: ${app.text}`;
-                    upcomingAppointmentsList.appendChild(li);
-                });
-            }
-        });
-
         const latestMissionEl = document.getElementById("latest-mission");
         const missionsCollection = db.collection("missions");
         missionsCollection.orderBy("createdAt", "desc").limit(1).onSnapshot(snapshot => {
