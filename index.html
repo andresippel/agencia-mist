@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agência MIST - Portal da Campanha</title>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="auth-check.js"></script>
+    
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .home-header { text-align: center; }
+        .home-header img { max-width: 150px; margin-bottom: 10px; }
+        .home-header h1 { margin-top: 0; }
+        .welcome-text { text-align: center; font-size: 1.1em; color: #555; margin-bottom: 40px; }
+        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 25px; margin-top: 40px; padding: 20px; background-color: #f9f9f9; border-radius: 8px; }
+        .dashboard-widget { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 1px 5px rgba(0,0,0,0.05); }
+        .dashboard-widget h3 { margin-top: 0; color: #2c3e50; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
+        .dashboard-widget ul { list-style-type: none; padding: 0; margin: 0; }
+        .dashboard-widget li { padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
+        .mission-title { font-weight: bold; }
+        .balance-item { display: flex; justify-content: space-between; }
+        .home-footer img { max-width: 100%; max-width: 700px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .home-footer p { margin-top: 20px; font-size: 1.1em; color: #333; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="home-header">
+             <nav style="text-align: right; margin-bottom: 10px;">
+                <a href="#" onclick="logout()">Sair</a>
+            </nav>
+            <img src="logo.png" alt="Logo da Agência MIST">
+            <h1>Portal de Acesso da Agência MIST</h1>
+        </header>
+
+        <main>
+            <p class="welcome-text">Bem-vindo, Agente. Consulte os arquivos e recursos da MIST (Monitoramento, Investigação e Soluções Táticas) através dos módulos de acesso abaixo.</p>
+            <div class="home-nav">
+                <a href="calendario.html" class="nav-card"><h2>Calendário</h2><p>Agende e visualize os próximos eventos.</p></a>
+                <a href="missoes.html" class="nav-card"><h2>Resumo de Missões</h2><p>Tabela com todas as missões e recompensas.</p></a>
+                <a href="financas.html" class="nav-card"><h2>Controle Financeiro</h2><p>Planilha de ganhos e gastos da equipe.</p></a>
+                <a href="relatorios.html" class="nav-card"><h2>Gerenciar Relatórios</h2><p>Envie e consulte os relatórios dos casos.</p></a>
+                <a href="anotacoes.html" class="nav-card"><h2>Anotações Gerais</h2><p>Quadro compartilhado para ideias e pistas.</p></a>
+            </div>
+            <div class="dashboard">
+                <div class="dashboard-widget"><h3>Próximos Compromissos</h3><ul id="upcoming-appointments"><li>Carregando...</li></ul></div>
+                <div class="dashboard-widget"><h3>Última Missão</h3><p id="latest-mission">Carregando...</p></div>
+                <div class="dashboard-widget"><h3>Saldos dos Agentes</h3><ul id="character-balances"><li>Carregando...</li></ul></div>
+            </div>
+        </main>
+
+        <footer class="home-footer">
+            <hr style="margin: 40px 0;">
+            <img src="cartao-visita.jpg" alt="Cartão de Visita da Agência MIST">
+            <p>Para novos casos ou consultas, procure a agência no endereço: <strong>Rua Observador, 42 - Alexandria</strong>.</p>
+        </footer>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script>
+        const db = firebase.firestore();
+        const appointmentsList=document.getElementById("upcoming-appointments"),appointmentsCollection=db.collection("rpg-appointments");appointmentsCollection.onSnapshot(e=>{const t=new Date;t.setHours(0,0,0,0);const o=[];e.docs.forEach(e=>{const n=e.data(),[a,i,l]=n.dateStr.split("-").map(Number),s=new Date(a,i-1,l);s>=t&&o.push({date:s,text:n.text})}),o.sort((e,t)=>e.date-t.date);const n=o.slice(0,3);appointmentsList.innerHTML="",0===n.length?appointmentsList.innerHTML="<li>Nenhum compromisso futuro.</li>":n.forEach(e=>{const t=document.createElement("li");t.textContent=`${e.date.toLocaleDateString()}: ${e.text}`,appointmentsList.appendChild(t)})});const latestMissionEl=document.getElementById("latest-mission"),missionsCollection=db.collection("missions");missionsCollection.orderBy("createdAt","desc").limit(1).onSnapshot(e=>{e.empty?latestMissionEl.textContent="Nenhuma missão registrada.":latestMissionEl.innerHTML=`<span class="mission-title">${e.docs[0].data().name}</span><br><small>${e.docs[0].data().summary.substring(0,100)}...</small>`});const balancesList=document.getElementById("character-balances"),financesCollection=db.collection("finances"),characters=["Akane","Gemini","Tilas","Daemian","Bart"];financesCollection.onSnapshot(e=>{const t={Akane:0,Gemini:0,Tilas:0,Daemian:0,Bart:0};e.docs.forEach(e=>{const o=e.data();t.hasOwnProperty(o.character)&&(t[o.character]+=o.amount)}),balancesList.innerHTML="",characters.forEach(e=>{const o=document.createElement("li");o.className="balance-item",o.innerHTML=`<span>${e}</span> <strong>${t[e]} zenny</strong>`,balancesList.appendChild(o)})});
+    </script>
+</body>
+</html>

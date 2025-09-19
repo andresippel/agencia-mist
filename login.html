@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Login - Agência MIST</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container" style="max-width: 500px; margin-top: 50px;">
+        <div style="text-align: center; margin-bottom: 20px;">
+            <img src="logo.png" alt="Logo da Agência MIST" style="max-width: 120px;">
+        </div>
+        <header>
+            <h1>Portal Restrito da Agência MIST</h1>
+        </header>
+        
+        <div id="login-form-container">
+            <p>Por favor, identifique-se para acessar os arquivos.</p>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="login-email">E-mail de Agente</label>
+                    <input type="email" id="login-email" required>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Senha</label>
+                    <input type="password" id="login-password" required>
+                </div>
+                <button type="submit">Acessar Portal</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script>
+        // --- COLE AQUI O SEU OBJETO 'firebaseConfig' ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyC6TISU_HCLmGWV1OXGe1coTmlbBpM8How",
+            authDomain: "agencia-mist.firebaseapp.com",
+            projectId: "agencia-mist",
+            storageBucket: "agencia-mist.firebasestorage.app",
+            messagingSenderId: "656856565972",
+            appId: "1:656856565972:web:ab5fa40e1928df124bd341"
+          };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+
+        // Se o usuário já estiver logado, redireciona para o início
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                window.location.href = 'index.html';
+            }
+        });
+
+        const loginForm = document.getElementById('login-form');
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = loginForm['login-email'].value;
+            const password = loginForm['login-password'].value;
+            auth.signInWithEmailAndPassword(email, password)
+                .then(userCredential => {
+                    window.location.href = 'index.html';
+                })
+                .catch(error => {
+                    alert('Credenciais inválidas. Verifique o e-mail e a senha.');
+                    console.error("Erro de login:", error);
+                });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Calendário - Agência MIST</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="auth-check.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .calendar-container { width: 100%; max-width: 900px; background: #fff; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        td { cursor: pointer; }
+        .has-event { background-color: #f1c40f !important; color: #fff !important; font-weight: bold; position: relative; }
+        .has-event::after { content: ''; position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%); width: 6px; height: 6px; border-radius: 50%; background-color: #c0392b; }
+        #appointment-view li { display: flex; justify-content: space-between; align-items: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Calendário de Eventos</h1>
+            <nav>
+                <a href="index.html" style="margin-right: 20px;">Página Inicial</a>
+                <a href="#" onclick="logout()">Sair</a>
+            </nav>
+        </header>
+        <div class="calendar-container">
+            <div class="header"><button id="prev-month">&lt; Anterior</button><h2 id="month-year"></h2><button id="next-month">Próximo &gt;</button></div>
+            <table>
+                <thead><tr><th>Dom</th><th>Seg</th><th>Ter</th><th>Qua</th><th>Qui</th><th>Sex</th><th>Sáb</th></tr></thead>
+                <tbody id="calendar-body"></tbody>
+            </table>
+        </div>
+        <div id="appointment-view" class="calendar-container">
+            <h3>Compromissos do Dia</h3>
+            <p id="selected-day-info">Clique em um dia para ver os compromissos.</p>
+            <ul id="appointment-list"></ul>
+            <button id="add-appointment-btn">Adicionar Compromisso</button>
+        </div>
+    </div>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script>
+        const db = firebase.firestore();
+        const appointmentsCollection = db.collection("rpg-appointments");
+        const monthYearEl=document.getElementById("month-year"),calendarBody=document.getElementById("calendar-body"),prevMonthBtn=document.getElementById("prev-month"),nextMonthBtn=document.getElementById("next-month"),selectedDayInfo=document.getElementById("selected-day-info"),appointmentList=document.getElementById("appointment-list"),addAppointmentBtn=document.getElementById("add-appointment-btn");let currentDate=new Date;currentDate.setFullYear(20);let localAppointments={},selectedDateStr=null;const monthNames=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];function renderCalendar(){const e=currentDate.getFullYear(),t=currentDate.getMonth();monthYearEl.textContent=`${monthNames[t]} de ${e}`,calendarBody.innerHTML="";const n=new Date(e,t,1).getDay(),o=new Date(e,t+1,0).getDate();let a=1;for(let e=0;e<6;e++){const t=document.createElement("tr");for(let i=0;i<7;i++){const l=document.createElement("td");if(0===e&&i<n||a>o)l.classList.add("empty");else{const e=a,n=`${currentDate.getFullYear()}-${currentDate.getMonth()+1}-${e}`;localAppointments[n]&&localAppointments[n].length>0&&l.classList.add("has-event"),l.textContent=e,l.addEventListener("click",()=>showAppointments(currentDate.getFullYear(),currentDate.getMonth(),e)),a++}t.appendChild(l)}if(calendarBody.appendChild(t),a>o)break}}async function addAppointment(e,t){await appointmentsCollection.add({dateStr:e,text:t})}async function deleteAppointment(e){confirm("Tem certeza?")&&await appointmentsCollection.doc(e).delete()}addAppointmentBtn.addEventListener("click",()=>{if(!selectedDateStr)return;const e=prompt("Adicionar novo compromisso:");e&&e.trim()&&addAppointment(selectedDateStr,e)}),prevMonthBtn.addEventListener("click",()=>{currentDate.setMonth(currentDate.getMonth()-1),renderCalendar()}),nextMonthBtn.addEventListener("click",()=>{currentDate.setMonth(currentDate.getMonth()+1),renderCalendar()}),appointmentsCollection.onSnapshot(e=>{localAppointments={},e.docs.forEach(e=>{const t=e.data();localAppointments[t.dateStr]||(localAppointments[t.dateStr]=[]),localAppointments[t.dateStr].push({id:e.id,text:t.text})}),renderCalendar(),selectedDateStr&&showAppointments(...selectedDateStr.split("-").map((e,t)=>1===t?e-1:Number(e)))});function showAppointments(e,t,n){selectedDateStr=`${e}-${t+1}-${n}`,selectedDayInfo.textContent=`Compromissos para: ${n} de ${monthNames[t]} de ${e}`,appointmentList.innerHTML="";const o=localAppointments[selectedDateStr]||[];o.length>0?o.forEach(e=>{const t=document.createElement("li");t.textContent=e.text;const n=document.createElement("button");n.textContent="X",n.className="delete-btn",n.onclick=()=>deleteAppointment(e.id),t.appendChild(n),appointmentList.appendChild(t)}):appointmentList.innerHTML="<li>Nenhum compromisso agendado.</li>"}
+    </script>
+</body>
+</html>

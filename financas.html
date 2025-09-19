@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle Financeiro - Agência MIST</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="auth-check.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Controle Financeiro</h1>
+            <nav>
+                <a href="index.html" style="margin-right: 20px;">Página Inicial</a>
+                <a href="#" onclick="logout()">Sair</a>
+            </nav>
+        </header>
+
+        <h3>Saldos Atuais</h3>
+        <table id="balances-table"></table>
+
+        <hr style="margin: 30px 0;">
+
+        <h3>Extrato de Transações</h3>
+        <div class="form-group">
+            <label for="character-filter"><b>Filtrar por Personagem:</b></label>
+            <select id="character-filter">
+                <option value="Todos">Todos os Personagens</option>
+                <option value="Akane">Akane</option>
+                <option value="Gemini">Gemini</option>
+                <option value="Tilas">Tilas</option>
+                <option value="Daemian">Daemian</option>
+                <option value="Bart">Bart</option>
+            </select>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Personagem</th>
+                    <th>Valor</th>
+                    <th>Descrição</th>
+                    <th>Data</th>
+                </tr>
+            </thead>
+            <tbody id="finance-log-body"></tbody>
+        </table>
+
+        <div class="form-container">
+            <h3>Adicionar Entrada/Saída</h3>
+            <form id="add-entry-form">
+                <div class="form-group">
+                    <label for="character-select">Personagem</o-select>
+                    <select id="character-select" required>
+                        <option value="Akane">Akane</option>
+                        <option value="Gemini">Gemini</option>
+                        <option value="Tilas">Tilas</option>
+                        <option value="Daemian">Daemian</option>
+                        <option value="Bart">Bart</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="entry-amount">Valor (use negativo para saídas, ex: -50)</label>
+                    <input type="number" id="entry-amount" required>
+                </div>
+                <div class="form-group">
+                    <label for="entry-description">Descrição</label>
+                    <input type="text" id="entry-description" required>
+                </div>
+                <button type="submit">Adicionar Lançamento</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script>
+        const db = firebase.firestore();
+        const financesCollection = db.collection("finances");
+
+        const form = document.getElementById('add-entry-form');
+        const logBody = document.getElementById('finance-log-body');
+        const balancesTable = document.getElementById('balances-table');
+        const characterFilter = document.getElementById('character-filter');
+        const characters = ["Akane", "Gemini", "Tilas", "Daemian", "Bart"];
+        let allFinanceEntries = [];
+
+        const renderLog = () => {
+            const selectedCharacter = characterFilter.value;
+            logBody.innerHTML = '';
+            const entriesToRender = allFinanceEntries.filter(entry => {
+                if (selectedCharacter === 'Todos') return true;
+                return entry.character === selectedCharacter;
+            });
+            entriesToRender.forEach(entry => {
+                const row = document.createElement('tr');
+                const entryDate = entry.createdAt ? entry.createdAt.toDate().toLocaleDateString('pt-BR') : '...';
+                row.innerHTML = `<td>${entry.character}</td><td>${entry.amount}</td><td>${entry.description}</td><td>${entryDate}</td>`;
+                logBody.appendChild(row);
+            });
+        };
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await financesCollection.add({
+                character: form['character-select'].value,
+                amount: Number(form['entry-amount'].value),
+                description: form['entry-description'].value,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            form.reset();
+        });
+
+        characterFilter.addEventListener('change', renderLog);
+
+        financesCollection.orderBy("createdAt", "desc").onSnapshot(snapshot => {
+            const balances = { Akane: 0, Gemini: 0, Tilas: 0, Daemian: 0, Bart: 0 };
+            allFinanceEntries = [];
+            snapshot.docs.forEach(doc => {
+                const entry = doc.data();
+                allFinanceEntries.push(entry); 
+                if(balances.hasOwnProperty(entry.character)) {
+                    balances[entry.character] += entry.amount;
+                }
+            });
+            balancesTable.innerHTML = `<thead><tr>${characters.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody><tr>${characters.map(c => `<td>${balances[c]}</td>`).join('')}</tr></tbody>`;
+            renderLog();
+        });
+    </script>
+</body>
+</html>

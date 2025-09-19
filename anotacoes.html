@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anotações Gerais - Agência MIST</title>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="auth-check.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .note-card { background-color: #fffff0; border-left: 5px solid #f1c40f; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .note-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .note-meta { font-size: 0.9em; color: #777; }
+        .note-content { white-space: pre-wrap; }
+        .note-actions button { margin-left: 10px; padding: 5px 10px; font-size: 0.8em; }
+        .edit-btn { background-color: #f39c12; }
+        .delete-btn { background-color: #e74c3c; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Anotações Gerais</h1>
+            <nav>
+                <a href="index.html" style="margin-right: 20px;">Página Inicial</a>
+                <a href="#" onclick="logout()">Sair</a>
+            </nav>
+        </header>
+
+        <div class="form-container">
+            <h3 id="form-title">Adicionar Nova Anotação</h3>
+            <form id="note-form">
+                <input type="hidden" id="note-id">
+                <div class="form-group">
+                    <label for="note-author">Seu Nome (Agente)</label>
+                    <input type="text" id="note-author" placeholder="Ex: Akane" required>
+                </div>
+                <div class="form-group">
+                    <label for="note-text">Anotação</label>
+                    <textarea id="note-text" rows="5" placeholder="Digite sua anotação, pista ou lembrete..." required></textarea>
+                </div>
+                <button type="submit" id="submit-btn">Salvar Anotação</button>
+                <button type="button" id="cancel-btn" style="display:none;">Cancelar Edição</button>
+            </form>
+        </div>
+
+        <div id="notes-list" style="margin-top: 30px;"></div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script>
+        const db = firebase.firestore();
+        const notesCollection = db.collection("general_notes");
+
+        const form = document.getElementById('note-form');
+        const listBody = document.getElementById('notes-list');
+        const formTitle = document.getElementById('form-title');
+        const submitBtn = document.getElementById('submit-btn');
+        const cancelBtn = document.getElementById('cancel-btn');
+
+        const resetForm = () => { form.reset(); form['note-id'].value = ''; formTitle.textContent = 'Adicionar Nova Anotação'; submitBtn.textContent = 'Salvar Anotação'; cancelBtn.style.display = 'none'; };
+        form.addEventListener('submit', async (e) => { e.preventDefault(); const noteId = form['note-id'].value; const noteData = { author: form['note-author'].value, text: form['note-text'].value, }; if (noteId) { await notesCollection.doc(noteId).update(noteData); } else { noteData.createdAt = firebase.firestore.FieldValue.serverTimestamp(); await notesCollection.add(noteData); } resetForm(); });
+        const deleteNote = async (id, author) => { if (confirm(`Tem certeza que deseja excluir a anotação de ${author}?`)) { await notesCollection.doc(id).delete(); } };
+        const editNote = (id, data) => { form['note-id'].value = id; form['note-author'].value = data.author; form['note-text'].value = data.text; formTitle.textContent = 'Editando Anotação'; submitBtn.textContent = 'Salvar Alterações'; cancelBtn.style.display = 'inline-block'; window.scrollTo({ top: 0, behavior: 'smooth' }); };
+        cancelBtn.addEventListener('click', resetForm);
+
+        notesCollection.orderBy("createdAt", "desc").onSnapshot(snapshot => {
+            listBody.innerHTML = '';
+            snapshot.docs.forEach(doc => {
+                const note = doc.data();
+                const noteId = doc.id;
+                const noteCard = document.createElement('div');
+                noteCard.className = 'note-card';
+                const noteDate = note.createdAt ? note.createdAt.toDate().toLocaleString('pt-BR') : '...';
+
+                noteCard.innerHTML = `
+                    <div class="note-header">
+                        <div class="note-meta"><strong>Por:</strong> ${note.author} <br><strong>Em:</strong> ${noteDate}</div>
+                        <div class="note-actions">
+                            <button class="edit-btn">Editar</button>
+                            <button class="delete-btn">Excluir</button>
+                        </div>
+                    </div>
+                    <div class="note-content">${note.text}</div>`;
+                
+                noteCard.querySelector('.edit-btn').addEventListener('click', () => editNote(noteId, note));
+                noteCard.querySelector('.delete-btn').addEventListener('click', () => deleteNote(noteId, note.author));
+                listBody.appendChild(noteCard);
+            });
+        });
+    </script>
+</body>
+</html>

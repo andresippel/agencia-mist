@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizando Relatório</title>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="auth-check.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .ql-align-center { text-align: center; }
+        .ql-align-right { text-align: right; }
+        .ql-align-justify { text-align: justify; }
+        img { max-width: 100%; height: auto; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 id="report-title-view">Carregando relatório...</h1>
+            <nav>
+                <a href="index.html" style="margin-right: 20px;">Página Inicial</a>
+                <a href="#" onclick="logout()">Sair</a>
+            </nav>
+        </header>
+        <hr>
+        <div id="report-content-view"></div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script>
+        const db = firebase.firestore();
+        const titleElement = document.getElementById('report-title-view');
+        const contentElement = document.getElementById('report-content-view');
+
+        window.onload = async () => {
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const reportId = urlParams.get('id');
+                if (!reportId) { titleElement.textContent = "Erro: ID do relatório não encontrado."; return; }
+                const docRef = db.collection("reports").doc(reportId);
+                const docSnap = await docRef.get();
+                if (docSnap.exists) {
+                    const report = docSnap.data();
+                    document.title = report.title;
+                    titleElement.textContent = report.title;
+                    contentElement.innerHTML = report.content;
+                } else {
+                    titleElement.textContent = "Erro: Relatório não encontrado.";
+                }
+            } catch (error) {
+                console.error("Erro ao carregar relatório:", error);
+                titleElement.textContent = "Ocorreu um erro ao carregar o relatório.";
+            }
+        };
+    </script>
+</body>
+</html>
