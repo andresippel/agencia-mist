@@ -97,11 +97,10 @@
     </div>
     
     <script>
-        
+       
         const db = firebase.firestore();
 
         const missionsCollection = db.collection("missions");
-        // ADICIONADO: Referência para a coleção de finanças
         const financesCollection = db.collection("finances");
 
         const form = document.getElementById('mission-form');
@@ -151,6 +150,7 @@
                 name: document.getElementById('name').value,
                 date: document.getElementById('date').value,
                 totalReward: parseInt(document.getElementById('totalReward').value) || 0,
+                agencyReward: 0, // Removido o campo 'Agência' dos jogadores
                 Akane: parseInt(document.getElementById('akaneReward').value) || 0,
                 Gemini: parseInt(document.getElementById('geminiReward').value) || 0,
                 Tilas: parseInt(document.getElementById('tilasReward').value) || 0,
@@ -167,7 +167,6 @@
                 } else {
                     await missionsCollection.add(missionData);
                     
-                    // NOVO CÓDIGO: Adiciona entradas de finanças automaticamente
                     const financePromises = characters.map(char => {
                         const reward = missionData[char];
                         if (reward > 0) {
@@ -175,10 +174,11 @@
                                 character: char,
                                 amount: reward,
                                 description: `Recompensa - ${missionData.name}`,
-                                type: 'ganho'
+                                type: 'ganho',
+                                createdAt: new Date().toISOString()
                             });
                         }
-                        return Promise.resolve(); // Retorna uma Promise resolvida para manter o array
+                        return Promise.resolve();
                     });
                     
                     await Promise.all(financePromises);
