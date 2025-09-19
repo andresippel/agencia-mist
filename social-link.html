@@ -98,11 +98,9 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        // Coleções do Firebase
         const linksCollection = db.collection("social_links");
         const charactersCollection = db.collection("characters");
 
-        // Elementos HTML
         const form = document.getElementById('social-link-form');
         const char1Select = document.getElementById('char1');
         const char2Select = document.getElementById('char2');
@@ -113,19 +111,17 @@
         const cancelBtn = document.getElementById('cancel-btn');
         const linkIdInput = document.getElementById('link-id');
 
-        // Elementos de Gerenciamento de Personagens
         const showAddCharBtn = document.getElementById('show-add-char-btn');
         const addCharFormContainer = document.getElementById('add-character-form-container');
         const addCharForm = document.getElementById('add-character-form');
         const newCharNameInput = document.getElementById('new-char-name');
         const characterList = document.getElementById('character-list');
 
-        // Lógica para mostrar/esconder o formulário de personagens
         showAddCharBtn.addEventListener('click', () => {
-            addCharFormContainer.style.display = addCharFormContainer.style.display === 'block' ? 'none' : 'block';
+            const isVisible = addCharFormContainer.style.display === 'block';
+            addCharFormContainer.style.display = isVisible ? 'none' : 'block';
         });
 
-        // Lógica para adicionar novo personagem
         addCharForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const charName = newCharNameInput.value.trim();
@@ -135,22 +131,18 @@
             }
         });
 
-        // Lógica para deletar personagem
         const deleteCharacter = async (id) => {
-            if (confirm("Excluir este personagem? Isso não irá remover relações já salvas com ele.")) {
+            if (confirm("Excluir este personagem?")) {
                 await charactersCollection.doc(id).delete();
             }
         };
 
-        // Escuta em tempo real a lista de personagens para preencher os menus
         charactersCollection.orderBy("name").onSnapshot(snapshot => {
             const characters = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             
-            // Preenche os menus suspensos
             char1Select.innerHTML = characters.map(char => `<option value="${char.name}">${char.name}</option>`).join('');
             char2Select.innerHTML = characters.map(char => `<option value="${char.name}">${char.name}</option>`).join('');
 
-            // Preenche a lista de gerenciamento
             characterList.innerHTML = '';
             characters.forEach(char => {
                 const li = document.createElement('li');
@@ -159,7 +151,6 @@
             });
         });
 
-        // Lógica para o formulário de relações (sem alterações)
         function resetForm() {
             form.reset();
             formTitle.textContent = 'Adicionar Nova Relação';
@@ -228,8 +219,7 @@
                 linksTableBody.appendChild(row);
             });
         });
-
-        // Expondo a função para ser usada no HTML
+        
         window.deleteCharacter = deleteCharacter;
     </script>
 </body>
