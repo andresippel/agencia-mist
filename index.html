@@ -2,139 +2,63 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agência MIST - Portal da Campanha</title>
+    <title>Login - Agência MIST</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container" style="max-width: 500px; margin-top: 50px;">
+        <div style="text-align: center; margin-bottom: 20px;">
+            <img src="logo.png" alt="Logo da Agência MIST" style="max-width: 120px;">
+        </div>
+        <header>
+            <h1>Portal Restrito da Agência MIST</h1>
+        </header>
+        
+        <div id="login-form-container">
+            <p>Por favor, identifique-se para acessar os arquivos.</p>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="login-email">E-mail de Agente</label>
+                    <input type="email" id="login-email" required>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Senha</label>
+                    <input type="password" id="login-password" required>
+                </div>
+                <button type="submit">Acessar Portal</button>
+            </form>
+        </div>
+    </div>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-    <script src="auth-check.js"></script>
-    <script src="config.js"></script>
-
-    
-    <link rel="stylesheet" href="style.css">
-    <style>
-        /* Estilos da página inicial (sem alterações) */
-        .home-header { position: relative; text-align: center; }
-        #auth-status-container { position: absolute; top: 20px; right: 20px; font-size: 0.9em; z-index: 10; }
-        .home-header img { max-width: 150px; margin-bottom: 10px; }
-        .home-header h1 { margin-top: 0; }
-        .welcome-text { text-align: center; font-size: 1.1em; color: #555; margin-bottom: 40px; }
-        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 25px; margin-top: 40px; padding: 20px; background-color: #f9f9f9; border-radius: 8px; }
-        .dashboard-widget { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 1px 5px rgba(0,0,0,0.05); }
-        .dashboard-widget h3 { margin-top: 0; color: #2c3e50; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
-        .dashboard-widget ul { list-style-type: none; padding: 0; margin: 0; }
-        .dashboard-widget li { padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
-        .mission-title { font-weight: bold; }
-        .balance-item { display: flex; justify-content: space-between; }
-        .home-footer { display: flex; flex-direction: column; align-items: center; text-align: center; }
-        .home-footer img { max-width: 100%; max-width: 700px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
-        .home-footer p { margin-top: 20px; font-size: 1.1em; color: #333; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <header class="home-header">
-            <div id="auth-status-container"></div>
-            <img src="logo.png" alt="Logo da Agência MIST">
-            <h1>Portal de Acesso da Agência MIST</h1>
-        </header>
-
-        <main>
-            <p class="welcome-text">Bem-vindo, Agente. Consulte os arquivos e recursos da MIST (Monitoramento, Investigação e Soluções Táticas) através dos módulos de acesso abaixo.</p>
-            
-            <div class="home-nav">
-                <a href="calendario.html" class="nav-card"><h2>Calendário</h2><p>Agende e visualize os próximos eventos.</p></a>
-                <a href="missoes.html" class="nav-card"><h2>Resumo de Missões</h2><p>Tabela com todas as missões e recompensas.</p></a>
-                <a href="financas.html" class="nav-card"><h2>Controle Financeiro</h2><p>Planilha de ganhos e gastos da equipe.</p></a>
-                <a href="relatorios.html" class="nav-card"><h2>Gerenciar Relatórios</h2><p>Envie e consulte os relatórios dos casos.</p></a>
-                <a href="anotacoes.html" class="nav-card"><h2>Anotações Gerais</h2><p>Quadro compartilhado para ideias e pistas.</p></a>
-            </div>
-
-            <div class="dashboard">
-                <div class="dashboard-widget"><h3>Próximos Compromissos</h3><ul id="upcoming-appointments"><li>Carregando...</li></ul></div>
-                <div class="dashboard-widget"><h3>Última Missão</h3><p id="latest-mission">Carregando...</p></div>
-                <div class="dashboard-widget"><h3>Saldos dos Agentes</h3><ul id="character-balances"><li>Carregando...</li></ul></div>
-            </div>
-        </main>
-
-        <footer class="home-footer">
-            <hr style="margin: 40px 0; width: 100%;">
-            <img src="cartao-visita.jpg" alt="Cartão de Visita da Agência MIST">
-            <p>Para novos casos ou consultas, procure a agência no endereço: <strong>Rua Observador, 42 - Alexandria</strong>.</p>
-        </footer>
-    </div>
-
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <script>
-        const db = firebase.firestore();
+        const firebaseConfig = { /* ...SEU OBJETO DE CONFIGURAÇÃO... */ };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
 
-        // --- INÍCIO DA LÓGICA DO DASHBOARD ATUALIZADA ---
-        
-        let rpgToday = null;
-        let allAppointments = [];
-
-        const appointmentsList = document.getElementById('upcoming-appointments');
-        const appointmentsCollection = db.collection("rpg-appointments");
-        const gameDateRef = db.collection("game_state").doc("current_date");
-
-        // Função central que renderiza os compromissos
-        function renderUpcomingAppointments() {
-            if (!rpgToday || allAppointments.length === 0) {
-                return; // Aguarda os dois dados carregarem
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                window.location.href = 'index.html';
             }
+        });
 
-            const todayInGame = new Date(0);
-            todayInGame.setFullYear(rpgToday.year, rpgToday.month, rpgToday.day);
-            todayInGame.setHours(0, 0, 0, 0);
-
-            const upcoming = [];
-            allAppointments.forEach(app => {
-                const [year, month, day] = app.dateStr.split('-').map(Number);
-                const appDate = new Date(0);
-                appDate.setFullYear(year, month - 1, day);
-                appDate.setHours(0, 0, 0, 0);
-
-                if (appDate >= todayInGame) {
-                    upcoming.push({ date: appDate, text: app.text });
-                }
-            });
-
-            upcoming.sort((a, b) => a.date - b.date);
-            const nextThree = upcoming.slice(0, 3);
-
-            appointmentsList.innerHTML = '';
-            if (nextThree.length === 0) {
-                appointmentsList.innerHTML = '<li>Nenhum compromisso futuro a partir da data do jogo.</li>';
-            } else {
-                nextThree.forEach(app => {
-                    const li = document.createElement('li');
-                    li.textContent = `${app.date.toLocaleDateString('pt-BR')}: ${app.text}`;
-                    appointmentsList.appendChild(li);
+        const loginForm = document.getElementById('login-form');
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = loginForm['login-email'].value;
+            const password = loginForm['login-password'].value;
+            auth.signInWithEmailAndPassword(email, password)
+                .then(userCredential => {
+                    window.location.href = 'index.html';
+                })
+                .catch(error => {
+                    // MUDANÇA AQUI: MOSTRAR ERRO DETALHADO
+                    console.error("Firebase Login Error Code:", error.code);
+                    console.error("Firebase Login Error Message:", error.message);
+                    alert(`Ocorreu um erro ao fazer login.\n\nCódigo: ${error.code}\nMensagem: ${error.message}`);
                 });
-            }
-        }
-
-        // Listener 1: Ouve por mudanças na data do jogo
-        gameDateRef.onSnapshot(doc => {
-            if (doc.exists) {
-                rpgToday = doc.data();
-                renderUpcomingAppointments();
-            } else {
-                // Se a data do jogo ainda não foi definida, usa a data real como base
-                const today = new Date();
-                rpgToday = { day: today.getDate(), month: today.getMonth(), year: 20 };
-                renderUpcomingAppointments();
-            }
         });
-
-        // Listener 2: Ouve por mudanças nos compromissos
-        appointmentsCollection.onSnapshot(snapshot => {
-            allAppointments = snapshot.docs.map(doc => doc.data());
-            renderUpcomingAppointments();
-        });
-
-        // --- O restante do dashboard continua igual ---
-        const latestMissionEl=document.getElementById("latest-mission"),missionsCollection=db.collection("missions");missionsCollection.orderBy("createdAt","desc").limit(1).onSnapshot(e=>{e.empty?latestMissionEl.textContent="Nenhuma missão registrada.":latestMissionEl.innerHTML=`<span class="mission-title">${e.docs[0].data().name}</span><br><small>${e.docs[0].data().summary.substring(0,100)}...</small>`});const balancesList=document.getElementById("character-balances"),financesCollection=db.collection("finances"),characters=["Akane","Gemini","Tilas","Daemian","Bart"];financesCollection.onSnapshot(e=>{const t={Akane:0,Gemini:0,Tilas:0,Daemian:0,Bart:0};e.docs.forEach(e=>{const o=e.data();t.hasOwnProperty(o.character)&&(t[o.character]+=o.amount)}),balancesList.innerHTML="",characters.forEach(e=>{const o=document.createElement("li");o.className="balance-item",o.innerHTML=`<span>${e}</span> <strong>${t[e]} zeny</strong>`,balancesList.appendChild(o)})});
     </script>
 </body>
 </html>
