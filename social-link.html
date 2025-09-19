@@ -23,6 +23,8 @@
         .table-actions button { margin-right: 5px; }
         .edit-btn { background-color: #3498db; }
         .delete-btn { background-color: #e74c3c; }
+        .character-management { margin-bottom: 20px; text-align: right; }
+        .add-character-form { display: none; margin-top: 15px; }
     </style>
 </head>
 <body>
@@ -36,6 +38,21 @@
         </header>
 
         <main>
+            <div class="character-management">
+                <button id="show-add-char-btn" class="secondary-btn">Gerenciar Personagens</button>
+                <div id="add-character-form-container" class="form-container add-character-form">
+                    <h3>Adicionar Novo Personagem</h3>
+                    <form id="add-character-form">
+                        <div class="form-group">
+                            <label for="new-char-name">Nome do Personagem:</label>
+                            <input type="text" id="new-char-name" required>
+                        </div>
+                        <button type="submit">Adicionar</button>
+                    </form>
+                    <ul id="character-list"></ul>
+                </div>
+            </div>
+
             <div class="form-container">
                 <h3 id="form-title">Adicionar Nova Relação</h3>
                 <form id="social-link-form">
@@ -80,8 +97,12 @@
         const firebaseConfig = { /* ...SEU OBJETO DE CONFIGURAÇÃO... */ };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
-        const linksCollection = db.collection("social_links");
 
+        // Coleções do Firebase
+        const linksCollection = db.collection("social_links");
+        const charactersCollection = db.collection("characters");
+
+        // Elementos HTML
         const form = document.getElementById('social-link-form');
         const char1Select = document.getElementById('char1');
         const char2Select = document.getElementById('char2');
@@ -92,14 +113,53 @@
         const cancelBtn = document.getElementById('cancel-btn');
         const linkIdInput = document.getElementById('link-id');
 
-        // Personagens do seu RPG. Adicione ou remova conforme a necessidade.
-        const characters = ["Akane", "Gemini", "Tilas", "Daemian", "Bart", "NPC A", "NPC B"];
+        // Elementos de Gerenciamento de Personagens
+        const showAddCharBtn = document.getElementById('show-add-char-btn');
+        const addCharFormContainer = document.getElementById('add-character-form-container');
+        const addCharForm = document.getElementById('add-character-form');
+        const newCharNameInput = document.getElementById('new-char-name');
+        const characterList = document.getElementById('character-list');
 
-        function populateCharacters() {
-            char1Select.innerHTML = characters.map(char => `<option value="${char}">${char}</option>`).join('');
-            char2Select.innerHTML = characters.map(char => `<option value="${char}">${char}</option>`).join('');
-        }
+        // Lógica para mostrar/esconder o formulário de personagens
+        showAddCharBtn.addEventListener('click', () => {
+            addCharFormContainer.style.display = addCharFormContainer.style.display === 'block' ? 'none' : 'block';
+        });
 
+        // Lógica para adicionar novo personagem
+        addCharForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const charName = newCharNameInput.value.trim();
+            if (charName) {
+                await charactersCollection.add({ name: charName });
+                newCharNameInput.value = '';
+            }
+        });
+
+        // Lógica para deletar personagem
+        const deleteCharacter = async (id) => {
+            if (confirm("Excluir este personagem? Isso não irá remover relações já salvas com ele.")) {
+                await charactersCollection.doc(id).delete();
+            }
+        };
+
+        // Escuta em tempo real a lista de personagens para preencher os menus
+        charactersCollection.orderBy("name").onSnapshot(snapshot => {
+            const characters = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            // Preenche os menus suspensos
+            char1Select.innerHTML = characters.map(char => `<option value="${char.name}">${char.name}</option>`).join('');
+            char2Select.innerHTML = characters.map(char => `<option value="${char.name}">${char.name}</option>`).join('');
+
+            // Preenche a lista de gerenciamento
+            characterList.innerHTML = '';
+            characters.forEach(char => {
+                const li = document.createElement('li');
+                li.innerHTML = `${char.name} <button class="delete-btn" onclick="deleteCharacter('${char.id}')">X</button>`;
+                characterList.appendChild(li);
+            });
+        });
+
+        // Lógica para o formulário de relações (sem alterações)
         function resetForm() {
             form.reset();
             formTitle.textContent = 'Adicionar Nova Relação';
@@ -169,7 +229,8 @@
             });
         });
 
-        populateCharacters();
+        // Expondo a função para ser usada no HTML
+        window.deleteCharacter = deleteCharacter;
     </script>
 </body>
 </html>
