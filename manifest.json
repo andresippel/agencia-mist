@@ -1,0 +1,22 @@
+{
+  "name": "Agência MIST",
+  "short_name": "MIST",
+  "description": "Investigações Sobrenaturais - Casos para RPG",
+  "start_url": "/agencia-mist/",
+  "display": "standalone",
+  "background_color": "#1a1a1a",
+  "theme_color": "#8B0000",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icon-192x192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "icon-512x512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}
