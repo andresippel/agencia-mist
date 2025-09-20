@@ -1,2 +1,132 @@
 /* style.css */
-body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background-color:#f0f2f5;color:#333;margin:0;padding:20px}.container{max-width:1200px;margin:auto;background:#fff;padding:25px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.1)}header{margin-bottom:30px;padding-bottom:20px;border-bottom:1px solid #ddd;display:flex;justify-content:space-between;align-items:center}header h1{color:#2c3e50;margin:0}nav a{margin-left:15px;text-decoration:none;color:#3498db;font-weight:700;font-size:1.1em;transition:color .3s}nav a:hover{color:#2980b9}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #ddd;padding:12px;text-align:left}th{background-color:#ecf0f1;color:#34495e;font-weight:700}tbody tr:nth-child(even){background-color:#f9f9f9}.form-container{margin-top:30px;padding:20px;background-color:#fdfdfd;border:1px solid #eee;border-radius:5px}.form-container h3{margin-top:0}.form-group{margin-bottom:15px}.form-group label{display:block;margin-bottom:5px;font-weight:700}.form-group input,.form-group textarea,.form-group select{width:100%;padding:10px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box}button{background:#3498db;color:#fff;border:none;padding:12px 20px;border-radius:5px;cursor:pointer;font-size:1em;transition:background .3s}button:hover{background:#2980b9}.home-nav{display:flex;flex-wrap:wrap;gap:20px;justify-content:center;padding:40px 0}.nav-card{background-color:#fff;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:30px;width:250px;text-align:center;text-decoration:none;color:#333;transition:transform .3s,box-shadow .3s}.nav-card:hover{transform:translateY(-5px);box-shadow:0 6px 15px rgba(0,0,0,.15)}.nav-card h2{color:#2c3e50;margin-top:0}.nav-card p{color:#7f8c8d}.delete-btn{background-color:#e74c3c!important}
+
+/* --- ESTILOS GERAIS (Mobile-First) --- */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #1a1a1a;
+    color: #e0e0e0;
+}
+
+.container {
+    width: 90%;
+    margin: 0 auto;
+    padding: 20px 0;
+}
+
+header {
+    background-color: #0d0d0d;
+    padding: 15px 0;
+    text-align: center;
+    border-bottom: 2px solid #8B0000; /* Vermelho escuro, temático */
+}
+
+header h1 {
+    margin: 0;
+    font-size: 2em; /* Tamanho bom para celular */
+}
+
+nav ul {
+    list-style-type: none;
+    padding: 0;
+    margin-top: 15px;
+}
+
+nav ul li {
+    background-color: #333;
+    margin: 5px 0;
+    padding: 15px;
+    text-align: center;
+}
+
+nav ul li a {
+    color: #e0e0e0;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+/* Layout dos 'Casos Recentes' em uma única coluna para celular */
+#casos-recentes .casos-grid {
+    display: flex;
+    flex-direction: column; /* Itens empilhados verticalmente */
+    gap: 20px;
+}
+
+.caso {
+    background-color: #252525;
+    border: 1px solid #444;
+    padding: 15px;
+}
+
+.caso img {
+    max-width: 100%; /* Imagens se ajustam à largura do container */
+    height: auto;   /* Mantém a proporção */
+}
+
+footer {
+    text-align: center;
+    padding: 20px;
+    margin-top: 30px;
+    background-color: #0d0d0d;
+    border-top: 1px solid #333;
+}
+
+
+/* --- ESTILOS PARA TABLETS E TELAS MAIORES (Responsivo) --- */
+
+/* Aplica estes estilos quando a tela tiver 768px de largura ou mais */
+@media (min-width: 768px) {
+    header {
+        text-align: left;
+    }
+
+    /* Transforma o menu em uma barra horizontal */
+    nav ul {
+        display: flex;
+        justify-content: flex-end; /* Alinha os itens à direita */
+        margin-top: 0;
+    }
+
+    nav ul li {
+        margin: 0 0 0 20px; /* Espaçamento entre os itens */
+        background-color: transparent;
+        padding: 5px;
+    }
+    
+    header .container {
+        display: flex;
+        justify-content: space-between; /* Logo de um lado, menu do outro */
+        align-items: center;
+    }
+    
+    header h1 {
+        font-size: 2.5em; /* Aumenta um pouco a fonte */
+    }
+
+    /* Transforma a lista de casos em um grid com 3 colunas */
+    #casos-recentes .casos-grid {
+        flex-direction: row; /* Itens lado a lado */
+        flex-wrap: wrap; /* Permite quebrar a linha */
+        justify-content: space-between;
+    }
+
+    .caso {
+        /* Calcula a largura para 3 colunas com espaço entre elas */
+        width: calc(33.333% - 15px);
+    }
+}
+
+
+/* --- ESTILOS ADICIONAIS PARA TELAS MUITO LARGAS --- */
+
+/* Aplica quando a tela tiver 1200px de largura ou mais */
+@media (min-width: 1200px) {
+    .container {
+        width: 1140px; /* Trava a largura máxima para não ficar muito esticado */
+    }
+
+    .caso {
+        /* O cálculo de largura continua funcionando bem */
+    }
+}
