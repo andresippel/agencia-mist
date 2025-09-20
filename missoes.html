@@ -42,6 +42,10 @@
                     <label for="totalReward">Recompensa Total</label>
                     <input type="number" id="totalReward" min="0" value="0">
                 </div>
+                <div class="form-group">
+                    <label for="agencyReward">Recompensa da Agência</label>
+                    <input type="number" id="agencyReward" min="0" value="0">
+                </div>
                 <div class="characters-input">
                     <div class="form-group">
                         <label for="akaneReward">Akane</label>
@@ -97,11 +101,10 @@
     </div>
     
     <script>
-        
+       
         const db = firebase.firestore();
 
         const missionsCollection = db.collection("missions");
-        // ADICIONADO: Referência para a coleção de finanças
         const financesCollection = db.collection("finances");
 
         const form = document.getElementById('mission-form');
@@ -132,6 +135,7 @@
             document.getElementById('name').value = data.name;
             document.getElementById('date').value = data.date;
             document.getElementById('totalReward').value = data.totalReward || 0;
+            document.getElementById('agencyReward').value = data.agencyReward || 0;
             document.getElementById('akaneReward').value = data.Akane || 0;
             document.getElementById('geminiReward').value = data.Gemini || 0;
             document.getElementById('tilasReward').value = data.Tilas || 0;
@@ -151,6 +155,7 @@
                 name: document.getElementById('name').value,
                 date: document.getElementById('date').value,
                 totalReward: parseInt(document.getElementById('totalReward').value) || 0,
+                agencyReward: parseInt(document.getElementById('agencyReward').value) || 0,
                 Akane: parseInt(document.getElementById('akaneReward').value) || 0,
                 Gemini: parseInt(document.getElementById('geminiReward').value) || 0,
                 Tilas: parseInt(document.getElementById('tilasReward').value) || 0,
@@ -167,7 +172,6 @@
                 } else {
                     await missionsCollection.add(missionData);
                     
-                    // NOVO CÓDIGO: Adiciona entradas de finanças automaticamente
                     const financePromises = characters.map(char => {
                         const reward = missionData[char];
                         if (reward > 0) {
@@ -175,10 +179,11 @@
                                 character: char,
                                 amount: reward,
                                 description: `Recompensa - ${missionData.name}`,
-                                type: 'ganho'
+                                type: 'ganho',
+                                createdAt: new Date().toISOString()
                             });
                         }
-                        return Promise.resolve(); // Retorna uma Promise resolvida para manter o array
+                        return Promise.resolve();
                     });
                     
                     await Promise.all(financePromises);
