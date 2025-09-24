@@ -128,6 +128,7 @@
         .character-list-item:last-child {
             border-bottom: none;
         }
+        /* Novo estilo para o botão de gerenciamento */
         #toggle-char-management-btn {
             margin-bottom: 20px;
         }
@@ -214,7 +215,7 @@
     </div>
 
     <script>
-       
+
         const db = firebase.firestore();
 
         const linksCollection = db.collection("social_links");
@@ -391,12 +392,7 @@
             
             Object.values(allCharacterDetails).forEach(char => {
                 if (char.name !== AKANE_NAME) {
-                    const charDetails = allCharacterDetails[char.name];
-                    if(charDetails && charDetails.image_url) {
-                       nodes.add({ id: char.name, label: char.name, group: 'other', image: charDetails.image_url, shape: 'image' });
-                    } else {
-                       nodes.add({ id: char.name, label: char.name, group: 'other' });
-                    }
+                    nodes.add({ id: char.name, label: char.name, group: 'other', image: char.image_url, shape: 'image' });
                 }
             });
 
@@ -407,7 +403,7 @@
                     arrows: 'to',
                     font: { align: 'middle', color: '#343434' },
                     width: 2,
-                    color: '#888' // Cor cinza padrão
+                    color: '#888'
                 });
             });
 
@@ -478,6 +474,12 @@
                 alert("Erro ao salvar a conexão. Verifique o console.");
             }
         });
+
+        const deleteLink = async (id) => {
+            if (confirm("Tem certeza que deseja excluir esta relação?")) {
+                await linksCollection.doc(id).delete();
+            }
+        };
     </script>
 </body>
 </html>
