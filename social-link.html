@@ -224,7 +224,7 @@
     </div>
 
     <script>
-       
+        
         const db = firebase.firestore();
 
         const linksCollection = db.collection("social_links");
@@ -436,6 +436,8 @@
                     image: akaneData.image_url || 'https://via.placeholder.com/150',
                     shape: 'image'
                 });
+            } else {
+                 nodes.add({ id: AKANE_NAME, label: AKANE_NAME, group: 'akane', fixed: true, x: 0, y: 0 });
             }
 
             Object.values(allCharacterDetails).forEach(char => {
