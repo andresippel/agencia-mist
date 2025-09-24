@@ -131,6 +131,10 @@
         .character-list-item:last-child {
             border-bottom: none;
         }
+        /* Novo estilo para o botão de gerenciamento */
+        #toggle-char-management-btn {
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 <body>
@@ -145,31 +149,35 @@
 
         <main>
             <div id="character-management-container" class="form-container">
-                <h3 id="char-form-title">Adicionar Novo Personagem</h3>
-                <form id="character-details-form">
-                    <input type="hidden" id="char-doc-id">
-                    <div class="form-group">
-                        <label for="char-name">Nome do Personagem:</label>
-                        <input type="text" id="char-name" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="char-image-url">URL da Imagem:</label>
-                        <input type="url" id="char-image-url">
-                    </div>
-                    <div class="form-group">
-                        <label for="char-description">Descrição:</label>
-                        <textarea id="char-description" rows="4"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="char-how-met">Como Akane o Conheceu:</label>
-                        <textarea id="char-how-met" rows="3"></textarea>
-                    </div>
-                    <button type="submit" id="save-char-btn">Salvar Personagem</button>
-                    <button type="button" id="cancel-char-edit-btn" style="display: none;">Cancelar</button>
-                </form>
-                <hr style="margin: 20px 0;">
-                <h3>Personagens Cadastrados</h3>
-                <ul id="character-details-list"></ul>
+                <button id="toggle-char-management-btn" class="secondary-btn">Gerenciar Personagens</button>
+                <div id="character-management-content" style="display: none;">
+                    <hr style="margin: 20px 0;">
+                    <h3 id="char-form-title">Adicionar Novo Personagem</h3>
+                    <form id="character-details-form">
+                        <input type="hidden" id="char-doc-id">
+                        <div class="form-group">
+                            <label for="char-name">Nome do Personagem:</label>
+                            <input type="text" id="char-name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="char-image-url">URL da Imagem:</label>
+                            <input type="url" id="char-image-url">
+                        </div>
+                        <div class="form-group">
+                            <label for="char-description">Descrição:</label>
+                            <textarea id="char-description" rows="4"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="char-how-met">Como Akane o Conheceu:</label>
+                            <textarea id="char-how-met" rows="3"></textarea>
+                        </div>
+                        <button type="submit" id="save-char-btn">Salvar Personagem</button>
+                        <button type="button" id="cancel-char-edit-btn" style="display: none;">Cancelar</button>
+                    </form>
+                    <hr style="margin: 20px 0;">
+                    <h3>Personagens Cadastrados</h3>
+                    <ul id="character-details-list"></ul>
+                </div>
             </div>
 
             <div class="form-container">
@@ -243,7 +251,7 @@
     </div>
 
     <script>
-        
+       
         const db = firebase.firestore();
 
         const linksCollection = db.collection("social_links");
@@ -269,6 +277,10 @@
         let allRelationships = [];
         let allCharacterDetails = {};
         
+        const characterManagementContainer = document.getElementById('character-management-container');
+        const toggleCharManagementBtn = document.getElementById('toggle-char-management-btn');
+        const characterManagementContent = document.getElementById('character-management-content');
+        
         const characterDetailsForm = document.getElementById('character-details-form');
         const characterDetailsList = document.getElementById('character-details-list');
         const charDocIdInput = document.getElementById('char-doc-id');
@@ -286,6 +298,11 @@
         const modalName = document.getElementById('modal-name');
         const modalDescription = document.getElementById('modal-description');
         const modalAkaneMet = document.getElementById('modal-akane-met');
+
+        toggleCharManagementBtn.addEventListener('click', () => {
+            const isVisible = characterManagementContent.style.display !== 'none';
+            characterManagementContent.style.display = isVisible ? 'none' : 'block';
+        });
 
         closeButton.addEventListener('click', () => characterModal.style.display = 'none');
         window.addEventListener('click', (event) => {
@@ -341,7 +358,6 @@
         const deleteCharacterDetails = async (docId) => {
             if (confirm("Excluir este personagem? (Isso também removerá as relações existentes no mapa).")) {
                 await characterDetailsCollection.doc(docId).delete();
-                // Opcional: deletar as relações do personagem também
                 const relationsToDelete = await linksCollection.where("char1", "==", docId).get();
                 relationsToDelete.docs.forEach(doc => doc.ref.delete());
                 const inverseRelationsToDelete = await linksCollection.where("char2", "==", docId).get();
@@ -386,7 +402,6 @@
                 characterDetailsList.appendChild(li);
             });
 
-            // Atualiza os selects do formulário e filtro
             const charactersForSelect = allCharactersArray.map(char => ({ name: char.name }));
             const populateSelects = (selectElement, chars) => {
                 selectElement.innerHTML = `<option value="">Todos</option>`;
@@ -415,7 +430,7 @@
         function drawRelationshipMap() {
             const nodes = new vis.DataSet();
             const edges = new vis.DataSet();
-
+            
             const akaneNode = allCharacterDetails[AKANE_NAME];
             if(akaneNode) {
                 nodes.add({ id: AKANE_NAME, label: AKANE_NAME, group: 'akane', fixed: true, x: 0, y: 0, image: akaneNode.image_url, shape: 'image' });
@@ -423,18 +438,12 @@
                  nodes.add({ id: AKANE_NAME, label: AKANE_NAME, group: 'akane', fixed: true, x: 0, y: 0 });
             }
             
-            // Adiciona outros personagens e as arestas
-            allCharacters.forEach(char => {
+            Object.values(allCharacterDetails).forEach(char => {
                 if (char.name !== AKANE_NAME) {
-                     const charDetails = allCharacterDetails[char.name];
-                     if(charDetails) {
-                        nodes.add({ id: char.name, label: char.name, group: 'other', image: charDetails.image_url, shape: 'image' });
-                     } else {
-                        nodes.add({ id: char.name, label: char.name, group: 'other' });
-                     }
+                    nodes.add({ id: char.name, label: char.name, group: 'other', image: char.image_url, shape: 'image' });
                 }
             });
-            
+
             allRelationships.forEach(link => {
                 let color = 'gray';
                 if (link.relationship > 0) {
