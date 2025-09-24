@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mapa de Relações de Akane - Agência MIST</title>
+    <title>Mapa de Relações - Agência MIST</title>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
@@ -19,9 +19,6 @@
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
         .form-group select, .form-group input, .form-group textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-        th { background-color: #f2f2f2; }
         .table-actions button { margin-right: 5px; }
         .edit-btn { background-color: #3498db; }
         .delete-btn { background-color: #e74c3c; }
@@ -131,7 +128,6 @@
         .character-list-item:last-child {
             border-bottom: none;
         }
-        /* Novo estilo para o botão de gerenciamento */
         #toggle-char-management-btn {
             margin-bottom: 20px;
         }
@@ -140,7 +136,7 @@
 <body>
     <div class="container">
         <header>
-            <h1>Mapa de Relações de Akane</h1>
+            <h1>Mapa de Relações</h1>
             <nav>
                 <a href="index.html" style="margin-right: 20px;">Página Inicial</a>
                 <a href="#" onclick="logout()">Sair</a>
@@ -181,23 +177,17 @@
             </div>
 
             <div class="form-container">
-                <h3 id="form-title">Adicionar Nova Relação (Remetente -> Alvo)</h3>
+                <h3>Criar Conexão</h3>
                 <form id="social-link-form">
-                    <input type="hidden" id="link-id">
                     <div class="form-group">
-                        <label for="char1">Remetente:</label>
+                        <label for="char1">Personagem de Origem:</label>
                         <select id="char1" required></select>
                     </div>
                     <div class="form-group">
-                        <label for="char2">Alvo:</label>
+                        <label for="char2">Personagem de Destino:</label>
                         <select id="char2" required></select>
                     </div>
-                    <div class="form-group">
-                        <label for="relationship">Nível de Relação (Ex: -100 a 100)</label>
-                        <input type="number" id="relationship" required>
-                    </div>
-                    <button type="submit" id="submit-btn">Salvar Relação</button>
-                    <button type="button" id="cancel-btn" style="display:none;">Cancelar Edição</button>
+                    <button type="submit" id="submit-btn">Criar Conexão</button>
                 </form>
             </div>
 
@@ -207,33 +197,6 @@
                 <h3>Mapa de Relações</h3>
                 <p>Clique em um personagem no mapa para ver seus detalhes.</p>
                 <div id="relationship-map"></div>
-            </div>
-
-            <hr style="margin: 40px 0;">
-
-            <div class="filter-options">
-                <div class="form-group">
-                    <label for="filter-char1">Filtrar por Remetente:</label>
-                    <select id="filter-char1"></select>
-                </div>
-                <div class="form-group">
-                    <label for="filter-char2">Filtrar por Alvo:</label>
-                    <select id="filter-char2"></select>
-                </div>
-            </div>
-
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Remetente</th>
-                            <th>Alvo</th>
-                            <th>Nível de Relação</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="links-table-body"></tbody>
-                </table>
             </div>
         </main>
     </div>
@@ -251,7 +214,8 @@
     </div>
 
     <script>
-       
+        const firebaseConfig = { /* ...SEU OBJETO DE CONFIGURAÇÃO... */ };
+        firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
         const linksCollection = db.collection("social_links");
@@ -262,16 +226,7 @@
         const form = document.getElementById('social-link-form');
         const char1Select = document.getElementById('char1');
         const char2Select = document.getElementById('char2');
-        const relationshipInput = document.getElementById('relationship');
-        const linksTableBody = document.getElementById('links-table-body');
-        const formTitle = document.getElementById('form-title');
-        const submitBtn = document.getElementById('submit-btn');
-        const cancelBtn = document.getElementById('cancel-btn');
-        const linkIdInput = document.getElementById('link-id');
-
-        const filterChar1Select = document.getElementById('filter-char1');
-        const filterChar2Select = document.getElementById('filter-char2');
-
+        
         const mapContainer = document.getElementById('relationship-map');
         let network;
         let allRelationships = [];
@@ -404,15 +359,13 @@
 
             const charactersForSelect = allCharactersArray.map(char => ({ name: char.name }));
             const populateSelects = (selectElement, chars) => {
-                selectElement.innerHTML = `<option value="">Todos</option>`;
+                selectElement.innerHTML = ``;
                 chars.forEach(char => {
                     selectElement.innerHTML += `<option value="${char.name}">${char.name}</option>`;
                 });
             };
             populateSelects(char1Select, charactersForSelect);
             populateSelects(char2Select, charactersForSelect);
-            populateSelects(filterChar1Select, charactersForSelect);
-            populateSelects(filterChar2Select, charactersForSelect);
             
             loadRelationshipsAndMap();
         });
@@ -422,7 +375,6 @@
             linksCollection.onSnapshot(linkSnapshot => {
                 allRelationships = linkSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 drawRelationshipMap();
-                updateTable();
             });
         }
 
@@ -440,28 +392,23 @@
             
             Object.values(allCharacterDetails).forEach(char => {
                 if (char.name !== AKANE_NAME) {
-                    nodes.add({ id: char.name, label: char.name, group: 'other', image: char.image_url, shape: 'image' });
+                    const charDetails = allCharacterDetails[char.name];
+                    if(charDetails && charDetails.image_url) {
+                       nodes.add({ id: char.name, label: char.name, group: 'other', image: charDetails.image_url, shape: 'image' });
+                    } else {
+                       nodes.add({ id: char.name, label: char.name, group: 'other' });
+                    }
                 }
             });
 
             allRelationships.forEach(link => {
-                let color = 'gray';
-                if (link.relationship > 0) {
-                    color = '#27ae60';
-                } else if (link.relationship < 0) {
-                    color = '#c0392b';
-                } else {
-                    color = '#f1c40f';
-                }
-
                 edges.add({ 
                     from: link.char1, 
-                    to: link.char2, 
-                    color: { color: color },
-                    label: String(link.relationship),
+                    to: link.char2,
                     arrows: 'to',
                     font: { align: 'middle', color: '#343434' },
-                    width: 2
+                    width: 2,
+                    color: '#888' // Cor cinza padrão
                 });
             });
 
@@ -510,88 +457,28 @@
                 }
             });
         }
-
-
-        filterChar1Select.addEventListener('change', updateTable);
-        filterChar2Select.addEventListener('change', updateTable);
-
-        function updateTable() {
-            const filter1 = filterChar1Select.value;
-            const filter2 = filterChar2Select.value;
-            
-            linksTableBody.innerHTML = '';
-            const filteredRelationships = allRelationships.filter(link => {
-                const matchesChar1 = filter1 === "" || link.char1 === filter1;
-                const matchesChar2 = filter2 === "" || link.char2 === filter2;
-                return matchesChar1 && matchesChar2;
-            });
-
-            filteredRelationships.forEach(link => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${link.char1}</td>
-                    <td>${link.char2}</td>
-                    <td>${link.relationship}</td>
-                    <td class="table-actions">
-                        <button class="edit-btn">Editar</button>
-                        <button class="delete-btn">Excluir</button>
-                    </td>
-                `;
-                row.querySelector('.edit-btn').addEventListener('click', () => editLink(link.id, link));
-                row.querySelector('.delete-btn').addEventListener('click', () => deleteLink(link.id));
-                linksTableBody.appendChild(row);
-            });
-        }
         
         function resetForm() {
             form.reset();
             formTitle.textContent = 'Adicionar Nova Relação (Remetente -> Alvo)';
             submitBtn.textContent = 'Salvar Relação';
             cancelBtn.style.display = 'none';
-            linkIdInput.value = '';
         }
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const data = {
                 char1: char1Select.value,
-                char2: char2Select.value,
-                relationship: parseInt(relationshipInput.value),
+                char2: char2Select.value
             };
-            const linkId = linkIdInput.value;
             try {
-                if (linkId) {
-                    await linksCollection.doc(linkId).update(data);
-                } else {
-                    await linksCollection.add(data);
-                }
+                await linksCollection.add(data);
                 resetForm();
             } catch (error) {
-                console.error("Erro ao salvar a relação: ", error);
-                alert("Erro ao salvar a relação. Verifique o console.");
+                console.error("Erro ao salvar a conexão: ", error);
+                alert("Erro ao salvar a conexão. Verifique o console.");
             }
         });
-
-        const deleteLink = async (id) => {
-            if (confirm("Tem certeza que deseja excluir esta relação?")) {
-                await linksCollection.doc(id).delete();
-            }
-        };
-
-        const editLink = (id, data) => {
-            linkIdInput.value = id;
-            char1Select.value = data.char1;
-            char2Select.value = data.char2;
-            relationshipInput.value = data.relationship;
-            formTitle.textContent = 'Editar Relação';
-            submitBtn.textContent = 'Atualizar Relação';
-            cancelBtn.style.display = 'inline-block';
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        };
-
-        cancelBtn.addEventListener('click', resetForm);
-        
-        window.deleteCharacter = deleteCharacterDetails;
     </script>
 </body>
 </html>
