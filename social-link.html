@@ -142,11 +142,22 @@
         </header>
 
         <main>
+            <div id="create-character-container" class="form-container">
+                <h3 id="create-char-title">Criar Novo Personagem</h3>
+                <form id="create-character-form">
+                    <div class="form-group">
+                        <label for="new-char-name">Nome do Personagem:</label>
+                        <input type="text" id="new-char-name" required>
+                    </div>
+                    <button type="submit" id="create-char-btn">Criar Personagem</button>
+                </form>
+            </div>
+
             <div id="character-management-container" class="form-container">
                 <button id="toggle-char-management-btn" class="secondary-btn">Gerenciar Personagens</button>
                 <div id="character-management-content" style="display: none;">
                     <hr style="margin: 20px 0;">
-                    <h3 id="char-form-title">Adicionar Novo Personagem</h3>
+                    <h3 id="char-form-title">Editar Personagem</h3>
                     <form id="character-details-form">
                         <input type="hidden" id="char-doc-id">
                         <div class="form-group">
@@ -165,7 +176,7 @@
                             <label for="char-how-met">Como Akane o Conheceu:</label>
                             <textarea id="char-how-met" rows="3"></textarea>
                         </div>
-                        <button type="submit" id="save-char-btn">Salvar Personagem</button>
+                        <button type="submit" id="save-char-btn">Salvar Alterações</button>
                         <button type="button" id="cancel-char-edit-btn" style="display: none;">Cancelar</button>
                     </form>
                     <hr style="margin: 20px 0;">
@@ -233,6 +244,9 @@
         const toggleCharManagementBtn = document.getElementById('toggle-char-management-btn');
         const characterManagementContent = document.getElementById('character-management-content');
         
+        const createCharacterForm = document.getElementById('create-character-form');
+        const newCharNameInput = document.getElementById('new-char-name');
+
         const characterDetailsForm = document.getElementById('character-details-form');
         const characterDetailsList = document.getElementById('character-details-list');
         const charDocIdInput = document.getElementById('char-doc-id');
@@ -295,25 +309,42 @@
             }
         });
 
+        // Lógica de criação de personagem
+        createCharacterForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const charName = newCharNameInput.value.trim();
+            if (charName) {
+                const charData = {
+                    name: charName,
+                    image_url: '',
+                    description: '',
+                    how_akane_met: ''
+                };
+                await characterDetailsCollection.doc(charName).set(charData, { merge: true });
+                newCharNameInput.value = '';
+                alert(`Personagem '${charName}' criado! Agora você pode gerenciar os detalhes.`);
+            }
+        });
+
         function resetCharForm() {
             characterDetailsForm.reset();
             charDocIdInput.value = '';
-            charFormTitle.textContent = 'Adicionar Novo Personagem';
-            saveCharBtn.textContent = 'Salvar Personagem';
+            charFormTitle.textContent = 'Editar Personagem';
+            saveCharBtn.textContent = 'Salvar Alterações';
             cancelCharEditBtn.style.display = 'none';
         }
 
         characterDetailsForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            const charDocId = charDocIdInput.value;
             const charData = {
                 name: charNameInput.value,
                 image_url: charImageUrlInput.value,
                 description: charDescriptionInput.value,
                 how_akane_met: charHowMetInput.value
             };
-            const charDocId = charDocIdInput.value || charData.name;
             try {
-                await characterDetailsCollection.doc(charDocId).set(charData, { merge: true });
+                await characterDetailsCollection.doc(charDocId).update(charData);
                 resetCharForm();
             } catch (error) {
                 console.error("Erro ao salvar o personagem: ", error);
@@ -339,8 +370,8 @@
             charImageUrlInput.value = data.image_url;
             charDescriptionInput.value = data.description;
             charHowMetInput.value = data.how_akane_met;
-            charFormTitle.textContent = 'Editar Personagem';
-            saveCharBtn.textContent = 'Atualizar Personagem';
+            charFormTitle.textContent = `Editar Personagem: ${data.name}`;
+            saveCharBtn.textContent = 'Salvar Alterações';
             cancelCharEditBtn.style.display = 'inline-block';
             window.scrollTo({ top: 0, behavior: 'smooth' });
         };
@@ -393,34 +424,22 @@
             const nodes = new vis.DataSet();
             const edges = new vis.DataSet();
             
-            // Adiciona Akane como estrela central se ela existir no banco
-            const akaneData = allCharacterDetails[AKANE_NAME];
-            if (akaneData) {
-                nodes.add({ 
-                    id: AKANE_NAME, 
-                    label: AKANE_NAME, 
-                    group: 'akane', 
-                    fixed: true, 
-                    x: 0, 
-                    y: 0, 
-                    image: akaneData.image_url || 'https://via.placeholder.com/150',
-                    shape: 'image'
-                });
-            } else {
-                nodes.add({ id: AKANE_NAME, label: AKANE_NAME, group: 'akane', fixed: true, x: 0, y: 0 });
-            }
-
-            // Adiciona todos os outros personagens que tiverem detalhes no banco
             Object.values(allCharacterDetails).forEach(char => {
-                if (char.name !== AKANE_NAME) {
-                    nodes.add({ 
-                        id: char.name, 
-                        label: char.name, 
-                        group: 'other', 
-                        image: char.image_url || 'https://via.placeholder.com/150',
-                        shape: 'image'
-                    });
+                 let nodeOptions = { 
+                    id: char.name, 
+                    label: char.name, 
+                    image: char.image_url || 'https://via.placeholder.com/150',
+                    shape: 'image'
+                 };
+                if (char.name === AKANE_NAME) {
+                    nodeOptions.group = 'akane';
+                    nodeOptions.fixed = true;
+                    nodeOptions.x = 0;
+                    nodeOptions.y = 0;
+                } else {
+                    nodeOptions.group = 'other';
                 }
+                nodes.add(nodeOptions);
             });
 
             allRelationships.forEach(link => {
