@@ -25,7 +25,6 @@
         .character-management { margin-bottom: 20px; text-align: right; }
         .add-character-form { display: none; margin-top: 15px; }
         
-        /* Estilos do Mapa de Relações */
         #relationship-map {
             width: 100%;
             height: 600px;
@@ -35,17 +34,16 @@
             margin-bottom: 30px;
         }
 
-        /* Estilos do Modal (Pop-up) */
         .modal {
-            display: none; /* Hidden by default */
-            position: fixed; /* Stay in place */
-            z-index: 1000; /* Sit on top */
+            display: none;
+            position: fixed;
+            z-index: 1000;
             left: 0;
             top: 0;
-            width: 100%; /* Full width */
-            height: 100%; /* Full height */
-            overflow: auto; /* Enable scroll if needed */
-            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
             justify-content: center;
             align-items: center;
         }
@@ -128,7 +126,6 @@
         .character-list-item:last-child {
             border-bottom: none;
         }
-        /* Novo estilo para o botão de gerenciamento */
         #toggle-char-management-btn {
             margin-bottom: 20px;
         }
@@ -196,7 +193,7 @@
 
             <div class="form-container">
                 <h3>Mapa de Relações</h3>
-                <p>Clique em um personagem no mapa para ver seus detalhes.</p>
+                <p>Clique duas vezes em um personagem no mapa para ver seus detalhes.</p>
                 <div id="relationship-map"></div>
             </div>
         </main>
@@ -207,15 +204,15 @@
             <span class="close-button">&times;</span>
             <img id="modal-image" src="" alt="Imagem do Personagem" class="modal-character-image">
             <h2 id="modal-name" class="modal-character-name"></h2>
-            <h4 class="modal-section-title">Descrição</h4>
+            <h4 id="modal-description-title" class="modal-section-title">Descrição</h4>
             <p id="modal-description" class="modal-character-description"></p>
-            <h4 class="modal-section-title">Como Akane Conheceu</h4>
+            <h4 id="modal-akane-met-title" class="modal-section-title">Como Akane Conheceu</h4>
             <p id="modal-akane-met" class="modal-akane-met"></p>
         </div>
     </div>
 
     <script>
-
+        
         const db = firebase.firestore();
 
         const linksCollection = db.collection("social_links");
@@ -232,7 +229,6 @@
         let allRelationships = [];
         let allCharacterDetails = {};
         
-        const characterManagementContainer = document.getElementById('character-management-container');
         const toggleCharManagementBtn = document.getElementById('toggle-char-management-btn');
         const characterManagementContent = document.getElementById('character-management-content');
         
@@ -253,7 +249,9 @@
         const modalName = document.getElementById('modal-name');
         const modalDescription = document.getElementById('modal-description');
         const modalAkaneMet = document.getElementById('modal-akane-met');
+        const modalAkaneMetTitle = document.getElementById('modal-akane-met-title');
 
+        // Corrigido o evento do botão Gerenciar Personagens
         toggleCharManagementBtn.addEventListener('click', () => {
             const isVisible = characterManagementContent.style.display !== 'none';
             characterManagementContent.style.display = isVisible ? 'none' : 'block';
@@ -267,15 +265,22 @@
         });
 
         async function showCharacterModal(characterName) {
-            if (characterName === AKANE_NAME) {
-                return;
-            }
             const details = allCharacterDetails[characterName];
             if (details) {
                 modalImage.src = details.image_url || 'https://via.placeholder.com/150';
                 modalName.textContent = details.name;
                 modalDescription.textContent = details.description || 'Nenhuma descrição disponível.';
-                modalAkaneMet.textContent = details.how_akane_met || `Como Akane conheceu ${details.name}: Informação não disponível.`;
+
+                // Mostra ou esconde a seção "Como Akane Conheceu"
+                if (characterName === AKANE_NAME) {
+                    modalAkaneMetTitle.style.display = 'none';
+                    modalAkaneMet.style.display = 'none';
+                } else {
+                    modalAkaneMetTitle.style.display = 'block';
+                    modalAkaneMet.style.display = 'block';
+                    modalAkaneMet.textContent = details.how_akane_met || `Como Akane conheceu ${details.name}: Informação não disponível.`;
+                }
+
                 characterModal.style.display = 'flex';
             } else {
                 alert(`Detalhes para ${characterName} não encontrados.`);
@@ -311,7 +316,7 @@
         cancelCharEditBtn.addEventListener('click', resetCharForm);
 
         const deleteCharacterDetails = async (docId) => {
-            if (confirm("Excluir este personagem? (Isso também removerá as relações existentes no mapa).")) {
+            if (confirm("Excluir este personagem? (Isso também removerá as conexões no mapa).")) {
                 await characterDetailsCollection.doc(docId).delete();
                 const relationsToDelete = await linksCollection.where("char1", "==", docId).get();
                 relationsToDelete.docs.forEach(doc => doc.ref.delete());
@@ -383,17 +388,22 @@
             const nodes = new vis.DataSet();
             const edges = new vis.DataSet();
             
-            const akaneNode = allCharacterDetails[AKANE_NAME];
-            if(akaneNode) {
-                nodes.add({ id: AKANE_NAME, label: AKANE_NAME, group: 'akane', fixed: true, x: 0, y: 0, image: akaneNode.image_url, shape: 'image' });
-            } else {
-                 nodes.add({ id: AKANE_NAME, label: AKANE_NAME, group: 'akane', fixed: true, x: 0, y: 0 });
-            }
-            
             Object.values(allCharacterDetails).forEach(char => {
-                if (char.name !== AKANE_NAME) {
-                    nodes.add({ id: char.name, label: char.name, group: 'other', image: char.image_url, shape: 'image' });
+                 let nodeOptions = { 
+                    id: char.name, 
+                    label: char.name, 
+                    image: char.image_url || 'https://via.placeholder.com/150', // Imagem padrão
+                    shape: 'image'
+                 };
+                if (char.name === AKANE_NAME) {
+                    nodeOptions.group = 'akane';
+                    nodeOptions.fixed = true;
+                    nodeOptions.x = 0;
+                    nodeOptions.y = 0;
+                } else {
+                    nodeOptions.group = 'other';
                 }
+                nodes.add(nodeOptions);
             });
 
             allRelationships.forEach(link => {
@@ -412,7 +422,6 @@
                 physics: { enabled: true, solver: 'barnesHut', barnesHut: { gravitationalConstant: -2000, centralGravity: 0.3, springLength: 95, springConstant: 0.04, damping: 0.09, avoidOverlap: 1 } },
                 edges: { smooth: true, width: 3 },
                 nodes: { 
-                    shape: 'dot',
                     size: 20, 
                     font: { size: 14, color: '#333333' },
                     borderWidth: 2,
@@ -431,9 +440,7 @@
                         font: { size: 16, color: '#000000', bold: true }
                     },
                     other: {
-                        shape: 'dot',
-                        size: 20,
-                        color: { background: '#97C2E6', border: '#2B7CE9' }
+                        shape: 'image'
                     }
                 },
                 interaction: { hover: true, hoverConnectedEdges: true, selectable: true, multiselect: false },
@@ -445,7 +452,7 @@
             }
             network = new vis.Network(mapContainer, data, options);
 
-            network.on("click", function (params) {
+            network.on("doubleClick", function (params) {
                 if (params.nodes.length > 0) {
                     const nodeId = params.nodes[0];
                     showCharacterModal(nodeId);
@@ -455,9 +462,6 @@
         
         function resetForm() {
             form.reset();
-            formTitle.textContent = 'Adicionar Nova Relação (Remetente -> Alvo)';
-            submitBtn.textContent = 'Salvar Relação';
-            cancelBtn.style.display = 'none';
         }
 
         form.addEventListener('submit', async (e) => {
@@ -474,12 +478,6 @@
                 alert("Erro ao salvar a conexão. Verifique o console.");
             }
         });
-
-        const deleteLink = async (id) => {
-            if (confirm("Tem certeza que deseja excluir esta relação?")) {
-                await linksCollection.doc(id).delete();
-            }
-        };
     </script>
 </body>
 </html>
