@@ -8,16 +8,15 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script> <script src="auth-check.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+    <script src="auth-check.js"></script>
 
     <script type="text/javascript" src="https://unpkg.com/vis-network@9.1.0/dist/vis-network.min.js"></script>
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css">
     
     <link rel="stylesheet" href="style.css">
     <style>
-        /* Estilos gerais (sem alterações) */
         .form-container { background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 30px; }
         .form-container h3 { margin-top: 0; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
         .form-group { margin-bottom: 15px; }
@@ -26,36 +25,20 @@
         .edit-btn { background-color: #3498db; }
         .delete-btn { background-color: #e74c3c; }
         
-        #relationship-map {
-            width: 100%;
-            height: 600px;
-            border: 1px solid lightgray;
-            border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            margin-bottom: 30px;
-        }
+        #relationship-map { width: 100%; height: 600px; border: 1px solid lightgray; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 30px; }
 
-        /* Modal de Detalhes (sem alterações) */
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); justify-content: center; align-items: center; }
         .modal-content { background-color: #fefefe; margin: auto; padding: 30px; border: 1px solid #888; border-radius: 10px; width: 80%; max-width: 600px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; }
         .close-button { color: #aaa; position: absolute; top: 10px; right: 20px; font-size: 28px; font-weight: bold; cursor: pointer; }
         .modal-character-image { width: 150px; height: 150px; border-radius: 50%; object-fit: cover; margin-bottom: 20px; border: 3px solid #ddd; }
         .modal-character-name { font-size: 2em; margin-bottom: 10px; color: #333; }
 
-        /* NOVO: Modal de Corte de Imagem (Cropper) */
-        #cropper-modal .modal-content {
-            max-width: 80vw;
-            max-height: 80vh;
-        }
-        #image-to-crop {
-            max-width: 100%;
-            max-height: 60vh;
-        }
+        #cropper-modal .modal-content { max-width: 80vw; max-height: 80vh; }
+        #image-to-crop { max-width: 100%; max-height: 60vh; }
 
-        /* Outros estilos (sem alterações) */
         .character-list-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
         #toggle-char-management-btn { margin-bottom: 20px; }
-        #char-image-url { background-color: #f0f0f0; } /* Estilo para o campo de URL, que agora será somente leitura */
+        #char-image-url { background-color: #f0f0f0; }
     </style>
 </head>
 <body>
@@ -75,19 +58,10 @@
                     <form id="character-details-form">
                         <input type="hidden" id="char-doc-id">
                         <div class="form-group"><label for="char-name">Nome:</label><input type="text" id="char-name" required></div>
-                        
-                        <div class="form-group">
-                            <label for="char-image-upload">Imagem do Personagem (Upload):</label>
-                            <input type="file" id="char-image-upload" accept="image/*">
-                        </div>
-                        <div class="form-group">
-                            <label for="char-image-url">URL da Imagem (gerado automaticamente):</label>
-                            <input type="text" id="char-image-url" readonly placeholder="Faça o upload para gerar a URL">
-                        </div>
-                        
+                        <div class="form-group"><label for="char-image-upload">Imagem do Personagem (Upload):</label><input type="file" id="char-image-upload" accept="image/*"></div>
+                        <div class="form-group"><label for="char-image-url">URL da Imagem (gerado automaticamente):</label><input type="text" id="char-image-url" readonly placeholder="Faça o upload para gerar a URL"></div>
                         <div class="form-group"><label for="char-description">Descrição:</label><textarea id="char-description" rows="4"></textarea></div>
                         <div class="form-group"><label for="char-how-met">Como Akane o Conheceu:</label><textarea id="char-how-met" rows="3"></textarea></div>
-                        
                         <button type="submit" id="save-char-btn">Salvar Alterações</button>
                         <button type="button" id="cancel-char-edit-btn">Cancelar</button>
                     </form>
@@ -107,129 +81,56 @@
     </div>
 
     <div id="character-modal" class="modal"><div class="modal-content"><span class="close-button">&times;</span><img id="modal-image" src="" class="modal-character-image"><h2 id="modal-name"></h2><h4>Descrição</h4><p id="modal-description"></p><h4>Como Akane Conheceu</h4><p id="modal-akane-met"></p><button id="modal-edit-btn" class="edit-btn" style="margin-top: 20px;">Editar Detalhes</button></div></div>
-    
-    <div id="cropper-modal" class="modal">
-        <div class="modal-content">
-            <h3>Recortar Imagem</h3>
-            <div><img id="image-to-crop" src=""></div>
-            <button id="save-crop-btn" class="edit-btn" style="margin-top: 20px;">Salvar Corte</button>
-        </div>
-    </div>
+    <div id="cropper-modal" class="modal"><div class="modal-content"><h3>Recortar Imagem</h3><div><img id="image-to-crop" src=""></div><button id="save-crop-btn" class="edit-btn" style="margin-top: 20px;">Salvar Corte</button></div></div>
 
     <script>
-        
+        // --- CONFIGURAÇÃO INICIAL ---
+       
         const db = firebase.firestore();
-        const storage = firebase.storage(); // NOVO: Inicializa o Storage
+        const storage = firebase.storage();
 
-        // Variáveis Globais (com novas adições)
+        // --- CONSTANTES GLOBAIS ---
         const linksCollection = db.collection("social_links");
         const characterDetailsCollection = db.collection("character_details");
         const AKANE_NAME = "Akane";
-        let network, allRelationships = [], allCharacterDetails = {};
-        
-        // Elementos do DOM (com novas adições)
-        const char1Select = document.getElementById('char1'), char2Select = document.getElementById('char2');
+        const DEFAULT_IMAGE_URL = 'https://dummyimage.com/150x150/cccccc/000000.png&text=Sem+Foto';
+
+        // --- VARIÁVEIS DE ESTADO ---
+        let network, cropper;
+        let allRelationships = [], allCharacterDetails = {};
+        let currentFileToCrop;
+
+        // --- MAPEAMENTO DO DOM (ELEMENTOS DA PÁGINA) ---
+        const char1Select = document.getElementById('char1');
+        const char2Select = document.getElementById('char2');
         const toggleCharManagementBtn = document.getElementById('toggle-char-management-btn');
         const characterManagementContent = document.getElementById('character-management-content');
+        
+        // Formulário de Criação
+        const createCharacterForm = document.getElementById('create-character-form');
+        const newCharNameInput = document.getElementById('new-char-name');
+        
+        // Formulário de Edição
         const characterDetailsForm = document.getElementById('character-details-form');
         const characterDetailsList = document.getElementById('character-details-list');
-        const charDocIdInput = document.getElementById('char-doc-id'), charNameInput = document.getElementById('char-name');
-        const charImageUrlInput = document.getElementById('char-image-url'), charDescriptionInput = document.getElementById('char-description');
+        const charDocIdInput = document.getElementById('char-doc-id');
+        const charNameInput = document.getElementById('char-name');
+        const charImageUrlInput = document.getElementById('char-image-url');
+        const charImageUploadInput = document.getElementById('char-image-upload');
+        const charDescriptionInput = document.getElementById('char-description');
         const charHowMetInput = document.getElementById('char-how-met');
-        const charImageUploadInput = document.getElementById('char-image-upload'); // NOVO
-        const cropperModal = document.getElementById('cropper-modal'); // NOVO
-        const imageToCrop = document.getElementById('image-to-crop'); // NOVO
-        const saveCropBtn = document.getElementById('save-crop-btn'); // NOVO
-        let cropper; // NOVO
-        let currentFileToCrop; // NOVO
-
-        // Lógica de Upload e Corte
-        charImageUploadInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            currentFileToCrop = file;
-
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                imageToCrop.src = event.target.result;
-                cropperModal.style.display = 'flex';
-                if (cropper) cropper.destroy();
-                cropper = new Cropper(imageToCrop, {
-                    aspectRatio: 1, // Força o corte a ser quadrado
-                    viewMode: 1,
-                    background: false,
-                    autoCropArea: 0.8,
-                });
-            };
-            reader.readAsDataURL(file);
-        });
-
-        saveCropBtn.addEventListener('click', () => {
-            if (!cropper) return;
-            saveCropBtn.textContent = 'Enviando...';
-            saveCropBtn.disabled = true;
-
-            cropper.getCroppedCanvas({
-                width: 512, // Tamanho da imagem final
-                height: 512,
-            }).toBlob(async (blob) => {
-                const charName = charNameInput.value.trim() || 'personagem_sem_nome';
-                const fileName = `${charName.replace(/\s+/g, '_')}_${Date.now()}.png`;
-                const storageRef = storage.ref(`character_images/${fileName}`);
-                
-                try {
-                    const uploadTask = await storageRef.put(blob);
-                    const downloadURL = await uploadTask.ref.getDownloadURL();
-                    charImageUrlInput.value = downloadURL; // Coloca a URL no campo do formulário
-                    cropperModal.style.display = 'none'; // Fecha o modal
-                    alert('Imagem enviada com sucesso!');
-                } catch (error) {
-                    console.error("Erro no upload: ", error);
-                    alert("Falha no upload da imagem. Verifique o console.");
-                } finally {
-                    saveCropBtn.textContent = 'Salvar Corte';
-                    saveCropBtn.disabled = false;
-                }
-            }, 'image/png');
-        });
-
-        // Lógica de Edição de Personagem (função editCharacterDetails)
-        const editCharacterDetails = (docId, data) => {
-            characterManagementContent.style.display = 'block';
-            characterDetailsForm.style.display = 'block';
-            charDocIdInput.value = docId;
-            charNameInput.value = data.name;
-            charImageUrlInput.value = data.image_url || '';
-            charDescriptionInput.value = data.description || '';
-            charHowMetInput.value = data.how_akane_met || '';
-            document.getElementById('char-form-title').textContent = `Editar Personagem: ${data.name}`;
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        };
+        const cancelCharEditBtn = document.getElementById('cancel-char-edit-btn');
         
-        // Salvar Personagem (agora usa a URL do upload)
-        characterDetailsForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const charDocId = charDocIdInput.value;
-            if (!charDocId) {
-                alert("ID do personagem não encontrado. Tente editar novamente.");
-                return;
-            }
-            const charData = {
-                name: charNameInput.value,
-                image_url: charImageUrlInput.value, // Pega a URL do campo (preenchido pelo upload)
-                description: charDescriptionInput.value,
-                how_akane_met: charHowMetInput.value
-            };
-            try {
-                await characterDetailsCollection.doc(charDocId).update(charData);
-                characterDetailsForm.reset();
-                alert("Personagem atualizado com sucesso!");
-            } catch (error) {
-                console.error("Erro ao salvar personagem: ", error);
-            }
-        });
+        // Modal de Detalhes
+        const characterModal = document.getElementById('character-modal');
+        
+        // Modal do Cropper
+        const cropperModal = document.getElementById('cropper-modal');
+        const imageToCrop = document.getElementById('image-to-crop');
+        const saveCropBtn = document.getElementById('save-crop-btn');
 
-        // ATUALIZAÇÃO: Desenhar o Mapa com Imagens Circulares
+        // --- FUNÇÕES PRINCIPAIS ---
+
         function drawRelationshipMap() {
             const nodes = new vis.DataSet();
             const edges = new vis.DataSet();
@@ -238,12 +139,11 @@
                 const nodeOptions = {
                     id: char.name,
                     label: char.name,
-                    shape: 'circularImage', // A MÁGICA ACONTECE AQUI
-                    image: char.image_url || 'https://via.placeholder.com/150',
+                    shape: 'circularImage',
+                    image: char.image_url || DEFAULT_IMAGE_URL,
                     borderWidth: 3,
-                    size: 30, // Tamanho do círculo
+                    size: 30,
                 };
-                
                 if (char.name === AKANE_NAME) {
                     nodeOptions.group = 'akane';
                     nodeOptions.fixed = true;
@@ -261,41 +161,57 @@
                 nodes: { font: { size: 16, color: '#333' } },
                 edges: { color: '#888', width: 2 },
                 groups: {
-                    akane: {
-                        shape: 'circularImage',
-                        color: { border: '#e67e22', background: '#f1c40f' },
-                        size: 40,
-                    }
+                    akane: { shape: 'circularImage', color: { border: '#e67e22' }, size: 40 }
                 }
             };
 
             const mapContainer = document.getElementById('relationship-map');
             if (network) network.destroy();
             network = new vis.Network(mapContainer, data, options);
+
             network.on("doubleClick", (params) => {
-                if (params.nodes.length > 0) showCharacterModal(params.nodes[0]);
+                if (params.nodes.length > 0) {
+                    showCharacterModal(params.nodes[0]);
+                }
             });
         }
-        
-        // O restante do seu JavaScript (funções de criar, deletar, modal, etc.) continua aqui...
-        // ... (código anterior sem alterações) ...
-        const createCharacterForm = document.getElementById('create-character-form');
-        createCharacterForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const charName = document.getElementById('new-char-name').value.trim();
-            if (charName) {
-                await characterDetailsCollection.doc(charName).set({ name: charName, image_url: '', description: '', how_akane_met: '' }, { merge: true });
-                createCharacterForm.reset();
-                alert(`Personagem '${charName}' criado!`);
-            }
-        });
-        
-        const deleteCharacterDetails = async (docId) => {
-            if (confirm("Excluir este personagem e todas as suas conexões?")) {
-                await characterDetailsCollection.doc(docId).delete();
-                // Deletar conexões é uma boa prática, mas omitido por simplicidade agora.
-            }
+
+        async function showCharacterModal(characterName) {
+            const details = allCharacterDetails[characterName];
+            if (!details) return;
+
+            document.getElementById('modal-image').src = details.image_url || DEFAULT_IMAGE_URL;
+            document.getElementById('modal-name').textContent = details.name;
+            document.getElementById('modal-description').textContent = details.description || 'Nenhuma descrição.';
+            document.getElementById('modal-akane-met').textContent = details.how_akane_met || 'Não especificado.';
+            
+            document.getElementById('modal-edit-btn').onclick = () => {
+                editCharacterDetails(details.id, details);
+                characterModal.style.display = 'none';
+            };
+            characterModal.style.display = 'flex';
+        }
+
+        const editCharacterDetails = (docId, data) => {
+            characterManagementContent.style.display = 'block';
+            characterDetailsForm.style.display = 'block';
+            charDocIdInput.value = docId;
+            charNameInput.value = data.name;
+            charImageUrlInput.value = data.image_url || '';
+            charDescriptionInput.value = data.description || '';
+            charHowMetInput.value = data.how_akane_met || '';
+            document.getElementById('char-form-title').textContent = `Editar Personagem: ${data.name}`;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         };
+        
+        function resetCharForm() {
+            characterDetailsForm.reset();
+            charDocIdInput.value = '';
+            document.getElementById('char-form-title').textContent = 'Editar Personagem';
+            cancelCharEditBtn.style.display = 'none';
+        }
+
+        // --- OBSERVERS (LISTENERS DO FIREBASE) ---
 
         characterDetailsCollection.onSnapshot(snapshot => {
             allCharacterDetails = {};
@@ -303,12 +219,17 @@
             
             characterDetailsList.innerHTML = '';
             const sortedChars = Object.values(allCharacterDetails).sort((a,b) => a.name.localeCompare(b.name));
+            
             sortedChars.forEach(char => {
                 const li = document.createElement('li');
                 li.className = 'character-list-item';
                 li.innerHTML = `<span>${char.name}</span><div><button class="edit-btn">Editar</button><button class="delete-btn">Excluir</button></div>`;
                 li.querySelector('.edit-btn').addEventListener('click', () => editCharacterDetails(char.id, char));
-                li.querySelector('.delete-btn').addEventListener('click', () => deleteCharacterDetails(char.id));
+                li.querySelector('.delete-btn').addEventListener('click', async () => {
+                    if (confirm("Excluir este personagem e todas as suas conexões?")) {
+                        await characterDetailsCollection.doc(char.id).delete();
+                    }
+                });
                 characterDetailsList.appendChild(li);
             });
 
@@ -319,32 +240,106 @@
             populateSelects(char1Select);
             populateSelects(char2Select);
             
-            loadRelationshipsAndMap();
-        });
-
-        function loadRelationshipsAndMap() {
-            linksCollection.onSnapshot(snapshot => {
-                allRelationships = snapshot.docs.map(doc => doc.data());
+            linksCollection.onSnapshot(linkSnapshot => {
+                allRelationships = linkSnapshot.docs.map(doc => doc.data());
                 drawRelationshipMap();
             });
-        }
+        });
 
-        async function showCharacterModal(characterName) {
-            const details = allCharacterDetails[characterName];
-            if (!details) return;
-            document.getElementById('modal-image').src = details.image_url || 'https://via.placeholder.com/150';
-            document.getElementById('modal-name').textContent = details.name;
-            document.getElementById('modal-description').textContent = details.description || 'Nenhuma descrição.';
-            document.getElementById('modal-akane-met').textContent = details.how_akane_met || 'Não especificado.';
-            document.getElementById('modal-edit-btn').onclick = () => {
-                editCharacterDetails(details.id, details);
-                characterModal.style.display = 'none';
-            };
-            characterModal.style.display = 'flex';
-        }
-        document.querySelector('#character-modal .close-button').addEventListener('click', () => characterModal.style.display = 'none');
-        document.getElementById('social-link-form').addEventListener('submit', async (e) => { e.preventDefault(); await linksCollection.add({ char1: char1Select.value, char2: char2Select.value }); });
+        // --- EVENT LISTENERS (AÇÕES DO USUÁRIO) ---
+
+        // Botão principal para mostrar/esconder a área de gerenciamento
+        toggleCharManagementBtn.addEventListener('click', () => {
+            const isVisible = characterManagementContent.style.display !== 'none';
+            characterManagementContent.style.display = isVisible ? 'none' : 'block';
+        });
         
+        // Criar um novo personagem (nome simples)
+        createCharacterForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const charName = newCharNameInput.value.trim();
+            if (charName) {
+                await characterDetailsCollection.doc(charName).set({ name: charName }, { merge: true });
+                newCharNameInput.value = '';
+                alert(`Personagem '${charName}' criado! Agora clique em "Gerenciar Personagens" para editar os detalhes.`);
+            }
+        });
+
+        // Salvar as alterações do formulário de edição
+        characterDetailsForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const charDocId = charDocIdInput.value;
+            if (!charDocId) return alert("ID do personagem não encontrado.");
+
+            const charData = {
+                name: charNameInput.value,
+                image_url: charImageUrlInput.value,
+                description: charDescriptionInput.value,
+                how_akane_met: charHowMetInput.value
+            };
+            await characterDetailsCollection.doc(charDocId).update(charData);
+            resetCharForm();
+            alert("Personagem atualizado!");
+        });
+
+        // Cancelar edição
+        cancelCharEditBtn.addEventListener('click', resetCharForm);
+        
+        // Criar uma nova conexão entre personagens
+        document.getElementById('social-link-form').addEventListener('submit', async (e) => { 
+            e.preventDefault(); 
+            await linksCollection.add({ char1: char1Select.value, char2: char2Select.value });
+            alert('Conexão criada!');
+        });
+        
+        // Fechar o modal de detalhes
+        characterModal.querySelector('.close-button').addEventListener('click', () => {
+            characterModal.style.display = 'none';
+        });
+
+        // Lógica do Upload e Corte de Imagem
+        charImageUploadInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            currentFileToCrop = file;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                imageToCrop.src = event.target.result;
+                cropperModal.style.display = 'flex';
+                if (cropper) cropper.destroy();
+                cropper = new Cropper(imageToCrop, {
+                    aspectRatio: 1, viewMode: 1, background: false, autoCropArea: 0.8,
+                });
+            };
+            reader.readAsDataURL(file);
+        });
+
+        saveCropBtn.addEventListener('click', () => {
+            if (!cropper) return;
+            saveCropBtn.textContent = 'Enviando...';
+            saveCropBtn.disabled = true;
+
+            cropper.getCroppedCanvas({ width: 512, height: 512 }).toBlob(async (blob) => {
+                const charName = charNameInput.value.trim() || 'personagem';
+                const fileName = `char_${charName.replace(/\s+/g, '_')}_${Date.now()}.png`;
+                const storageRef = storage.ref(`character_images/${fileName}`);
+                
+                try {
+                    const uploadTask = await storageRef.put(blob);
+                    const downloadURL = await uploadTask.ref.getDownloadURL();
+                    charImageUrlInput.value = downloadURL;
+                    cropperModal.style.display = 'none';
+                    alert('Imagem enviada com sucesso!');
+                } catch (error) {
+                    console.error("Erro no upload: ", error);
+                    alert("Falha no upload da imagem.");
+                } finally {
+                    saveCropBtn.textContent = 'Salvar Corte';
+                    saveCropBtn.disabled = false;
+                }
+            }, 'image/png');
+        });
     </script>
 </body>
 </html>
