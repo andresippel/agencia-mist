@@ -224,7 +224,7 @@
     </div>
 
     <script>
-        
+       
         const db = firebase.firestore();
 
         const linksCollection = db.collection("social_links");
@@ -364,9 +364,7 @@
         };
 
         const editCharacterDetails = (docId, data) => {
-            // Torna o formulário de gerenciamento visível
             characterManagementContent.style.display = 'block';
-
             charDocIdInput.value = docId;
             charNameInput.value = data.name;
             charImageUrlInput.value = data.image_url;
@@ -426,11 +424,8 @@
             const nodes = new vis.DataSet();
             const edges = new vis.DataSet();
             
-            // Adiciona a Akane como estrela central se ela existir no banco
-            const akaneNodeExists = Object.values(allCharacterDetails).some(char => char.name === AKANE_NAME);
-            
-            if (akaneNodeExists) {
-                const akaneData = allCharacterDetails[AKANE_NAME];
+            const akaneData = allCharacterDetails[AKANE_NAME];
+            if (akaneData) {
                 nodes.add({ 
                     id: AKANE_NAME, 
                     label: AKANE_NAME, 
@@ -438,14 +433,11 @@
                     fixed: true, 
                     x: 0, 
                     y: 0, 
-                    image: akaneData?.image_url || 'https://via.placeholder.com/150',
+                    image: akaneData.image_url || 'https://via.placeholder.com/150',
                     shape: 'image'
                 });
-            } else {
-                 nodes.add({ id: AKANE_NAME, label: AKANE_NAME, group: 'akane', fixed: true, x: 0, y: 0 });
             }
 
-            // Adiciona todos os outros personagens que tiverem detalhes no banco
             Object.values(allCharacterDetails).forEach(char => {
                 if (char.name !== AKANE_NAME) {
                     nodes.add({ 
