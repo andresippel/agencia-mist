@@ -177,7 +177,7 @@
                             <textarea id="char-how-met" rows="3"></textarea>
                         </div>
                         <button type="submit" id="save-char-btn">Salvar Alterações</button>
-                        <button type="button" id="cancel-char-edit-btn" style="display: none;">Cancelar</button>
+                        <button type="button" id="cancel-char-edit-btn">Cancelar</button>
                     </form>
                     <hr style="margin: 20px 0;">
                     <h3>Personagens Cadastrados</h3>
@@ -364,6 +364,9 @@
         };
 
         const editCharacterDetails = (docId, data) => {
+            // Torna o formulário de gerenciamento visível
+            characterManagementContent.style.display = 'block';
+
             charDocIdInput.value = docId;
             charNameInput.value = data.name;
             charImageUrlInput.value = data.image_url;
@@ -424,10 +427,10 @@
             const edges = new vis.DataSet();
             
             // Adiciona a Akane como estrela central se ela existir no banco
-            const akaneData = allCharacterDetails[AKANE_NAME];
             const akaneNodeExists = Object.values(allCharacterDetails).some(char => char.name === AKANE_NAME);
             
             if (akaneNodeExists) {
+                const akaneData = allCharacterDetails[AKANE_NAME];
                 nodes.add({ 
                     id: AKANE_NAME, 
                     label: AKANE_NAME, 
@@ -438,6 +441,8 @@
                     image: akaneData?.image_url || 'https://via.placeholder.com/150',
                     shape: 'image'
                 });
+            } else {
+                 nodes.add({ id: AKANE_NAME, label: AKANE_NAME, group: 'akane', fixed: true, x: 0, y: 0 });
             }
 
             // Adiciona todos os outros personagens que tiverem detalhes no banco
