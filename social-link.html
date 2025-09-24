@@ -208,11 +208,12 @@
             <p id="modal-description" class="modal-character-description"></p>
             <h4 id="modal-akane-met-title" class="modal-section-title">Como Akane Conheceu</h4>
             <p id="modal-akane-met" class="modal-akane-met"></p>
+            <button id="modal-edit-btn" class="edit-btn" style="margin-top: 20px;">Editar Detalhes</button>
         </div>
     </div>
 
     <script>
-        // Não declare 'firebaseConfig' aqui, pois ela já está no auth-check.js
+       
         const db = firebase.firestore();
 
         const linksCollection = db.collection("social_links");
@@ -250,6 +251,8 @@
         const modalDescription = document.getElementById('modal-description');
         const modalAkaneMet = document.getElementById('modal-akane-met');
         const modalAkaneMetTitle = document.getElementById('modal-akane-met-title');
+        const modalEditBtn = document.getElementById('modal-edit-btn');
+        let currentModalCharacterId = null;
 
         toggleCharManagementBtn.addEventListener('click', () => {
             const isVisible = characterManagementContent.style.display !== 'none';
@@ -264,27 +267,36 @@
         });
 
         async function showCharacterModal(characterName) {
+            currentModalCharacterId = characterName;
             const details = allCharacterDetails[characterName];
-            if (details) {
-                modalImage.src = details.image_url || 'https://via.placeholder.com/150';
-                modalName.textContent = details.name;
-                modalDescription.textContent = details.description || 'Nenhuma descrição disponível.';
+            
+            modalImage.src = details?.image_url || 'https://via.placeholder.com/150';
+            modalName.textContent = details?.name || characterName;
+            modalDescription.textContent = details?.description || 'Nenhuma descrição disponível.';
 
-                if (characterName === AKANE_NAME) {
-                    modalAkaneMetTitle.style.display = 'none';
-                    modalAkaneMet.style.display = 'none';
-                } else {
-                    modalAkaneMetTitle.style.display = 'block';
-                    modalAkaneMet.style.display = 'block';
-                    modalAkaneMet.textContent = details.how_akane_met || `Como Akane conheceu ${details.name}: Informação não disponível.`;
-                }
-
-                characterModal.style.display = 'flex';
+            if (characterName === AKANE_NAME) {
+                modalAkaneMetTitle.style.display = 'none';
+                modalAkaneMet.style.display = 'none';
             } else {
-                alert(`Detalhes para ${characterName} não encontrados.`);
+                modalAkaneMetTitle.style.display = 'block';
+                modalAkaneMet.style.display = 'block';
+                modalAkaneMet.textContent = details?.how_akane_met || `Como Akane conheceu ${details?.name || characterName}: Informação não disponível.`;
             }
+
+            modalEditBtn.style.display = 'block';
+            characterModal.style.display = 'flex';
         }
-        
+
+        modalEditBtn.addEventListener('click', () => {
+            if (currentModalCharacterId) {
+                const details = allCharacterDetails[currentModalCharacterId];
+                if (details) {
+                    editCharacterDetails(details.id, details);
+                    characterModal.style.display = 'none';
+                }
+            }
+        });
+
         function resetCharForm() {
             characterDetailsForm.reset();
             charDocIdInput.value = '';
@@ -383,33 +395,22 @@
             const nodes = new vis.DataSet();
             const edges = new vis.DataSet();
             
-            // Garante que a Akane seja sempre adicionada primeiro, se existir.
-            const akaneData = allCharacterDetails[AKANE_NAME];
-            if (akaneData) {
-                nodes.add({ 
-                    id: AKANE_NAME, 
-                    label: AKANE_NAME, 
-                    group: 'akane', 
-                    fixed: true, 
-                    x: 0, 
-                    y: 0, 
-                    image: akaneData.image_url || 'https://via.placeholder.com/150',
-                    shape: 'image'
-                });
-            } else {
-                 nodes.add({ id: AKANE_NAME, label: AKANE_NAME, group: 'akane', fixed: true, x: 0, y: 0 });
-            }
-
             Object.values(allCharacterDetails).forEach(char => {
-                if (char.name !== AKANE_NAME) {
-                    nodes.add({ 
-                        id: char.name, 
-                        label: char.name, 
-                        group: 'other', 
-                        image: char.image_url || 'https://via.placeholder.com/150',
-                        shape: 'image'
-                    });
+                 let nodeOptions = { 
+                    id: char.name, 
+                    label: char.name, 
+                    image: char.image_url || 'https://via.placeholder.com/150',
+                    shape: 'image'
+                 };
+                if (char.name === AKANE_NAME) {
+                    nodeOptions.group = 'akane';
+                    nodeOptions.fixed = true;
+                    nodeOptions.x = 0;
+                    nodeOptions.y = 0;
+                } else {
+                    nodeOptions.group = 'other';
                 }
+                nodes.add(nodeOptions);
             });
 
             allRelationships.forEach(link => {
