@@ -251,7 +251,6 @@
         const modalAkaneMet = document.getElementById('modal-akane-met');
         const modalAkaneMetTitle = document.getElementById('modal-akane-met-title');
 
-        // Corrigido o evento do botão Gerenciar Personagens
         toggleCharManagementBtn.addEventListener('click', () => {
             const isVisible = characterManagementContent.style.display !== 'none';
             characterManagementContent.style.display = isVisible ? 'none' : 'block';
@@ -271,7 +270,6 @@
                 modalName.textContent = details.name;
                 modalDescription.textContent = details.description || 'Nenhuma descrição disponível.';
 
-                // Mostra ou esconde a seção "Como Akane Conheceu"
                 if (characterName === AKANE_NAME) {
                     modalAkaneMetTitle.style.display = 'none';
                     modalAkaneMet.style.display = 'none';
@@ -337,7 +335,6 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         };
 
-
         characterDetailsCollection.onSnapshot(detailsSnapshot => {
             allCharacterDetails = {};
             detailsSnapshot.docs.forEach(doc => {
@@ -375,14 +372,12 @@
             loadRelationshipsAndMap();
         });
 
-
         function loadRelationshipsAndMap() {
             linksCollection.onSnapshot(linkSnapshot => {
                 allRelationships = linkSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 drawRelationshipMap();
             });
         }
-
 
         function drawRelationshipMap() {
             const nodes = new vis.DataSet();
@@ -392,7 +387,7 @@
                  let nodeOptions = { 
                     id: char.name, 
                     label: char.name, 
-                    image: char.image_url || 'https://via.placeholder.com/150', // Imagem padrão
+                    image: char.image_url || 'https://via.placeholder.com/150',
                     shape: 'image'
                  };
                 if (char.name === AKANE_NAME) {
