@@ -212,7 +212,7 @@
     </div>
 
     <script>
-        
+        // Não declare 'firebaseConfig' aqui, pois ela já está no auth-check.js
         const db = firebase.firestore();
 
         const linksCollection = db.collection("social_links");
@@ -383,22 +383,33 @@
             const nodes = new vis.DataSet();
             const edges = new vis.DataSet();
             
-            Object.values(allCharacterDetails).forEach(char => {
-                 let nodeOptions = { 
-                    id: char.name, 
-                    label: char.name, 
-                    image: char.image_url || 'https://via.placeholder.com/150',
+            // Garante que a Akane seja sempre adicionada primeiro, se existir.
+            const akaneData = allCharacterDetails[AKANE_NAME];
+            if (akaneData) {
+                nodes.add({ 
+                    id: AKANE_NAME, 
+                    label: AKANE_NAME, 
+                    group: 'akane', 
+                    fixed: true, 
+                    x: 0, 
+                    y: 0, 
+                    image: akaneData.image_url || 'https://via.placeholder.com/150',
                     shape: 'image'
-                 };
-                if (char.name === AKANE_NAME) {
-                    nodeOptions.group = 'akane';
-                    nodeOptions.fixed = true;
-                    nodeOptions.x = 0;
-                    nodeOptions.y = 0;
-                } else {
-                    nodeOptions.group = 'other';
+                });
+            } else {
+                 nodes.add({ id: AKANE_NAME, label: AKANE_NAME, group: 'akane', fixed: true, x: 0, y: 0 });
+            }
+
+            Object.values(allCharacterDetails).forEach(char => {
+                if (char.name !== AKANE_NAME) {
+                    nodes.add({ 
+                        id: char.name, 
+                        label: char.name, 
+                        group: 'other', 
+                        image: char.image_url || 'https://via.placeholder.com/150',
+                        shape: 'image'
+                    });
                 }
-                nodes.add(nodeOptions);
             });
 
             allRelationships.forEach(link => {
