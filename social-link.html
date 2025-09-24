@@ -309,7 +309,14 @@
                 cropperModal.style.display = 'flex';
                 if (cropper) cropper.destroy();
                 cropper = new Cropper(imageToCrop, {
-                    aspectRatio: 1, viewMode: 1, background: false, autoCropArea: 0.8,
+                    aspectRatio: 1, // Mantém o corte quadrado
+                    viewMode: 1,    // Define o modo de visualização (0, 1, 2, 3). 1 é bom para interação.
+                    background: false, // Sem fundo quadriculado no container do cropper
+                    autoCropArea: 0.8, // Área de corte inicial (80% da imagem)
+                    movable: true,  // Permite mover a imagem dentro do container
+                    zoomable: true, // Permite zoom na imagem
+                    rotatable: false, // Desativa rotação, já que queremos um círculo
+                    scalable: false, // Desativa espelhamento (flip)
                 });
             };
             reader.readAsDataURL(file);
