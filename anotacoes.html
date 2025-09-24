@@ -62,7 +62,40 @@
         const cancelBtn = document.getElementById('cancel-btn');
 
         const resetForm = () => { form.reset(); form['note-id'].value = ''; formTitle.textContent = 'Adicionar Nova Anotação'; submitBtn.textContent = 'Salvar Anotação'; cancelBtn.style.display = 'none'; };
-        form.addEventListener('submit', async (e) => { e.preventDefault(); const noteId = form['note-id'].value; const noteData = { author: form['note-author'].value, text: form['note-text'].value, }; if (noteId) { await notesCollection.doc(noteId).update(noteData); } else { noteData.createdAt = firebase.firestore.FieldValue.serverTimestamp(); await notesCollection.add(noteData); } resetForm(); });
+        // Dentro da sua função de salvar anotação (provavelmente no 'submit' do formulário)
+// Adicione a referência à coleção do estado do jogo
+        const gameStateCollection = db.collection("game_state");
+
+        // No seu código de envio do formulário, faça o seguinte:
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            try {
+                // Busca a data do jogo no Firebase
+                const gameStateDoc = await gameStateCollection.doc("current_date").get();
+                let gameDate = "Data não encontrada";
+                if (gameStateDoc.exists) {
+                    const data = gameStateDoc.data();
+                    const dateStr = data.date; // Ex: '08/10'
+                    const yearStr = data.year; // Ex: '20'
+                    gameDate = `${dateStr}/${yearStr}`; // Formata como 'dd/mm/aa'
+                }
+
+                const noteData = {
+                    title: document.getElementById('note-title').value,
+                    content: document.getElementById('note-content').value,
+                    createdAt: gameDate
+                };
+
+                await notesCollection.add(noteData);
+                alert("Anotação salva com sucesso!");
+                form.reset();
+            } catch (error) {
+                console.error("Erro ao salvar a anotação: ", error);
+                alert("Erro ao salvar a anotação. Verifique o console.");
+            }
+        });
+        //form.addEventListener('submit', async (e) => { e.preventDefault(); const noteId = form['note-id'].value; const noteData = { author: form['note-author'].value, text: form['note-text'].value, }; if (noteId) { await notesCollection.doc(noteId).update(noteData); } else { noteData.createdAt = firebase.firestore.FieldValue.serverTimestamp(); await notesCollection.add(noteData); } resetForm(); });
         const deleteNote = async (id, author) => { if (confirm(`Tem certeza que deseja excluir a anotação de ${author}?`)) { await notesCollection.doc(id).delete(); } };
         const editNote = (id, data) => { form['note-id'].value = id; form['note-author'].value = data.author; form['note-text'].value = data.text; formTitle.textContent = 'Editando Anotação'; submitBtn.textContent = 'Salvar Alterações'; cancelBtn.style.display = 'inline-block'; window.scrollTo({ top: 0, behavior: 'smooth' }); };
         cancelBtn.addEventListener('click', resetForm);
