@@ -113,9 +113,6 @@
         #character-management-container {
             margin-bottom: 40px;
         }
-        #character-details-form {
-            display: none;
-        }
         .character-list-item {
             display: flex;
             justify-content: space-between;
@@ -224,6 +221,7 @@
     </div>
 
     <script>
+      
         const db = firebase.firestore();
 
         const linksCollection = db.collection("social_links");
@@ -364,6 +362,7 @@
 
         const editCharacterDetails = (docId, data) => {
             characterManagementContent.style.display = 'block';
+            characterDetailsForm.style.display = 'block';
             charDocIdInput.value = docId;
             charNameInput.value = data.name;
             charImageUrlInput.value = data.image_url;
