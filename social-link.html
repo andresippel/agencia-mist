@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Relações entre Personagens - Agência MIST</title>
+    <title>Mapa de Relações de Akane - Agência MIST</title>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
@@ -18,7 +18,7 @@
         .form-container h3 { margin-top: 0; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
-        .form-group select, .form-group input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
+        .form-group select, .form-group input, .form-group textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
         th { background-color: #f2f2f2; }
@@ -28,33 +28,115 @@
         .character-management { margin-bottom: 20px; text-align: right; }
         .add-character-form { display: none; margin-top: 15px; }
         
-        /* Estilos do novo mapa de relações */
+        /* Estilos do Mapa de Relações */
         #relationship-map {
             width: 100%;
             height: 600px;
             border: 1px solid lightgray;
             border-radius: 8px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
         }
 
-        .filter-options {
-            display: flex;
-            gap: 20px;
-            margin-bottom: 20px;
-            background-color: #f9f9f9;
-            padding: 15px;
-            border-radius: 8px;
+        /* Estilos do Modal (Pop-up) */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1000; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+            justify-content: center;
+            align-items: center;
         }
-        .filter-options .form-group {
-            flex: 1;
-            margin-bottom: 0;
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 30px;
+            border: 1px solid #888;
+            border-radius: 10px;
+            width: 80%;
+            max-width: 600px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+        .close-button {
+            color: #aaa;
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .modal-character-image {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-bottom: 20px;
+            border: 3px solid #ddd;
+        }
+        .modal-character-name {
+            font-size: 2em;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .modal-section-title {
+            font-size: 1.2em;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            color: #555;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+            width: 80%;
+        }
+        .modal-character-description, .modal-akane-met {
+            font-size: 1em;
+            line-height: 1.6;
+            color: #666;
+            margin-bottom: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+            text-align: left;
+            width: 90%;
+            padding: 0 10px;
+        }
+        #character-management-container {
+            margin-bottom: 40px;
+        }
+        #character-details-form {
+            display: none;
+        }
+        .character-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .character-list-item:last-child {
+            border-bottom: none;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>Relações entre Personagens</h1>
+            <h1>Mapa de Relações de Akane</h1>
             <nav>
                 <a href="index.html" style="margin-right: 20px;">Página Inicial</a>
                 <a href="#" onclick="logout()">Sair</a>
@@ -62,34 +144,45 @@
         </header>
 
         <main>
-            <div class="character-management">
-                <button id="show-add-char-btn" class="secondary-btn">Gerenciar Personagens</button>
-                <div id="add-character-form-container" class="form-container add-character-form">
-                    <h3>Adicionar Novo Personagem</h3>
-                    <form id="add-character-form">
-                        <div class="form-group">
-                            <label for="new-char-name">Nome do Personagem:</label>
-                            <input type="text" id="new-char-name" required>
-                        </div>
-                        <button type="submit">Adicionar</button>
-                    </form>
-                    <ul id="character-list"></ul>
-                </div>
+            <div id="character-management-container" class="form-container">
+                <h3 id="char-form-title">Adicionar Novo Personagem</h3>
+                <form id="character-details-form">
+                    <input type="hidden" id="char-doc-id">
+                    <div class="form-group">
+                        <label for="char-name">Nome do Personagem:</label>
+                        <input type="text" id="char-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="char-image-url">URL da Imagem:</label>
+                        <input type="url" id="char-image-url">
+                    </div>
+                    <div class="form-group">
+                        <label for="char-description">Descrição:</label>
+                        <textarea id="char-description" rows="4"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="char-how-met">Como Akane o Conheceu:</label>
+                        <textarea id="char-how-met" rows="3"></textarea>
+                    </div>
+                    <button type="submit" id="save-char-btn">Salvar Personagem</button>
+                    <button type="button" id="cancel-char-edit-btn" style="display: none;">Cancelar</button>
+                </form>
+                <hr style="margin: 20px 0;">
+                <h3>Personagens Cadastrados</h3>
+                <ul id="character-details-list"></ul>
             </div>
 
             <div class="form-container">
-                <h3 id="form-title">Adicionar Nova Relação</h3>
+                <h3 id="form-title">Adicionar Nova Relação (Remetente -> Alvo)</h3>
                 <form id="social-link-form">
                     <input type="hidden" id="link-id">
                     <div class="form-group">
-                        <label for="char1">Personagem 1:</label>
-                        <select id="char1" required>
-                            </select>
+                        <label for="char1">Remetente:</label>
+                        <select id="char1" required></select>
                     </div>
                     <div class="form-group">
-                        <label for="char2">Personagem 2:</label>
-                        <select id="char2" required>
-                            </select>
+                        <label for="char2">Alvo:</label>
+                        <select id="char2" required></select>
                     </div>
                     <div class="form-group">
                         <label for="relationship">Nível de Relação (Ex: -100 a 100)</label>
@@ -102,13 +195,21 @@
 
             <hr style="margin: 40px 0;">
 
+            <div class="form-container">
+                <h3>Mapa de Relações</h3>
+                <p>Clique em um personagem no mapa para ver seus detalhes.</p>
+                <div id="relationship-map"></div>
+            </div>
+
+            <hr style="margin: 40px 0;">
+
             <div class="filter-options">
                 <div class="form-group">
-                    <label for="filter-char1">Filtrar por Personagem 1:</label>
+                    <label for="filter-char1">Filtrar por Remetente:</label>
                     <select id="filter-char1"></select>
                 </div>
                 <div class="form-group">
-                    <label for="filter-char2">Filtrar por Personagem 2:</label>
+                    <label for="filter-char2">Filtrar por Alvo:</label>
                     <select id="filter-char2"></select>
                 </div>
             </div>
@@ -117,32 +218,39 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>Personagem 1</th>
-                            <th>Personagem 2</th>
+                            <th>Remetente</th>
+                            <th>Alvo</th>
                             <th>Nível de Relação</th>
                             <th>Ações</th>
                         </tr>
                     </thead>
-                    <tbody id="links-table-body">
-                        </tbody>
+                    <tbody id="links-table-body"></tbody>
                 </table>
-            </div>
-
-            <hr style="margin: 40px 0;">
-
-            <div class="form-container">
-                <h3>Mapa de Relações</h3>
-                <div id="relationship-map"></div>
             </div>
         </main>
     </div>
 
+    <div id="character-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <img id="modal-image" src="" alt="Imagem do Personagem" class="modal-character-image">
+            <h2 id="modal-name" class="modal-character-name"></h2>
+            <h4 class="modal-section-title">Descrição</h4>
+            <p id="modal-description" class="modal-character-description"></p>
+            <h4 class="modal-section-title">Como Akane Conheceu</h4>
+            <p id="modal-akane-met" class="modal-akane-met"></p>
+        </div>
+    </div>
+
     <script>
-       
+        const firebaseConfig = { /* ...SEU OBJETO DE CONFIGURAÇÃO... */ };
+        firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
         const linksCollection = db.collection("social_links");
-        const charactersCollection = db.collection("characters");
+        const characterDetailsCollection = db.collection("character_details");
+
+        const AKANE_NAME = "Akane";
 
         const form = document.getElementById('social-link-form');
         const char1Select = document.getElementById('char1');
@@ -154,102 +262,248 @@
         const cancelBtn = document.getElementById('cancel-btn');
         const linkIdInput = document.getElementById('link-id');
 
-        const showAddCharBtn = document.getElementById('show-add-char-btn');
-        const addCharFormContainer = document.getElementById('add-character-form-container');
-        const addCharForm = document.getElementById('add-character-form');
-        const newCharNameInput = document.getElementById('new-char-name');
-        const characterList = document.getElementById('character-list');
-
         const filterChar1Select = document.getElementById('filter-char1');
         const filterChar2Select = document.getElementById('filter-char2');
 
         const mapContainer = document.getElementById('relationship-map');
         let network;
         let allRelationships = [];
-        let allCharacters = [];
+        let allCharacterDetails = {};
+        
+        const characterDetailsForm = document.getElementById('character-details-form');
+        const characterDetailsList = document.getElementById('character-details-list');
+        const charDocIdInput = document.getElementById('char-doc-id');
+        const charNameInput = document.getElementById('char-name');
+        const charImageUrlInput = document.getElementById('char-image-url');
+        const charDescriptionInput = document.getElementById('char-description');
+        const charHowMetInput = document.getElementById('char-how-met');
+        const saveCharBtn = document.getElementById('save-char-btn');
+        const cancelCharEditBtn = document.getElementById('cancel-char-edit-btn');
+        const charFormTitle = document.getElementById('char-form-title');
 
-        showAddCharBtn.addEventListener('click', () => {
-            const isVisible = addCharFormContainer.style.display === 'block';
-            addCharFormContainer.style.display = isVisible ? 'none' : 'block';
-        });
+        const characterModal = document.getElementById('character-modal');
+        const closeButton = document.querySelector('.close-button');
+        const modalImage = document.getElementById('modal-image');
+        const modalName = document.getElementById('modal-name');
+        const modalDescription = document.getElementById('modal-description');
+        const modalAkaneMet = document.getElementById('modal-akane-met');
 
-        addCharForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const charName = newCharNameInput.value.trim();
-            if (charName) {
-                await charactersCollection.add({ name: charName });
-                newCharNameInput.value = '';
+        closeButton.addEventListener('click', () => characterModal.style.display = 'none');
+        window.addEventListener('click', (event) => {
+            if (event.target == characterModal) {
+                characterModal.style.display = 'none';
             }
         });
 
-        const deleteCharacter = async (id) => {
-            if (confirm("Excluir este personagem?")) {
-                await charactersCollection.doc(id).delete();
+        async function showCharacterModal(characterName) {
+            if (characterName === AKANE_NAME) {
+                return;
+            }
+            const details = allCharacterDetails[characterName];
+            if (details) {
+                modalImage.src = details.image_url || 'https://via.placeholder.com/150';
+                modalName.textContent = details.name;
+                modalDescription.textContent = details.description || 'Nenhuma descrição disponível.';
+                modalAkaneMet.textContent = details.how_akane_met || `Como Akane conheceu ${details.name}: Informação não disponível.`;
+                characterModal.style.display = 'flex';
+            } else {
+                alert(`Detalhes para ${characterName} não encontrados.`);
+            }
+        }
+        
+        function resetCharForm() {
+            characterDetailsForm.reset();
+            charDocIdInput.value = '';
+            charFormTitle.textContent = 'Adicionar Novo Personagem';
+            saveCharBtn.textContent = 'Salvar Personagem';
+            cancelCharEditBtn.style.display = 'none';
+        }
+
+        characterDetailsForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const charData = {
+                name: charNameInput.value,
+                image_url: charImageUrlInput.value,
+                description: charDescriptionInput.value,
+                how_akane_met: charHowMetInput.value
+            };
+            const charDocId = charDocIdInput.value || charData.name;
+            try {
+                await characterDetailsCollection.doc(charDocId).set(charData, { merge: true });
+                resetCharForm();
+            } catch (error) {
+                console.error("Erro ao salvar o personagem: ", error);
+                alert("Erro ao salvar o personagem. Verifique o console.");
+            }
+        });
+
+        cancelCharEditBtn.addEventListener('click', resetCharForm);
+
+        const deleteCharacterDetails = async (docId) => {
+            if (confirm("Excluir este personagem? (Isso também removerá as relações existentes no mapa).")) {
+                await characterDetailsCollection.doc(docId).delete();
+                // Opcional: deletar as relações do personagem também
+                const relationsToDelete = await linksCollection.where("char1", "==", docId).get();
+                relationsToDelete.docs.forEach(doc => doc.ref.delete());
+                const inverseRelationsToDelete = await linksCollection.where("char2", "==", docId).get();
+                inverseRelationsToDelete.docs.forEach(doc => doc.ref.delete());
             }
         };
 
-        // Escuta os personagens e links para atualizar o mapa
-        charactersCollection.orderBy("name").onSnapshot(charSnapshot => {
-            allCharacters = charSnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
+        const editCharacterDetails = (docId, data) => {
+            charDocIdInput.value = docId;
+            charNameInput.value = data.name;
+            charImageUrlInput.value = data.image_url;
+            charDescriptionInput.value = data.description;
+            charHowMetInput.value = data.how_akane_met;
+            charFormTitle.textContent = 'Editar Personagem';
+            saveCharBtn.textContent = 'Atualizar Personagem';
+            cancelCharEditBtn.style.display = 'inline-block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
 
+
+        characterDetailsCollection.onSnapshot(detailsSnapshot => {
+            allCharacterDetails = {};
+            detailsSnapshot.docs.forEach(doc => {
+                allCharacterDetails[doc.id] = {id: doc.id, ...doc.data()};
+            });
+            
+            characterDetailsList.innerHTML = '';
+            const allCharactersArray = Object.values(allCharacterDetails);
+            allCharactersArray.sort((a,b) => a.name.localeCompare(b.name));
+            allCharactersArray.forEach(char => {
+                const li = document.createElement('li');
+                li.className = 'character-list-item';
+                li.innerHTML = `
+                    <span>${char.name}</span>
+                    <div>
+                        <button class="edit-btn">Editar</button>
+                        <button class="delete-btn">Excluir</button>
+                    </div>
+                `;
+                li.querySelector('.edit-btn').addEventListener('click', () => editCharacterDetails(char.id, char));
+                li.querySelector('.delete-btn').addEventListener('click', () => deleteCharacterDetails(char.id));
+                characterDetailsList.appendChild(li);
+            });
+
+            // Atualiza os selects do formulário e filtro
+            const charactersForSelect = allCharactersArray.map(char => ({ name: char.name }));
             const populateSelects = (selectElement, chars) => {
                 selectElement.innerHTML = `<option value="">Todos</option>`;
                 chars.forEach(char => {
                     selectElement.innerHTML += `<option value="${char.name}">${char.name}</option>`;
                 });
             };
-
-            populateSelects(char1Select, allCharacters);
-            populateSelects(char2Select, allCharacters);
-            populateSelects(filterChar1Select, allCharacters);
-            populateSelects(filterChar2Select, allCharacters);
+            populateSelects(char1Select, charactersForSelect);
+            populateSelects(char2Select, charactersForSelect);
+            populateSelects(filterChar1Select, charactersForSelect);
+            populateSelects(filterChar2Select, charactersForSelect);
             
-            characterList.innerHTML = '';
-            allCharacters.forEach(char => {
-                const li = document.createElement('li');
-                li.innerHTML = `${char.name} <button class="delete-btn" onclick="deleteCharacter('${char.id}')">X</button>`;
-                characterList.appendChild(li);
-            });
-
-            // Atualiza o mapa de relações com os dados completos
-            linksCollection.onSnapshot(linkSnapshot => {
-                allRelationships = linkSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-                const nodes = new vis.DataSet(allCharacters.map(char => ({ id: char.name, label: char.name })));
-                const edges = new vis.DataSet(allRelationships.map(link => {
-                    let color = 'gray';
-                    if (link.relationship > 0) {
-                        color = '#27ae60';
-                    } else if (link.relationship < 0) {
-                        color = '#c0392b';
-                    }
-                    return { 
-                        from: link.char1, 
-                        to: link.char2, 
-                        color: { color: color },
-                        label: String(link.relationship),
-                        arrows: 'to'
-                    };
-                }));
-
-                const data = { nodes: nodes, edges: edges };
-                const options = {
-                    physics: { enabled: true, stabilizing: false },
-                    edges: { smooth: true, width: 3 },
-                    nodes: { shape: 'circle', size: 25 },
-                    interaction: { hover: true, hoverConnectedEdges: true, selectable: true },
-                    layout: { hierarchical: { enabled: false } }
-                };
-
-                if (network) {
-                    network.destroy();
-                }
-                network = new vis.Network(mapContainer, data, options);
-                updateTable();
-            });
+            loadRelationshipsAndMap();
         });
 
-        // Adiciona os eventos de filtro
+
+        function loadRelationshipsAndMap() {
+            linksCollection.onSnapshot(linkSnapshot => {
+                allRelationships = linkSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                drawRelationshipMap();
+                updateTable();
+            });
+        }
+
+
+        function drawRelationshipMap() {
+            const nodes = new vis.DataSet();
+            const edges = new vis.DataSet();
+
+            const akaneNode = allCharacterDetails[AKANE_NAME];
+            if(akaneNode) {
+                nodes.add({ id: AKANE_NAME, label: AKANE_NAME, group: 'akane', fixed: true, x: 0, y: 0, image: akaneNode.image_url, shape: 'image' });
+            } else {
+                 nodes.add({ id: AKANE_NAME, label: AKANE_NAME, group: 'akane', fixed: true, x: 0, y: 0 });
+            }
+            
+            // Adiciona outros personagens e as arestas
+            allCharacters.forEach(char => {
+                if (char.name !== AKANE_NAME) {
+                     const charDetails = allCharacterDetails[char.name];
+                     if(charDetails) {
+                        nodes.add({ id: char.name, label: char.name, group: 'other', image: charDetails.image_url, shape: 'image' });
+                     } else {
+                        nodes.add({ id: char.name, label: char.name, group: 'other' });
+                     }
+                }
+            });
+            
+            allRelationships.forEach(link => {
+                let color = 'gray';
+                if (link.relationship > 0) {
+                    color = '#27ae60';
+                } else if (link.relationship < 0) {
+                    color = '#c0392b';
+                } else {
+                    color = '#f1c40f';
+                }
+
+                edges.add({ 
+                    from: link.char1, 
+                    to: link.char2, 
+                    color: { color: color },
+                    label: String(link.relationship),
+                    arrows: 'to',
+                    font: { align: 'middle', color: '#343434' },
+                    width: 2
+                });
+            });
+
+            const data = { nodes: nodes, edges: edges };
+            const options = {
+                physics: { enabled: true, solver: 'barnesHut', barnesHut: { gravitationalConstant: -2000, centralGravity: 0.3, springLength: 95, springConstant: 0.04, damping: 0.09, avoidOverlap: 1 } },
+                edges: { smooth: true, width: 3 },
+                nodes: { 
+                    shape: 'dot',
+                    size: 20, 
+                    font: { size: 14, color: '#333333' },
+                    borderWidth: 2,
+                    color: {
+                        border: '#2B7CE9',
+                        background: '#97C2E6',
+                        highlight: { border: '#2B7CE9', background: '#D2E5FF' },
+                        hover: { border: '#2B7CE9', background: '#D2E5FF' }
+                    }
+                },
+                groups: {
+                    akane: {
+                        shape: 'star',
+                        size: 30,
+                        color: { background: '#f1c40f', border: '#e67e22' },
+                        font: { size: 16, color: '#000000', bold: true }
+                    },
+                    other: {
+                        shape: 'dot',
+                        size: 20,
+                        color: { background: '#97C2E6', border: '#2B7CE9' }
+                    }
+                },
+                interaction: { hover: true, hoverConnectedEdges: true, selectable: true, multiselect: false },
+                layout: { hierarchical: { enabled: false } }
+            };
+
+            if (network) {
+                network.destroy();
+            }
+            network = new vis.Network(mapContainer, data, options);
+
+            network.on("click", function (params) {
+                if (params.nodes.length > 0) {
+                    const nodeId = params.nodes[0];
+                    showCharacterModal(nodeId);
+                }
+            });
+        }
+
+
         filterChar1Select.addEventListener('change', updateTable);
         filterChar2Select.addEventListener('change', updateTable);
 
@@ -283,7 +537,7 @@
         
         function resetForm() {
             form.reset();
-            formTitle.textContent = 'Adicionar Nova Relação';
+            formTitle.textContent = 'Adicionar Nova Relação (Remetente -> Alvo)';
             submitBtn.textContent = 'Salvar Relação';
             cancelBtn.style.display = 'none';
             linkIdInput.value = '';
@@ -329,7 +583,7 @@
 
         cancelBtn.addEventListener('click', resetForm);
         
-        window.deleteCharacter = deleteCharacter;
+        window.deleteCharacter = deleteCharacterDetails;
     </script>
 </body>
 </html>
