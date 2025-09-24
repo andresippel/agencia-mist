@@ -290,10 +290,8 @@
         modalEditBtn.addEventListener('click', () => {
             if (currentModalCharacterId) {
                 const details = allCharacterDetails[currentModalCharacterId];
-                if (details) {
-                    editCharacterDetails(details.id, details);
-                    characterModal.style.display = 'none';
-                }
+                editCharacterDetails(details.id, details);
+                characterModal.style.display = 'none';
             }
         });
 
@@ -395,20 +393,24 @@
             const nodes = new vis.DataSet();
             const edges = new vis.DataSet();
             
-            // Adiciona a Akane como estrela central se ela existir no banco
+            // Adiciona Akane como estrela central se ela existir no banco
             const akaneData = allCharacterDetails[AKANE_NAME];
-            nodes.add({ 
-                id: AKANE_NAME, 
-                label: AKANE_NAME, 
-                group: 'akane', 
-                fixed: true, 
-                x: 0, 
-                y: 0, 
-                image: akaneData?.image_url || 'https://via.placeholder.com/150',
-                shape: 'image'
-            });
+            if (akaneData) {
+                nodes.add({ 
+                    id: AKANE_NAME, 
+                    label: AKANE_NAME, 
+                    group: 'akane', 
+                    fixed: true, 
+                    x: 0, 
+                    y: 0, 
+                    image: akaneData.image_url || 'https://via.placeholder.com/150',
+                    shape: 'image'
+                });
+            } else {
+                nodes.add({ id: AKANE_NAME, label: AKANE_NAME, group: 'akane', fixed: true, x: 0, y: 0 });
+            }
 
-            // Adiciona todos os outros personagens
+            // Adiciona todos os outros personagens que tiverem detalhes no banco
             Object.values(allCharacterDetails).forEach(char => {
                 if (char.name !== AKANE_NAME) {
                     nodes.add({ 
