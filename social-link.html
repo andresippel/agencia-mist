@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mapa de Relações da Akane</title>
+    <title>Mapa de Relações - Agência MIST</title>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
@@ -60,10 +60,9 @@
                         <form id="character-details-form">
                             <input type="hidden" id="char-doc-id">
                             <div class="form-group"><label for="char-name">Nome:</label><input type="text" id="char-name" required></div>
-                            <div class="form-group"><label for="char-image-upload">Imagem do Personagem (Upload):</label><input type="file" id="char-image-upload" accept="image/*"></div>
-                            <div class="form-group"><label for="char-image-url">URL da Imagem (gerado automaticamente):</label><input type="text" id="char-image-url" readonly placeholder="Faça o upload para gerar a URL"></div>
-                            <div class="form-group"><label for="char-description">Descrição:</label><textarea id="char-description" rows="4"></textarea></div>
-                            <div class="form-group"><label for="char-how-met">Como Akane o Conheceu:</label><textarea id="char-how-met" rows="3"></textarea></div>
+                            <div class="form-group"><label for="char-image-upload">Imagem:</label><input type="file" id="char-image-upload" accept="image/*"></div>
+                            <div class="form-group"><label for="char-image-url">URL da Imagem:</label><input type="text" id="char-image-url" readonly></div>
+                            <div class="form-group"><label for="char-description">Descrição do Personagem:</label><textarea id="char-description" rows="4"></textarea></div>
                             <button type="submit" id="save-char-btn">Salvar Alterações</button>
                             <button type="button" id="cancel-char-edit-btn">Cancelar</button>
                         </form>
@@ -76,21 +75,30 @@
 
             <div class="form-container">
                 <h3>Criar Conexão</h3>
-                <form id="social-link-form"><div class="form-group"><label for="char1">De:</label><select id="char1" required></select></div><div class="form-group"><label for="char2">Para:</label><select id="char2" required></select></div><button type="submit">Criar Conexão</button></form>
+                <form id="social-link-form">
+                    <div class="form-group"><label for="char1">Personagem 1:</label><select id="char1" required></select></div>
+                    <div class="form-group"><label for="char2">Personagem 2:</label><select id="char2" required></select></div>
+                    <div class="form-group">
+                        <label for="relationship-description">Relacionamento (Ex: Aliados, Rivais, etc.):</label>
+                        <textarea id="relationship-description" rows="3"></textarea>
+                    </div>
+                    <button type="submit">Criar Conexão</button>
+                </form>
             </div>
             
             <hr style="margin: 40px 0;">
             
-            <div class="form-container"><h3>Mapa de Relações</h3><p>Clique duas vezes em um personagem para ver seus detalhes.</p><div id="relationship-map"></div></div>
+            <div class="form-container"><h3>Mapa de Relações</h3><p>Dê um duplo clique em um personagem para ver seus detalhes.</p><div id="relationship-map"></div></div>
         </main>
     </div>
 
-    <div id="character-modal" class="modal"><div class="modal-content"><span class="close-button">&times;</span><img id="modal-image" src="" class="modal-character-image"><h2 id="modal-name"></h2><h4>Descrição</h4><p id="modal-description"></p><h4>Como Akane Conheceu</h4><p id="modal-akane-met"></p><button id="modal-edit-btn" class="edit-btn" style="margin-top: 20px;">Editar Detalhes</button></div></div>
+    <div id="character-modal" class="modal"><div class="modal-content"><span class="close-button">&times;</span><img id="modal-image" src="" class="modal-character-image"><h2 id="modal-name"></h2><h4>Descrição</h4><p id="modal-description"></p><button id="modal-edit-btn" class="edit-btn" style="margin-top: 20px;">Editar Detalhes</button></div></div>
     <div id="cropper-modal" class="modal"><div class="modal-content"><h3>Recortar Imagem</h3><div><img id="image-to-crop" src=""></div><button id="save-crop-btn" class="edit-btn" style="margin-top: 20px;">Salvar Corte</button></div></div>
 
     <script>
         // --- CONFIGURAÇÃO INICIAL ---
-        
+        const firebaseConfig = { /* ...SEU OBJETO DE CONFIGURAÇÃO... */ };
+        firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const storage = firebase.storage();
 
@@ -105,13 +113,14 @@
         // --- MAPEAMENTO DO DOM ---
         const char1Select = document.getElementById('char1');
         const char2Select = document.getElementById('char2');
+        // MUDANÇA: Novo campo de descrição do relacionamento
+        const relationshipDescriptionInput = document.getElementById('relationship-description');
         const toggleCharManagementBtn = document.getElementById('toggle-char-management-btn');
         const characterManagementContent = document.getElementById('character-management-content');
         
         const createCharacterForm = document.getElementById('create-character-form');
         const newCharNameInput = document.getElementById('new-char-name');
         
-        // MUDANÇA: Wrapper para o formulário de edição
         const editFormWrapper = document.getElementById('edit-form-wrapper');
         const characterDetailsForm = document.getElementById('character-details-form');
         const characterDetailsList = document.getElementById('character-details-list');
@@ -120,7 +129,6 @@
         const charImageUrlInput = document.getElementById('char-image-url');
         const charImageUploadInput = document.getElementById('char-image-upload');
         const charDescriptionInput = document.getElementById('char-description');
-        const charHowMetInput = document.getElementById('char-how-met');
         const cancelCharEditBtn = document.getElementById('cancel-char-edit-btn');
         
         const characterModal = document.getElementById('character-modal');
@@ -139,11 +147,23 @@
                 if (char.name === AKANE_NAME) { Object.assign(nodeOptions, { group: 'akane', fixed: true, x: 0, y: 0 }); }
                 nodes.add(nodeOptions);
             });
-            allRelationships.forEach(link => edges.add({ from: link.char1, to: link.char2, arrows: 'to' }));
+            
+            // MUDANÇA: As linhas agora têm a descrição e não têm setas
+            allRelationships.forEach(link => {
+                edges.add({ 
+                    from: link.char1, 
+                    to: link.char2,
+                    label: link.description, // Adiciona o texto do relacionamento na linha
+                    font: { align: 'middle' }
+                    // A propriedade "arrows" foi removida para tirar as setas
+                });
+            });
+
             const data = { nodes, edges };
             const options = {
                 physics: { enabled: true, solver: 'barnesHut', barnesHut: { gravitationalConstant: -3000 } },
-                nodes: { font: { size: 16, color: '#333' } }, edges: { color: '#888', width: 2 },
+                nodes: { font: { size: 16, color: '#333' } }, 
+                edges: { color: '#888', width: 2, smooth: true },
                 groups: { akane: { shape: 'circularImage', color: { border: '#e67e22' }, size: 40 } }
             };
             const mapContainer = document.getElementById('relationship-map');
@@ -157,8 +177,8 @@
             if (!details) return;
             document.getElementById('modal-image').src = details.image_url || DEFAULT_IMAGE_URL;
             document.getElementById('modal-name').textContent = details.name;
-            document.getElementById('modal-description').textContent = details.description || 'Nenhuma descrição.';
-            document.getElementById('modal-akane-met').textContent = details.how_akane_met || 'Não especificado.';
+            document.getElementById('modal-description').textContent = details.description || 'Nenhuma descrição de personagem.';
+            // MUDANÇA: A seção "Como Akane conheceu" foi removida do modal
             document.getElementById('modal-edit-btn').onclick = () => {
                 characterModal.style.display = 'none';
                 editCharacterDetails(details.id, details);
@@ -167,18 +187,16 @@
         }
 
         const editCharacterDetails = (docId, data) => {
-            // MUDANÇA: Mostra o wrapper do formulário
             editFormWrapper.style.display = 'block';
             charDocIdInput.value = docId;
             charNameInput.value = data.name;
             charImageUrlInput.value = data.image_url || '';
             charDescriptionInput.value = data.description || '';
-            charHowMetInput.value = data.how_akane_met || '';
+            // MUDANÇA: Campo how_akane_met removido
             document.getElementById('char-form-title').textContent = `Editar Personagem: ${data.name}`;
             window.scrollTo({ top: editFormWrapper.offsetTop - 20, behavior: 'smooth' });
         };
         
-        // MUDANÇA: Função de reset agora também esconde o formulário
         function resetAndHideForm() {
             characterDetailsForm.reset();
             charDocIdInput.value = '';
@@ -186,7 +204,6 @@
         }
 
         // --- OBSERVERS (LISTENERS DO FIREBASE) ---
-
         db.collection("character_details").onSnapshot(snapshot => {
             allCharacterDetails = {};
             snapshot.docs.forEach(doc => { allCharacterDetails[doc.id] = {id: doc.id, ...doc.data()}; });
@@ -213,18 +230,17 @@
             populateSelects(char2Select);
             
             db.collection("social_links").onSnapshot(linkSnapshot => {
-                allRelationships = linkSnapshot.docs.map(doc => doc.data());
+                // MUDANÇA: Agora pegamos o ID do documento também, para futuras edições/exclusões
+                allRelationships = linkSnapshot.docs.map(doc => ({id: doc.id, ...doc.data()}));
                 drawRelationshipMap();
             });
         });
 
         // --- EVENT LISTENERS (AÇÕES DO USUÁRIO) ---
-
-        // MUDANÇA: Agora o botão de gerenciar esconde o formulário por padrão
         toggleCharManagementBtn.addEventListener('click', () => {
             const isVisible = characterManagementContent.style.display !== 'none';
             if (!isVisible) {
-                resetAndHideForm(); // Garante que o formulário estará escondido ao abrir
+                resetAndHideForm();
                 characterManagementContent.style.display = 'block';
             } else {
                 characterManagementContent.style.display = 'none';
@@ -246,8 +262,9 @@
             const charDocId = charDocIdInput.value;
             if (!charDocId) return;
             const charData = {
-                name: charNameInput.value, image_url: charImageUrlInput.value,
-                description: charDescriptionInput.value, how_akane_met: charHowMetInput.value
+                name: charNameInput.value, 
+                image_url: charImageUrlInput.value,
+                description: charDescriptionInput.value,
             };
             await db.collection("character_details").doc(charDocId).update(charData);
             resetAndHideForm();
@@ -256,9 +273,16 @@
 
         cancelCharEditBtn.addEventListener('click', resetAndHideForm);
         
+        // MUDANÇA: Salva a descrição do relacionamento no banco de dados
         document.getElementById('social-link-form').addEventListener('submit', async (e) => { 
             e.preventDefault(); 
-            await db.collection("social_links").add({ char1: char1Select.value, char2: char2Select.value });
+            const linkData = {
+                char1: char1Select.value, 
+                char2: char2Select.value,
+                description: relationshipDescriptionInput.value
+            };
+            await db.collection("social_links").add(linkData);
+            document.getElementById('social-link-form').reset();
             alert('Conexão criada!');
         });
         
