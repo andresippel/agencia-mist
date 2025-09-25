@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mapa de Relações - Agência MIST</title>
+    <title>Mapa de Relações da Akane</title>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
@@ -54,18 +54,23 @@
             <div class="form-container">
                 <button id="toggle-char-management-btn" class="secondary-btn">Gerenciar Personagens</button>
                 <div id="character-management-content" style="display: none;">
-                    <hr><h3 id="char-form-title">Editar Personagem</h3>
-                    <form id="character-details-form">
-                        <input type="hidden" id="char-doc-id">
-                        <div class="form-group"><label for="char-name">Nome:</label><input type="text" id="char-name" required></div>
-                        <div class="form-group"><label for="char-image-upload">Imagem do Personagem (Upload):</label><input type="file" id="char-image-upload" accept="image/*"></div>
-                        <div class="form-group"><label for="char-image-url">URL da Imagem (gerado automaticamente):</label><input type="text" id="char-image-url" readonly placeholder="Faça o upload para gerar a URL"></div>
-                        <div class="form-group"><label for="char-description">Descrição:</label><textarea id="char-description" rows="4"></textarea></div>
-                        <div class="form-group"><label for="char-how-met">Como Akane o Conheceu:</label><textarea id="char-how-met" rows="3"></textarea></div>
-                        <button type="submit" id="save-char-btn">Salvar Alterações</button>
-                        <button type="button" id="cancel-char-edit-btn">Cancelar</button>
-                    </form>
-                    <hr><h3>Personagens Cadastrados</h3><ul id="character-details-list"></ul>
+                    <hr>
+                    <div id="edit-form-wrapper" style="display: none;">
+                        <h3 id="char-form-title">Editar Personagem</h3>
+                        <form id="character-details-form">
+                            <input type="hidden" id="char-doc-id">
+                            <div class="form-group"><label for="char-name">Nome:</label><input type="text" id="char-name" required></div>
+                            <div class="form-group"><label for="char-image-upload">Imagem do Personagem (Upload):</label><input type="file" id="char-image-upload" accept="image/*"></div>
+                            <div class="form-group"><label for="char-image-url">URL da Imagem (gerado automaticamente):</label><input type="text" id="char-image-url" readonly placeholder="Faça o upload para gerar a URL"></div>
+                            <div class="form-group"><label for="char-description">Descrição:</label><textarea id="char-description" rows="4"></textarea></div>
+                            <div class="form-group"><label for="char-how-met">Como Akane o Conheceu:</label><textarea id="char-how-met" rows="3"></textarea></div>
+                            <button type="submit" id="save-char-btn">Salvar Alterações</button>
+                            <button type="button" id="cancel-char-edit-btn">Cancelar</button>
+                        </form>
+                        <hr>
+                    </div>
+                    <h3>Personagens Cadastrados</h3>
+                    <ul id="character-details-list"></ul>
                 </div>
             </div>
 
@@ -85,32 +90,29 @@
 
     <script>
         // --- CONFIGURAÇÃO INICIAL ---
-       
+        
         const db = firebase.firestore();
         const storage = firebase.storage();
 
         // --- CONSTANTES GLOBAIS ---
-        const linksCollection = db.collection("social_links");
-        const characterDetailsCollection = db.collection("character_details");
         const AKANE_NAME = "Akane";
         const DEFAULT_IMAGE_URL = 'https://dummyimage.com/150x150/cccccc/000000.png&text=Sem+Foto';
 
         // --- VARIÁVEIS DE ESTADO ---
         let network, cropper;
         let allRelationships = [], allCharacterDetails = {};
-        let currentFileToCrop;
 
-        // --- MAPEAMENTO DO DOM (ELEMENTOS DA PÁGINA) ---
+        // --- MAPEAMENTO DO DOM ---
         const char1Select = document.getElementById('char1');
         const char2Select = document.getElementById('char2');
         const toggleCharManagementBtn = document.getElementById('toggle-char-management-btn');
         const characterManagementContent = document.getElementById('character-management-content');
         
-        // Formulário de Criação
         const createCharacterForm = document.getElementById('create-character-form');
         const newCharNameInput = document.getElementById('new-char-name');
         
-        // Formulário de Edição
+        // MUDANÇA: Wrapper para o formulário de edição
+        const editFormWrapper = document.getElementById('edit-form-wrapper');
         const characterDetailsForm = document.getElementById('character-details-form');
         const characterDetailsList = document.getElementById('character-details-list');
         const charDocIdInput = document.getElementById('char-doc-id');
@@ -121,10 +123,7 @@
         const charHowMetInput = document.getElementById('char-how-met');
         const cancelCharEditBtn = document.getElementById('cancel-char-edit-btn');
         
-        // Modal de Detalhes
         const characterModal = document.getElementById('character-modal');
-        
-        // Modal do Cropper
         const cropperModal = document.getElementById('cropper-modal');
         const imageToCrop = document.getElementById('image-to-crop');
         const saveCropBtn = document.getElementById('save-crop-btn');
@@ -136,84 +135,59 @@
             const edges = new vis.DataSet();
             
             Object.values(allCharacterDetails).forEach(char => {
-                const nodeOptions = {
-                    id: char.name,
-                    label: char.name,
-                    shape: 'circularImage',
-                    image: char.image_url || DEFAULT_IMAGE_URL,
-                    borderWidth: 3,
-                    size: 30,
-                };
-                if (char.name === AKANE_NAME) {
-                    nodeOptions.group = 'akane';
-                    nodeOptions.fixed = true;
-                    nodeOptions.x = 0;
-                    nodeOptions.y = 0;
-                }
+                const nodeOptions = { id: char.name, label: char.name, shape: 'circularImage', image: char.image_url || DEFAULT_IMAGE_URL, borderWidth: 3, size: 30 };
+                if (char.name === AKANE_NAME) { Object.assign(nodeOptions, { group: 'akane', fixed: true, x: 0, y: 0 }); }
                 nodes.add(nodeOptions);
             });
-
             allRelationships.forEach(link => edges.add({ from: link.char1, to: link.char2, arrows: 'to' }));
-
             const data = { nodes, edges };
             const options = {
                 physics: { enabled: true, solver: 'barnesHut', barnesHut: { gravitationalConstant: -3000 } },
-                nodes: { font: { size: 16, color: '#333' } },
-                edges: { color: '#888', width: 2 },
-                groups: {
-                    akane: { shape: 'circularImage', color: { border: '#e67e22' }, size: 40 }
-                }
+                nodes: { font: { size: 16, color: '#333' } }, edges: { color: '#888', width: 2 },
+                groups: { akane: { shape: 'circularImage', color: { border: '#e67e22' }, size: 40 } }
             };
-
             const mapContainer = document.getElementById('relationship-map');
             if (network) network.destroy();
             network = new vis.Network(mapContainer, data, options);
-
-            network.on("doubleClick", (params) => {
-                if (params.nodes.length > 0) {
-                    showCharacterModal(params.nodes[0]);
-                }
-            });
+            network.on("doubleClick", params => { if (params.nodes.length > 0) showCharacterModal(params.nodes[0]); });
         }
 
         async function showCharacterModal(characterName) {
             const details = allCharacterDetails[characterName];
             if (!details) return;
-
             document.getElementById('modal-image').src = details.image_url || DEFAULT_IMAGE_URL;
             document.getElementById('modal-name').textContent = details.name;
             document.getElementById('modal-description').textContent = details.description || 'Nenhuma descrição.';
             document.getElementById('modal-akane-met').textContent = details.how_akane_met || 'Não especificado.';
-            
             document.getElementById('modal-edit-btn').onclick = () => {
-                editCharacterDetails(details.id, details);
                 characterModal.style.display = 'none';
+                editCharacterDetails(details.id, details);
             };
             characterModal.style.display = 'flex';
         }
 
         const editCharacterDetails = (docId, data) => {
-            characterManagementContent.style.display = 'block';
-            characterDetailsForm.style.display = 'block';
+            // MUDANÇA: Mostra o wrapper do formulário
+            editFormWrapper.style.display = 'block';
             charDocIdInput.value = docId;
             charNameInput.value = data.name;
             charImageUrlInput.value = data.image_url || '';
             charDescriptionInput.value = data.description || '';
             charHowMetInput.value = data.how_akane_met || '';
             document.getElementById('char-form-title').textContent = `Editar Personagem: ${data.name}`;
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            window.scrollTo({ top: editFormWrapper.offsetTop - 20, behavior: 'smooth' });
         };
         
-        function resetCharForm() {
+        // MUDANÇA: Função de reset agora também esconde o formulário
+        function resetAndHideForm() {
             characterDetailsForm.reset();
             charDocIdInput.value = '';
-            document.getElementById('char-form-title').textContent = 'Editar Personagem';
-            cancelCharEditBtn.style.display = 'none';
+            editFormWrapper.style.display = 'none';
         }
 
         // --- OBSERVERS (LISTENERS DO FIREBASE) ---
 
-        characterDetailsCollection.onSnapshot(snapshot => {
+        db.collection("character_details").onSnapshot(snapshot => {
             allCharacterDetails = {};
             snapshot.docs.forEach(doc => { allCharacterDetails[doc.id] = {id: doc.id, ...doc.data()}; });
             
@@ -226,9 +200,7 @@
                 li.innerHTML = `<span>${char.name}</span><div><button class="edit-btn">Editar</button><button class="delete-btn">Excluir</button></div>`;
                 li.querySelector('.edit-btn').addEventListener('click', () => editCharacterDetails(char.id, char));
                 li.querySelector('.delete-btn').addEventListener('click', async () => {
-                    if (confirm("Excluir este personagem e todas as suas conexões?")) {
-                        await characterDetailsCollection.doc(char.id).delete();
-                    }
+                    if (confirm("Excluir este personagem?")) { await db.collection("character_details").doc(char.id).delete(); }
                 });
                 characterDetailsList.appendChild(li);
             });
@@ -240,7 +212,7 @@
             populateSelects(char1Select);
             populateSelects(char2Select);
             
-            linksCollection.onSnapshot(linkSnapshot => {
+            db.collection("social_links").onSnapshot(linkSnapshot => {
                 allRelationships = linkSnapshot.docs.map(doc => doc.data());
                 drawRelationshipMap();
             });
@@ -248,75 +220,60 @@
 
         // --- EVENT LISTENERS (AÇÕES DO USUÁRIO) ---
 
-        // Botão principal para mostrar/esconder a área de gerenciamento
+        // MUDANÇA: Agora o botão de gerenciar esconde o formulário por padrão
         toggleCharManagementBtn.addEventListener('click', () => {
             const isVisible = characterManagementContent.style.display !== 'none';
-            characterManagementContent.style.display = isVisible ? 'none' : 'block';
+            if (!isVisible) {
+                resetAndHideForm(); // Garante que o formulário estará escondido ao abrir
+                characterManagementContent.style.display = 'block';
+            } else {
+                characterManagementContent.style.display = 'none';
+            }
         });
         
-        // Criar um novo personagem (nome simples)
         createCharacterForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const charName = newCharNameInput.value.trim();
             if (charName) {
-                await characterDetailsCollection.doc(charName).set({ name: charName }, { merge: true });
+                await db.collection("character_details").doc(charName).set({ name: charName }, { merge: true });
                 newCharNameInput.value = '';
-                alert(`Personagem '${charName}' criado! Agora clique em "Gerenciar Personagens" para editar os detalhes.`);
+                alert(`Personagem '${charName}' criado!`);
             }
         });
 
-        // Salvar as alterações do formulário de edição
         characterDetailsForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const charDocId = charDocIdInput.value;
-            if (!charDocId) return alert("ID do personagem não encontrado.");
-
+            if (!charDocId) return;
             const charData = {
-                name: charNameInput.value,
-                image_url: charImageUrlInput.value,
-                description: charDescriptionInput.value,
-                how_akane_met: charHowMetInput.value
+                name: charNameInput.value, image_url: charImageUrlInput.value,
+                description: charDescriptionInput.value, how_akane_met: charHowMetInput.value
             };
-            await characterDetailsCollection.doc(charDocId).update(charData);
-            resetCharForm();
+            await db.collection("character_details").doc(charDocId).update(charData);
+            resetAndHideForm();
             alert("Personagem atualizado!");
         });
 
-        // Cancelar edição
-        cancelCharEditBtn.addEventListener('click', resetCharForm);
+        cancelCharEditBtn.addEventListener('click', resetAndHideForm);
         
-        // Criar uma nova conexão entre personagens
         document.getElementById('social-link-form').addEventListener('submit', async (e) => { 
             e.preventDefault(); 
-            await linksCollection.add({ char1: char1Select.value, char2: char2Select.value });
+            await db.collection("social_links").add({ char1: char1Select.value, char2: char2Select.value });
             alert('Conexão criada!');
         });
         
-        // Fechar o modal de detalhes
-        characterModal.querySelector('.close-button').addEventListener('click', () => {
-            characterModal.style.display = 'none';
-        });
+        characterModal.querySelector('.close-button').addEventListener('click', () => { characterModal.style.display = 'none'; });
 
-        // Lógica do Upload e Corte de Imagem
         charImageUploadInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            currentFileToCrop = file;
-
+            const file = e.target.files[0]; if (!file) return;
             const reader = new FileReader();
             reader.onload = (event) => {
                 imageToCrop.src = event.target.result;
                 cropperModal.style.display = 'flex';
                 if (cropper) cropper.destroy();
                 cropper = new Cropper(imageToCrop, {
-                    aspectRatio: 1, // Mantém o corte quadrado
-                    viewMode: 1,    // Define o modo de visualização (0, 1, 2, 3). 1 é bom para interação.
-                    background: false, // Sem fundo quadriculado no container do cropper
-                    autoCropArea: 0.8, // Área de corte inicial (80% da imagem)
-                    movable: true,  // Permite mover a imagem dentro do container
-                    zoomable: true, // Permite zoom na imagem
-                    rotatable: false, // Desativa rotação, já que queremos um círculo
-                    scalable: false, // Desativa espelhamento (flip)
+                    aspectRatio: 1, viewMode: 1, background: false, autoCropArea: 0.8,
+                    movable: true, zoomable: true, rotatable: false, scalable: false,
                 });
             };
             reader.readAsDataURL(file);
@@ -324,27 +281,17 @@
 
         saveCropBtn.addEventListener('click', () => {
             if (!cropper) return;
-            saveCropBtn.textContent = 'Enviando...';
-            saveCropBtn.disabled = true;
-
+            saveCropBtn.textContent = 'Enviando...'; saveCropBtn.disabled = true;
             cropper.getCroppedCanvas({ width: 512, height: 512 }).toBlob(async (blob) => {
                 const charName = charNameInput.value.trim() || 'personagem';
                 const fileName = `char_${charName.replace(/\s+/g, '_')}_${Date.now()}.png`;
                 const storageRef = storage.ref(`character_images/${fileName}`);
-                
                 try {
                     const uploadTask = await storageRef.put(blob);
-                    const downloadURL = await uploadTask.ref.getDownloadURL();
-                    charImageUrlInput.value = downloadURL;
+                    charImageUrlInput.value = await uploadTask.ref.getDownloadURL();
                     cropperModal.style.display = 'none';
-                    alert('Imagem enviada com sucesso!');
-                } catch (error) {
-                    console.error("Erro no upload: ", error);
-                    alert("Falha no upload da imagem.");
-                } finally {
-                    saveCropBtn.textContent = 'Salvar Corte';
-                    saveCropBtn.disabled = false;
-                }
+                } catch (error) { console.error("Erro no upload: ", error); alert("Falha no upload."); }
+                finally { saveCropBtn.textContent = 'Salvar Corte'; saveCropBtn.disabled = false; }
             }, 'image/png');
         });
     </script>
