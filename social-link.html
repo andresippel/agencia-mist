@@ -48,7 +48,7 @@
         .social-heart.filled path { fill: #e74c3c; }
         .social-heart.empty path { fill: none; stroke: #888; stroke-width: 25; }
         
-        #custom-tooltip { position: absolute; background-color: #333; color: #fff; padding: 8px 12px; border-radius: 5px; font-size: 0.9em; white-space: nowrap; z-index: 2000; opacity: 0; visibility: hidden; transition: opacity 0.2s, visibility 0.2s; pointer-events: none; }
+        #custom-tooltip { position: fixed; background-color: #333; color: #fff; padding: 8px 12px; border-radius: 5px; font-size: 0.9em; white-space: nowrap; z-index: 2000; opacity: 0; visibility: hidden; transition: opacity 0.2s, visibility 0.2s; pointer-events: none; }
         #custom-tooltip.visible { opacity: 1; visibility: visible; }
     </style>
 </head>
@@ -122,8 +122,23 @@
         </main>
     </div>
 
-    <div id="character-modal" class="modal"><div class="modal-content"><span class="close-button">&times;</span><img id="modal-image" src="" class="modal-character-image"><h2 id="modal-name"></h2><h4>Descrição</h4><p id="modal-description"></p><button id="modal-edit-btn" class="edit-btn" style="margin-top: 20px;">Editar</button></div></div>
-    <div id="cropper-modal" class="modal"><div class="modal-content"><h3>Recortar Imagem</h3><div><img id="image-to-crop" src=""></div><button id="save-crop-btn" class="edit-btn" style="margin-top: 20px;">Salvar Corte</button></div></div>
+    <div id="character-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <img id="modal-image" src="" class="modal-character-image">
+            <h2 id="modal-name"></h2>
+            <h4>Descrição</h4>
+            <p id="modal-description"></p>
+            <button id="modal-edit-btn" class="edit-btn" style="margin-top: 20px;">Editar</button>
+        </div>
+    </div>
+    <div id="cropper-modal" class="modal">
+        <div class="modal-content">
+            <h3>Recortar Imagem</h3>
+            <div><img id="image-to-crop" src=""></div>
+            <button id="save-crop-btn" class="edit-btn" style="margin-top: 20px;">Salvar Corte</button>
+        </div>
+    </div>
     <div id="relationship-modal" class="modal">
         <div class="modal-content">
             <span class="close-button">&times;</span>
@@ -170,8 +185,9 @@
         function showTooltip(element, text) {
             tooltip.textContent = text;
             const rect = element.getBoundingClientRect();
-            tooltip.style.left = `${window.scrollX + rect.left + rect.width / 2 - tooltip.offsetWidth / 2}px`;
-            tooltip.style.top = `${window.scrollY + rect.top - tooltip.offsetHeight - 5}px`;
+            tooltip.style.left = `${rect.left + rect.width / 2}px`;
+            tooltip.style.top = `${rect.top}px`;
+            tooltip.style.transform = 'translate(-50%, -110%)';
             tooltip.classList.add('visible');
         }
 
@@ -182,6 +198,7 @@
         function drawRelationshipMap() {
             if (!allCharacterDetails[centralCharacter]) return;
             mapTitle.textContent = `Mapa de Relações de ${centralCharacter}`;
+            
             const relevantRelationships = allRelationships.filter(rel => rel.char1 === centralCharacter || rel.char2 === centralCharacter);
             const charactersInMap = new Set([centralCharacter]);
             relevantRelationships.forEach(rel => { charactersInMap.add(rel.char1); charactersInMap.add(rel.char2); });
@@ -195,7 +212,12 @@
                 nodes.add(nodeOptions);
             });
 
-            const edges = new vis.DataSet(relevantRelationships.map(link => ({ id: link.id, from: link.char1, to: link.char2, label: link.description, font: { align: 'middle' } })));
+            const edges = new vis.DataSet(relevantRelationships.map(link => ({
+                id: link.id, 
+                from: link.char1, 
+                to: link.char2
+            })));
+            
             const data = { nodes, edges };
             const options = { physics: { enabled: true, solver: 'barnesHut', barnesHut: { gravitationalConstant: -4000 } }, nodes: { font: { size: 16, color: '#333' } }, edges: { color: '#888', width: 2, smooth: true }, groups: { central: { color: { border: '#e67e22' } } } };
             
@@ -243,12 +265,18 @@
                 path.setAttribute('d', 'M47.6 300.4L228.3 469.1c7.5 7 17.4 10.9 27.7 10.9s20.2-3.9 27.7-10.9L464.4 300.4c30.4-28.3 47.6-68 47.6-109.5v-5.8c0-69.9-50.5-129.5-119.4-141C347 36.5 300.6 51.4 268 84L256 96 244 84c-32.6-32.6-79-47.5-124.6-39.9C50.5 55.6 0 115.2 0 185.1v5.8c0 41.5 17.2 81.2 47.6 109.5z');
                 heartSVG.appendChild(path);
 
-                if (i <= currentLevel) { heartSVG.classList.add('filled'); heartSVG.dataset.bonus = bonuses[i] || ''; } 
-                else { heartSVG.classList.add('empty'); }
-
-                heartSVG.addEventListener('mouseenter', () => { if (heartSVG.dataset.bonus) showTooltip(heartSVG, `Nível ${i}: ${heartSVG.dataset.bonus}`); });
-                heartSVG.addEventListener('mouseleave', hideTooltip);
-                heartSVG.addEventListener('click', () => { clearTimeout(clickTimer); clickTimer = setTimeout(() => { if (heartSVG.dataset.bonus) showTooltip(heartSVG, `Nível ${i}: ${heartSVG.dataset.bonus}`); }, 250); });
+                if (i <= currentLevel) {
+                    heartSVG.classList.add('filled');
+                    if (bonuses[i]) {
+                        heartSVG.dataset.bonus = `Nível ${i}: ${bonuses[i]}`;
+                        heartSVG.addEventListener('mouseenter', () => showTooltip(heartSVG, heartSVG.dataset.bonus));
+                        heartSVG.addEventListener('mouseleave', hideTooltip);
+                        heartSVG.addEventListener('click', () => { clearTimeout(clickTimer); clickTimer = setTimeout(() => showTooltip(heartSVG, heartSVG.dataset.bonus), 200); });
+                    }
+                } else {
+                    heartSVG.classList.add('empty');
+                }
+                
                 heartSVG.addEventListener('dblclick', () => { clearTimeout(clickTimer); hideTooltip(); handleHeartDoubleClick(edgeId, i, currentLevel); });
                 socialHeartsContainer.appendChild(heartSVG);
             }
@@ -256,11 +284,16 @@
         }
 
         async function handleHeartDoubleClick(linkId, clickedLevel, currentLevel) {
+            let updateSuccess = false;
             if (clickedLevel === currentLevel + 1) {
                 const bonusText = prompt(`Nível "${SOCIAL_LEVELS[clickedLevel]}" alcançado!\nDigite o bônus:`);
-                if (bonusText !== null) await db.collection('social_links').doc(linkId).set({ socialLink: { level: clickedLevel, [`bonuses.${clickedLevel}`]: bonusText } }, { merge: true });
+                if (bonusText !== null) { await db.collection('social_links').doc(linkId).set({ socialLink: { level: clickedLevel, [`bonuses.${clickedLevel}`]: bonusText } }, { merge: true }); updateSuccess = true; }
             } else if (clickedLevel === currentLevel && clickedLevel > 0) {
-                if (confirm(`Remover o nível "${SOCIAL_LEVELS[clickedLevel]}"?`)) await db.collection('social_links').doc(linkId).set({ socialLink: { level: currentLevel - 1, [`bonuses.${currentLevel}`]: firebase.firestore.FieldValue.delete() } }, { merge: true });
+                if (confirm(`Remover o nível "${SOCIAL_LEVELS[clickedLevel]}"?`)) { await db.collection('social_links').doc(linkId).set({ socialLink: { level: currentLevel - 1, [`bonuses.${currentLevel}`]: firebase.firestore.FieldValue.delete() } }, { merge: true }); updateSuccess = true; }
+            }
+
+            if (updateSuccess) {
+                setTimeout(() => showRelationshipModal(linkId), 100);
             }
         }
 
@@ -316,7 +349,7 @@
         document.getElementById('social-link-form').addEventListener('submit', async (e) => { e.preventDefault(); const data = { char1: document.getElementById('char1').value, char2: document.getElementById('char2').value, description: document.getElementById('relationship-description').value, socialLink: { level: 0, bonuses: {} } }; await db.collection("social_links").add(data); e.target.reset(); });
         
         characterModal.querySelector('.close-button').addEventListener('click', () => { characterModal.style.display = 'none'; });
-        relationshipModal.querySelector('.close-button').addEventListener('click', () => { relationshipModal.style.display = 'none'; });
+        relationshipModal.querySelector('.close-button').addEventListener('click', () => { relationshipModal.style.display = 'none'; hideTooltip(); });
         
         document.getElementById('char-image-upload').addEventListener('change', (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (event) => { const imageToCrop = document.getElementById('image-to-crop'); imageToCrop.src = event.target.result; cropperModal.style.display = 'flex'; if (cropper) cropper.destroy(); cropper = new Cropper(imageToCrop, { aspectRatio: 1, viewMode: 1, background: false, autoCropArea: 0.8, movable: true, zoomable: true, rotatable: false, scalable: false }); }; reader.readAsDataURL(file); });
         document.getElementById('save-crop-btn').addEventListener('click', () => { if (!cropper) return; const btn = document.getElementById('save-crop-btn'); btn.textContent = 'Enviando...'; btn.disabled = true; cropper.getCroppedCanvas({ width: 512, height: 512 }).toBlob(async (blob) => { const charName = document.getElementById('char-name').value.trim() || 'personagem'; const fileName = `char_${charName.replace(/\s+/g, '_')}_${Date.now()}.png`; const storageRef = storage.ref(`character_images/${fileName}`); try { const uploadTask = await storageRef.put(blob); document.getElementById('char-image-url').value = await uploadTask.ref.getDownloadURL(); cropperModal.style.display = 'none'; } catch (error) { console.error("Erro no upload: ", error); } finally { btn.textContent = 'Salvar Corte'; btn.disabled = false; } }, 'image/png'); });
