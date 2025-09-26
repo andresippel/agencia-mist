@@ -7,30 +7,24 @@
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <script src="auth-check.js"></script>
 
     <link rel="stylesheet" href="style.css">
     <style>
         .delete-btn {
-            background-color: #E74C3C; /* Um tom de vermelho mais suave */
+            background-color: #E74C3C;
             color: white;
             border: none;
-            border-radius: 5px; /* Cantos levemente arredondados */
-            width: 28px;
-            height: 28px;
-            font-family: 'Arial', sans-serif;
-            font-weight: bold;
-            font-size: 18px;
+            border-radius: 5px;
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            line-height: 1;
-            transition: background-color 0.2s ease-in-out; /* Efeito de transição */
+            transition: background-color 0.2s ease-in-out;
+            font-weight: bold;
+            font-size: 14px;
+            padding: 5px 12px;
         }
-
         .delete-btn:hover {
-            background-color: #C0392B; /* Vermelho mais escuro */
+            background-color: #C0392B;
         }
     </style>
 </head>
@@ -53,7 +47,8 @@
         <div class="form-group">
             <label for="character-filter"><b>Filtrar por Personagem:</b></label>
             <select id="character-filter">
-                <option value="Todos">Todos os Personagens</option>
+                <option value="Todos">Todos</option>
+                <option value="Agência">Agência</option>
                 <option value="Akane">Akane</option>
                 <option value="Gemini">Gemini</option>
                 <option value="Tilas">Tilas</option>
@@ -65,7 +60,7 @@
         <table>
             <thead>
                 <tr>
-                    <th>Personagem</th>
+                    <th>Personagem/Entidade</th>
                     <th>Valor</th>
                     <th>Descrição</th>
                     <th>Data</th>
@@ -79,8 +74,9 @@
             <h3>Adicionar Entrada/Saída</h3>
             <form id="add-entry-form">
                 <div class="form-group">
-                    <label for="character-select">Personagem</label>
+                    <label for="character-select">Personagem/Entidade</label>
                     <select id="character-select" required>
+                        <option value="Agência">Agência</option>
                         <option value="Akane">Akane</option>
                         <option value="Gemini">Gemini</option>
                         <option value="Tilas">Tilas</option>
@@ -101,7 +97,6 @@
         </div>
     </div>
 
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <script>
         const db = firebase.firestore();
         const financesCollection = db.collection("finances");
@@ -110,41 +105,33 @@
         const logBody = document.getElementById('finance-log-body');
         const balancesTable = document.getElementById('balances-table');
         const characterFilter = document.getElementById('character-filter');
-        const characters = ["Akane", "Gemini", "Tilas", "Daemian", "Bart"];
+        
+        const balanceEntities = ["Agência", "Akane", "Gemini", "Tilas", "Daemian", "Bart"];
         let allFinanceEntries = [];
 
         const deleteEntry = (id) => {
             if (confirm("Tem certeza que deseja excluir este lançamento?")) {
-                financesCollection.doc(id).delete()
-                    .then(() => {
-                        console.log("Lançamento excluído com sucesso!");
-                    })
-                    .catch((error) => {
-                        console.error("Erro ao excluir lançamento: ", error);
-                        alert("Não foi possível excluir o lançamento.");
-                    });
+                financesCollection.doc(id).delete();
             }
         };
 
         const renderLog = () => {
-            const selectedCharacter = characterFilter.value;
+            const selectedEntity = characterFilter.value;
             logBody.innerHTML = '';
             const entriesToRender = allFinanceEntries.filter(entry => {
-                if (selectedCharacter === 'Todos') return true;
-                return entry.character === selectedCharacter;
+                if (selectedEntity === 'Todos') return true;
+                return entry.character === selectedEntity;
             });
             entriesToRender.forEach(entry => {
                 const row = document.createElement('tr');
                 const entryDate = entry.createdAt ? entry.createdAt.toDate().toLocaleDateString('pt-BR') : '...';
-                
-                // ALTERADO: Agora usa <button> e a célula está centralizada
                 row.innerHTML = `
                     <td>${entry.character}</td>
                     <td>${entry.amount}</td>
                     <td>${entry.description}</td>
                     <td>${entryDate}</td>
                     <td style="text-align: center;">
-                        <button class="delete-btn" onclick="deleteEntry('${entry.id}')">&times;</button>
+                        <button class="delete-btn" onclick="deleteEntry('${entry.id}')">Deletar</button>
                     </td>
                 `;
                 logBody.appendChild(row);
@@ -165,7 +152,9 @@
         characterFilter.addEventListener('change', renderLog);
 
         financesCollection.orderBy("createdAt", "desc").onSnapshot(snapshot => {
-            const balances = { Akane: 0, Gemini: 0, Tilas: 0, Daemian: 0, Bart: 0 };
+            const balances = {};
+            balanceEntities.forEach(name => { balances[name] = 0; });
+
             allFinanceEntries = [];
             snapshot.docs.forEach(doc => {
                 const entry = { id: doc.id, ...doc.data() }; 
@@ -174,7 +163,11 @@
                     balances[entry.character] += entry.amount;
                 }
             });
-            balancesTable.innerHTML = `<thead><tr>${characters.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody><tr>${characters.map(c => `<td>${balances[c]}</td>`).join('')}</tr></tbody>`;
+
+            balancesTable.innerHTML = `
+                <thead><tr>${balanceEntities.map(c => `<th>${c}</th>`).join('')}</tr></thead>
+                <tbody><tr>${balanceEntities.map(c => `<td>${balances[c]}</td>`).join('')}</tr></tbody>
+            `;
             renderLog();
         });
     </script>
