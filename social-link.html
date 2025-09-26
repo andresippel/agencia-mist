@@ -48,8 +48,9 @@
         .social-heart.filled path { fill: #e74c3c; }
         .social-heart.empty path { fill: none; stroke: #888; stroke-width: 25; }
         
-        #custom-tooltip { position: fixed; background-color: #333; color: #fff; padding: 8px 12px; border-radius: 5px; font-size: 0.9em; white-space: nowrap; z-index: 2000; opacity: 0; visibility: hidden; transition: opacity 0.2s, visibility 0.2s; pointer-events: none; }
-        #custom-tooltip.visible { opacity: 1; visibility: visible; }
+        .temp-tooltip { position: fixed; background-color: #333; color: #fff; padding: 8px 12px; border-radius: 5px; font-size: 0.9em; white-space: nowrap; z-index: 2000; pointer-events: none; transition: opacity 0.3s ease-in-out; opacity: 1; }
+        
+        .relationship-actions { margin-top: 25px; padding-top: 15px; border-top: 1px solid #eee; width: 100%; display: flex; justify-content: center; gap: 10px; }
     </style>
 </head>
 <body>
@@ -150,14 +151,17 @@
             <h4>Relacionamento</h4>
             <p id="rel-description"></p>
             <div id="social-hearts-container" class="social-hearts-container"></div>
+            <div class="relationship-actions">
+                <button id="edit-relationship-btn" class="edit-btn">Editar Relação</button>
+                <button id="delete-relationship-btn" class="delete-btn">Excluir Relação</button>
+            </div>
         </div>
     </div>
 
-    <div id="custom-tooltip"></div>
-
     <script>
         // --- CONFIGURAÇÃO E CONSTANTES ---
-        
+        const firebaseConfig = { /* Insira sua configuração do Firebase aqui */ };
+        firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const storage = firebase.storage();
         const SOCIAL_LEVELS = ["", "Amigo", "Confidente", "Vínculo Inabalável"];
@@ -169,7 +173,6 @@
         let clickTimer = null;
 
         // --- MAPEAMENTO DO DOM ---
-        const tooltip = document.getElementById('custom-tooltip');
         const mapTitle = document.getElementById('map-title');
         const characterMapSelect = document.getElementById('character-map-select');
         const relationshipModal = document.getElementById('relationship-modal');
@@ -180,19 +183,25 @@
         const characterDetailsForm = document.getElementById('character-details-form');
         const cancelCharEditBtn = document.getElementById('cancel-char-edit-btn');
         const characterManagementContent = document.getElementById('character-management-content');
+        const editRelationshipBtn = document.getElementById('edit-relationship-btn');
+        const deleteRelationshipBtn = document.getElementById('delete-relationship-btn');
 
         // --- FUNÇÕES ---
-        function showTooltip(element, text) {
+        function showTemporaryTooltip(element, text) {
+            const tooltip = document.createElement('div');
+            tooltip.className = 'temp-tooltip';
             tooltip.textContent = text;
+            document.body.appendChild(tooltip);
+
             const rect = element.getBoundingClientRect();
             tooltip.style.left = `${rect.left + rect.width / 2}px`;
             tooltip.style.top = `${rect.top}px`;
             tooltip.style.transform = 'translate(-50%, -110%)';
-            tooltip.classList.add('visible');
-        }
-
-        function hideTooltip() {
-            tooltip.classList.remove('visible');
+            
+            setTimeout(() => {
+                tooltip.style.opacity = '0';
+                setTimeout(() => tooltip.remove(), 300);
+            }, 2500);
         }
 
         function drawRelationshipMap() {
@@ -248,6 +257,9 @@
             const char1 = allCharacterDetails[relationship.char1], char2 = allCharacterDetails[relationship.char2];
             if (!char1 || !char2) return;
 
+            editRelationshipBtn.dataset.linkId = edgeId;
+            deleteRelationshipBtn.dataset.linkId = edgeId;
+
             document.getElementById('rel-char1-image').src = char1.image_url || 'https://dummyimage.com/150x150/ccc/000.png&text=X';
             document.getElementById('rel-char2-image').src = char2.image_url || 'https://dummyimage.com/150x150/ccc/000.png&text=X';
             document.getElementById('rel-char1-name').textContent = char1.name;
@@ -269,15 +281,13 @@
                     heartSVG.classList.add('filled');
                     if (bonuses[i]) {
                         heartSVG.dataset.bonus = `Nível ${i}: ${bonuses[i]}`;
-                        heartSVG.addEventListener('mouseenter', () => showTooltip(heartSVG, heartSVG.dataset.bonus));
-                        heartSVG.addEventListener('mouseleave', hideTooltip);
-                        heartSVG.addEventListener('click', () => { clearTimeout(clickTimer); clickTimer = setTimeout(() => showTooltip(heartSVG, heartSVG.dataset.bonus), 200); });
+                        heartSVG.addEventListener('click', () => { clearTimeout(clickTimer); clickTimer = setTimeout(() => showTemporaryTooltip(heartSVG, heartSVG.dataset.bonus), 200); });
                     }
                 } else {
                     heartSVG.classList.add('empty');
                 }
                 
-                heartSVG.addEventListener('dblclick', () => { clearTimeout(clickTimer); hideTooltip(); handleHeartDoubleClick(edgeId, i, currentLevel); });
+                heartSVG.addEventListener('dblclick', () => { clearTimeout(clickTimer); handleHeartDoubleClick(edgeId, i, currentLevel); });
                 socialHeartsContainer.appendChild(heartSVG);
             }
             relationshipModal.style.display = 'flex';
@@ -293,7 +303,12 @@
             }
 
             if (updateSuccess) {
-                setTimeout(() => showRelationshipModal(linkId), 100);
+                setTimeout(() => {
+                    const updatedRel = allRelationships.find(r => r.id === linkId);
+                    if (relationshipModal.style.display === 'flex') {
+                       showRelationshipModal(linkId);
+                    }
+                }, 200);
             }
         }
 
@@ -349,8 +364,20 @@
         document.getElementById('social-link-form').addEventListener('submit', async (e) => { e.preventDefault(); const data = { char1: document.getElementById('char1').value, char2: document.getElementById('char2').value, description: document.getElementById('relationship-description').value, socialLink: { level: 0, bonuses: {} } }; await db.collection("social_links").add(data); e.target.reset(); });
         
         characterModal.querySelector('.close-button').addEventListener('click', () => { characterModal.style.display = 'none'; });
-        relationshipModal.querySelector('.close-button').addEventListener('click', () => { relationshipModal.style.display = 'none'; hideTooltip(); });
+        relationshipModal.querySelector('.close-button').addEventListener('click', () => { relationshipModal.style.display = 'none'; });
         
+        editRelationshipBtn.addEventListener('click', async (e) => {
+            const linkId = e.target.dataset.linkId; if (!linkId) return;
+            const relationship = allRelationships.find(rel => rel.id === linkId);
+            const newDescription = prompt("Editar descrição:", relationship.description || "");
+            if (newDescription !== null) { await db.collection('social_links').doc(linkId).update({ description: newDescription }); setTimeout(() => showRelationshipModal(linkId), 100); }
+        });
+
+        deleteRelationshipBtn.addEventListener('click', async (e) => {
+            const linkId = e.target.dataset.linkId; if (!linkId) return;
+            if (confirm("Excluir esta relação permanentemente?")) { await db.collection('social_links').doc(linkId).delete(); relationshipModal.style.display = 'none'; }
+        });
+
         document.getElementById('char-image-upload').addEventListener('change', (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (event) => { const imageToCrop = document.getElementById('image-to-crop'); imageToCrop.src = event.target.result; cropperModal.style.display = 'flex'; if (cropper) cropper.destroy(); cropper = new Cropper(imageToCrop, { aspectRatio: 1, viewMode: 1, background: false, autoCropArea: 0.8, movable: true, zoomable: true, rotatable: false, scalable: false }); }; reader.readAsDataURL(file); });
         document.getElementById('save-crop-btn').addEventListener('click', () => { if (!cropper) return; const btn = document.getElementById('save-crop-btn'); btn.textContent = 'Enviando...'; btn.disabled = true; cropper.getCroppedCanvas({ width: 512, height: 512 }).toBlob(async (blob) => { const charName = document.getElementById('char-name').value.trim() || 'personagem'; const fileName = `char_${charName.replace(/\s+/g, '_')}_${Date.now()}.png`; const storageRef = storage.ref(`character_images/${fileName}`); try { const uploadTask = await storageRef.put(blob); document.getElementById('char-image-url').value = await uploadTask.ref.getDownloadURL(); cropperModal.style.display = 'none'; } catch (error) { console.error("Erro no upload: ", error); } finally { btn.textContent = 'Salvar Corte'; btn.disabled = false; } }, 'image/png'); });
     </script>
