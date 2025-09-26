@@ -1,4 +1,3 @@
-@ -0,0 +1,161 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -8,6 +7,7 @@
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <script src="auth-check.js"></script>
     
     <link rel="stylesheet" href="style.css">
@@ -76,7 +76,7 @@
             <form id="mission-form">
                 <input type="hidden" id="mission-id">
                 <div class="form-group"><label for="mission-name">Nome da Missão</label><input type="text" id="mission-name" required></div>
-                <div class="form-group"><label for="mission-date">Data</label><input type="text" id="mission-date" placeholder="dd/mm/aaaa"></div>
+                <div class="form-group"><label for="mission-date">Data</label><input type="text" id="mission-date" placeholder="dd/mm/aaaa" required></div>
                 <div class="form-group"><label for="mission-reward">Recompensa Total</label><input type="number" id="mission-reward" value="0"></div>
                 <div class="form-group"><label for="mission-agency">Agência</label><input type="number" id="mission-agency" value="0"></div>
                 <div class="form-group"><label for="mission-akane">Akane</label><input type="number" id="mission-akane" value="0"></div>
@@ -91,43 +91,158 @@
         </div>
     </div>
 
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <script>
+        // --- Conexões com o Firebase ---
         const db = firebase.firestore();
         const missionsCollection = db.collection("missions");
+        const financesCollection = db.collection("finances"); // Conexão com a coleção de finanças
 
+        // --- Referências aos elementos do formulário ---
         const form = document.getElementById('mission-form');
         const tableBody = document.getElementById('missions-table-body');
         const formTitle = document.getElementById('form-title');
         const submitBtn = document.getElementById('submit-btn');
         const cancelBtn = document.getElementById('cancel-btn');
 
+        // --- Funções Auxiliares ---
         const resetForm = () => { form.reset(); form['mission-id'].value = ''; formTitle.textContent = 'Adicionar Nova Missão'; submitBtn.textContent = 'Adicionar Missão'; cancelBtn.style.display = 'none'; };
         
+        // Função para converter data de "dd/mm/yyyy" para um objeto de Data do JS
+        const parseDateString = (dateStr) => {
+            if (!dateStr || !/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
+                console.warn("Formato de data inválido. Usando a data atual como fallback.");
+                return new Date();
+            }
+            const [day, month, year] = dateStr.split('/');
+            return new Date(year, month - 1, day);
+        };
+        
+        // --- LÓGICA PRINCIPAL DE AUTOMAÇÃO ---
+
+        /**
+         * Salva a missão e sincroniza os lançamentos financeiros.
+         * @param {string|null} missionId - ID da missão se estiver editando.
+         * @param {object} missionData - Dados da missão vindos do formulário.
+         */
+        const saveMissionAndSyncFinances = async (missionId, missionData) => {
+            try {
+                // 1. Salva os dados na coleção 'missions'
+                const missionRef = missionId ? missionsCollection.doc(missionId) : missionsCollection.doc();
+                await missionRef.set({ ...missionData, createdAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+                const newMissionId = missionRef.id;
+
+                // 2. Apaga os lançamentos financeiros antigos associados a esta missão
+                const oldEntriesQuery = await financesCollection.where("missionId", "==", newMissionId).get();
+                if (!oldEntriesQuery.empty) {
+                    const batch = db.batch();
+                    oldEntriesQuery.docs.forEach(doc => batch.delete(doc.ref));
+                    await batch.commit();
+                }
+
+                // 3. Cria os novos lançamentos financeiros
+                const creationPromises = [];
+                const missionDate = parseDateString(missionData.date);
+                const missionTimestamp = firebase.firestore.Timestamp.fromDate(missionDate);
+
+                // Lançamentos para os personagens
+                const characterRewards = missionData.characterRewards || {};
+                for (const charName in characterRewards) {
+                    const amount = Number(characterRewards[charName]);
+                    if (amount > 0) {
+                        creationPromises.push(financesCollection.add({
+                            character: charName, amount,
+                            description: `Recompensa: ${missionData.name}`,
+                            createdAt: missionTimestamp,
+                            missionId: newMissionId
+                        }));
+                    }
+                }
+
+                // Lançamento para a Agência
+                const agencyCut = Number(missionData.agency);
+                if (agencyCut > 0) {
+                    creationPromises.push(financesCollection.add({
+                        character: "Agência", amount: agencyCut,
+                        description: `Taxa da Agência: ${missionData.name}`,
+                        createdAt: missionTimestamp,
+                        missionId: newMissionId
+                    }));
+                }
+
+                await Promise.all(creationPromises);
+                alert("Missão salva e finanças sincronizadas com sucesso!");
+
+            } catch (error) {
+                console.error("Erro ao salvar e sincronizar:", error);
+                alert("Ocorreu um erro. Verifique o console.");
+            }
+        };
+
+        /**
+         * Exclui uma missão E os lançamentos financeiros associados a ela.
+         * @param {string} missionId - O ID da missão a ser excluída.
+         */
+        const deleteMissionAndFinances = async (missionId) => {
+            if (!confirm("Tem certeza que deseja excluir esta missão? Todos os lançamentos financeiros associados a ela também serão apagados.")) {
+                return;
+            }
+            try {
+                // 1. Apaga os lançamentos financeiros associados
+                const oldEntriesQuery = await financesCollection.where("missionId", "==", missionId).get();
+                if (!oldEntriesQuery.empty) {
+                    const batch = db.batch();
+                    oldEntriesQuery.docs.forEach(doc => batch.delete(doc.ref));
+                    await batch.commit();
+                }
+
+                // 2. Apaga a missão
+                await missionsCollection.doc(missionId).delete();
+                alert("Missão e lançamentos financeiros excluídos com sucesso.");
+
+            } catch (error) {
+                console.error("Erro ao excluir missão:", error);
+                alert("Ocorreu um erro ao excluir a missão.");
+            }
+        };
+        
+        // --- Event Listeners e Renderização ---
+
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const missionId = form['mission-id'].value;
+            const missionId = form['mission-id'].value || null;
+            
             const missionData = {
-                name: form['mission-name'].value, date: form['mission-date'].value,
-                reward: Number(form['mission-reward'].value), agency: Number(form['mission-agency'].value),
-                akane: Number(form['mission-akane'].value), gemini: Number(form['mission-gemini'].value),
-                tilas: Number(form['mission-tilas'].value), daemian: Number(form['mission-daemian'].value),
-                bart: Number(form['mission-bart'].value), summary: form['mission-summary'].value
+                name: form['mission-name'].value,
+                date: form['mission-date'].value,
+                reward: Number(form['mission-reward'].value),
+                agency: Number(form['mission-agency'].value),
+                summary: form['mission-summary'].value,
+                characterRewards: { // Objeto para facilitar a iteração
+                    Akane: Number(form['mission-akane'].value),
+                    Gemini: Number(form['mission-gemini'].value),
+                    Tilas: Number(form['mission-tilas'].value),
+                    Daemian: Number(form['mission-daemian'].value),
+                    Bart: Number(form['mission-bart'].value)
+                }
             };
-            if (missionId) { await missionsCollection.doc(missionId).update(missionData); } 
-            else { await missionsCollection.add({ ...missionData, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); }
+            
+            await saveMissionAndSyncFinances(missionId, missionData);
             resetForm();
         });
         
-        const deleteMission = async (id) => { if (confirm("Tem certeza que deseja excluir esta missão?")) { await missionsCollection.doc(id).delete(); } };
-        
         const editMission = (id, data) => {
-            form['mission-id'].value = id; form['mission-name'].value = data.name;
-            form['mission-date'].value = data.date; form['mission-reward'].value = data.reward;
-            form['mission-agency'].value = data.agency; form['mission-akane'].value = data.akane;
-            form['mission-gemini'].value = data.gemini; form['mission-tilas'].value = data.tilas;
-            form['mission-daemian'].value = data.daemian; form['mission-bart'].value = data.bart;
+            form['mission-id'].value = id;
+            form['mission-name'].value = data.name;
+            form['mission-date'].value = data.date;
+            form['mission-reward'].value = data.reward;
+            form['mission-agency'].value = data.agency;
             form['mission-summary'].value = data.summary;
+            form['mission-akane'].value = data.characterRewards.Akane || 0;
+            form['mission-gemini'].value = data.characterRewards.Gemini || 0;
+            form['mission-tilas'].value = data.characterRewards.Tilas || 0;
+            form['mission-daemian'].value = data.characterRewards.Daemian || 0;
+            form['mission-bart'].value = data.characterRewards.Bart || 0;
+            
             formTitle.textContent = 'Editando Missão';
             submitBtn.textContent = 'Salvar Alterações';
             cancelBtn.style.display = 'inline-block';
@@ -141,11 +256,19 @@
             snapshot.docs.forEach(doc => {
                 const mission = doc.data();
                 const missionId = doc.id;
+                const rewards = mission.characterRewards || {}; // Garante que o objeto existe
+
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${mission.name}</td><td>${mission.date}</td><td>${mission.reward}</td>
-                    <td>${mission.agency}</td><td>${mission.akane}</td><td>${mission.gemini}</td>
-                    <td>${mission.tilas}</td><td>${mission.daemian}</td><td>${mission.bart}</td>
+                    <td>${mission.name}</td>
+                    <td>${mission.date}</td>
+                    <td>${mission.reward}</td>
+                    <td>${mission.agency}</td>
+                    <td>${rewards.Akane || 0}</td>
+                    <td>${rewards.Gemini || 0}</td>
+                    <td>${rewards.Tilas || 0}</td>
+                    <td>${rewards.Daemian || 0}</td>
+                    <td>${rewards.Bart || 0}</td>
                     <td>${mission.summary}</td>
                     <td class="actions-cell">
                         <button class="edit-btn" title="Editar"><i class="fas fa-pencil-alt"></i></button>
@@ -153,7 +276,7 @@
                         <button class="delete-btn" title="Excluir"><i class="fas fa-times"></i></button>
                     </td>`;
                 row.querySelector('.edit-btn').addEventListener('click', () => editMission(missionId, mission));
-                row.querySelector('.delete-btn').addEventListener('click', () => deleteMission(missionId));
+                row.querySelector('.delete-btn').addEventListener('click', () => deleteMissionAndFinances(missionId)); // ATUALIZADO
                 tableBody.appendChild(row);
             });
         });
