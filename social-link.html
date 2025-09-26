@@ -52,7 +52,7 @@
             margin-top: 15px;
             padding: 10px;
             width: 90%;
-            min-height: 2.5em; /* Garante que o modal não "pule" de tamanho */
+            min-height: 2.5em;
             background-color: #f8f9fa;
             border-radius: 5px;
             border: 1px solid #e9ecef;
@@ -125,12 +125,12 @@
 
     <script>
         // --- CONFIGURAÇÃO E CONSTANTES ---
-       
+        
         const db = firebase.firestore();
         const storage = firebase.storage();
         const SOCIAL_LEVELS = ["", "Amigo", "Confidente", "Vínculo Inabalável"];
         
-        let network, cropper, clickTimer = null;
+        let network, cropper;
         let allRelationships = [], allCharacterDetails = {};
         let centralCharacter = 'Akane'; 
 
@@ -150,7 +150,6 @@
         const bonusDisplayArea = document.getElementById('bonus-display-area');
 
         // --- FUNÇÕES ---
-
         function drawRelationshipMap() {
             if (!allCharacterDetails[centralCharacter]) return;
             mapTitle.textContent = `Mapa de Relações de ${centralCharacter}`;
@@ -244,14 +243,37 @@
 
         async function handleHeartDoubleClick(linkId, clickedLevel, currentLevel) {
             let updateSuccess = false;
+            // AUMENTAR NÍVEL
             if (clickedLevel === currentLevel + 1) {
                 const bonusText = prompt(`Nível "${SOCIAL_LEVELS[clickedLevel]}" alcançado!\nDigite o bônus:`);
-                if (bonusText !== null) { await db.collection('social_links').doc(linkId).set({ socialLink: { level: clickedLevel, [`bonuses.${clickedLevel}`]: bonusText } }, { merge: true }); updateSuccess = true; }
+                if (bonusText !== null) {
+                    await db.collection('social_links').doc(linkId).update({
+                        'socialLink.level': clickedLevel,
+                        [`socialLink.bonuses.${clickedLevel}`]: bonusText
+                    });
+                    updateSuccess = true;
+                }
+            // REBAIXAR NÍVEL
             } else if (clickedLevel === currentLevel && clickedLevel > 0) {
-                if (confirm(`Remover o nível "${SOCIAL_LEVELS[clickedLevel]}"?`)) { await db.collection('social_links').doc(linkId).set({ socialLink: { level: currentLevel - 1, [`bonuses.${currentLevel}`]: firebase.firestore.FieldValue.delete() } }, { merge: true }); updateSuccess = true; }
+                if (confirm(`Remover o nível "${SOCIAL_LEVELS[clickedLevel]}"?`)) {
+                    await db.collection('social_links').doc(linkId).update({
+                        'socialLink.level': currentLevel - 1,
+                        [`socialLink.bonuses.${currentLevel}`]: firebase.firestore.FieldValue.delete()
+                    });
+                    updateSuccess = true;
+                }
             }
 
-            if (updateSuccess) { setTimeout(() => { if (relationshipModal.style.display === 'flex') { showRelationshipModal(linkId); } }, 200); }
+            // ATUALIZAÇÃO MANUAL DA UI (SEM RACE CONDITION)
+            if (updateSuccess) {
+                const relToUpdate = allRelationships.find(r => r.id === linkId);
+                if(relToUpdate) { // Atualiza os dados locais primeiro
+                    relToUpdate.socialLink.level = clickedLevel === currentLevel ? currentLevel - 1 : clickedLevel;
+                    if(clickedLevel === currentLevel) delete relToUpdate.socialLink.bonuses[currentLevel];
+                    else if (relToUpdate.socialLink.bonuses) relToUpdate.socialLink.bonuses[clickedLevel] = prompt.toString(); // Simula a mudança
+                }
+                showRelationshipModal(linkId); // Redesenha com os dados locais atualizados
+            }
         }
 
         const editCharacterDetails = (docId, data) => {
@@ -320,7 +342,11 @@
             const linkId = e.target.dataset.linkId; if (!linkId) return;
             const relationship = allRelationships.find(rel => rel.id === linkId);
             const newDescription = prompt("Editar descrição:", relationship.description || "");
-            if (newDescription !== null) { await db.collection('social_links').doc(linkId).update({ description: newDescription }); setTimeout(() => showRelationshipModal(linkId), 100); }
+            if (newDescription !== null) { 
+                await db.collection('social_links').doc(linkId).update({ description: newDescription });
+                relationship.description = newDescription; // Atualiza localmente
+                showRelationshipModal(linkId); // Redesenha
+            }
         });
 
         deleteRelationshipBtn.addEventListener('click', async (e) => {
