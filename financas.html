@@ -11,7 +11,6 @@
 
     <link rel="stylesheet" href="style.css">
     <style>
-        /* Estilo para o novo botão de excluir */
         .delete-btn {
             background-color: #E74C3C; /* Um tom de vermelho mais suave */
             color: white;
@@ -30,7 +29,6 @@
             transition: background-color 0.2s ease-in-out; /* Efeito de transição */
         }
 
-        /* Efeito ao passar o mouse por cima */
         .delete-btn:hover {
             background-color: #C0392B; /* Vermelho mais escuro */
         }
@@ -115,7 +113,6 @@
         const characters = ["Akane", "Gemini", "Tilas", "Daemian", "Bart"];
         let allFinanceEntries = [];
 
-        // NOVO: Função para deletar um lançamento do Firebase
         const deleteEntry = (id) => {
             if (confirm("Tem certeza que deseja excluir este lançamento?")) {
                 financesCollection.doc(id).delete()
@@ -140,14 +137,14 @@
                 const row = document.createElement('tr');
                 const entryDate = entry.createdAt ? entry.createdAt.toDate().toLocaleDateString('pt-BR') : '...';
                 
-                // ALTERADO: Adicionado a célula (td) com o botão de excluir
+                // ALTERADO: Agora usa <button> e a célula está centralizada
                 row.innerHTML = `
                     <td>${entry.character}</td>
                     <td>${entry.amount}</td>
                     <td>${entry.description}</td>
                     <td>${entryDate}</td>
-                    <td>
-                        <span class="delete-btn" onclick="deleteEntry('${entry.id}')">&times;</span>
+                    <td style="text-align: center;">
+                        <button class="delete-btn" onclick="deleteEntry('${entry.id}')">&times;</button>
                     </td>
                 `;
                 logBody.appendChild(row);
@@ -171,7 +168,6 @@
             const balances = { Akane: 0, Gemini: 0, Tilas: 0, Daemian: 0, Bart: 0 };
             allFinanceEntries = [];
             snapshot.docs.forEach(doc => {
-                // ALTERADO: Agora guardamos o ID do documento junto com os dados
                 const entry = { id: doc.id, ...doc.data() }; 
                 allFinanceEntries.push(entry); 
                 if(balances.hasOwnProperty(entry.character)) {
