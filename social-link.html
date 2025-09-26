@@ -28,7 +28,7 @@
         #relationship-map { width: 100%; height: 600px; border: 1px solid lightgray; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 30px; }
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); justify-content: center; align-items: center; }
         .modal-content { background-color: #fefefe; margin: auto; padding: 30px; border: 1px solid #888; border-radius: 10px; width: 80%; max-width: 600px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; }
-        .close-button { color: #aaa; position: absolute; top: 10px; right: 20px; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close-button { color: #aaa; position: absolute; top: 10px; right: 20px; font-size: 28px; font-weight: bold; cursor: pointer; z-index: 10; }
         
         .modal-character-image { width: 150px; height: 150px; border-radius: 50%; object-fit: cover; margin-bottom: 20px; border: 3px solid #ddd; }
         .modal-character-name { font-size: 2em; margin-bottom: 10px; color: #333; }
@@ -42,13 +42,13 @@
         #relationship-modal .rel-char-image { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid #ddd; }
         #relationship-modal .rel-char-names { font-size: 1.5em; font-weight: bold; color: #333; }
         
-        .social-hearts-container { display: flex; gap: 10px; margin-top: 20px; }
+        .social-hearts-container { display: flex; gap: 10px; margin-top: 20px; position: relative; }
         .social-heart { cursor: pointer; transition: transform 0.2s ease; }
         .social-heart:hover { transform: scale(1.1); }
         .social-heart.filled path { fill: #e74c3c; }
         .social-heart.empty path { fill: none; stroke: #888; stroke-width: 25; }
         
-        .temp-tooltip { position: fixed; background-color: #333; color: #fff; padding: 8px 12px; border-radius: 5px; font-size: 0.9em; white-space: nowrap; z-index: 2000; pointer-events: none; transition: opacity 0.3s ease-in-out; opacity: 1; }
+        .temp-tooltip { position: absolute; background-color: #333; color: #fff; padding: 8px 12px; border-radius: 5px; font-size: 0.9em; white-space: nowrap; z-index: 10; pointer-events: none; transform: translate(-50%, -120%); transition: opacity 0.3s ease-in-out; opacity: 1; }
         
         .relationship-actions { margin-top: 25px; padding-top: 15px; border-top: 1px solid #eee; width: 100%; display: flex; justify-content: center; gap: 10px; }
     </style>
@@ -152,8 +152,8 @@
             <p id="rel-description"></p>
             <div id="social-hearts-container" class="social-hearts-container"></div>
             <div class="relationship-actions">
-                <button id="edit-relationship-btn" class="edit-btn">Editar Relação</button>
-                <button id="delete-relationship-btn" class="delete-btn">Excluir Relação</button>
+                <button id="edit-relationship-btn" class="edit-btn">Editar</button>
+                <button id="delete-relationship-btn" class="delete-btn">Excluir</button>
             </div>
         </div>
     </div>
@@ -186,16 +186,17 @@
         const deleteRelationshipBtn = document.getElementById('delete-relationship-btn');
 
         // --- FUNÇÕES ---
-        function showTemporaryTooltip(element, text) {
+        function showTemporaryTooltip(element, text, container) {
+            const oldTooltip = container.querySelector('.temp-tooltip');
+            if (oldTooltip) oldTooltip.remove();
+
             const tooltip = document.createElement('div');
             tooltip.className = 'temp-tooltip';
             tooltip.textContent = text;
-            document.body.appendChild(tooltip);
+            container.appendChild(tooltip);
 
-            const rect = element.getBoundingClientRect();
-            tooltip.style.left = `${rect.left + rect.width / 2}px`;
-            tooltip.style.top = `${rect.top}px`;
-            tooltip.style.transform = 'translate(-50%, -110%)';
+            tooltip.style.left = `${element.offsetLeft + element.offsetWidth / 2}px`;
+            tooltip.style.top = `${element.offsetTop}px`;
             
             setTimeout(() => {
                 tooltip.style.opacity = '0';
@@ -271,7 +272,7 @@
 
             for (let i = 1; i <= 3; i++) {
                 const heartSVG = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                heartSVG.setAttribute('viewBox', '0 0 512 512'); heartSVG.setAttribute('width', '40'); heartSVG.classList.add('social-heart'); heartSVG.dataset.level = i;
+                heartSVG.setAttribute('viewBox', '0 0 512 512'); heartSVG.setAttribute('width', '40'); heartSVG.classList.add('social-heart');
                 const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                 path.setAttribute('d', 'M47.6 300.4L228.3 469.1c7.5 7 17.4 10.9 27.7 10.9s20.2-3.9 27.7-10.9L464.4 300.4c30.4-28.3 47.6-68 47.6-109.5v-5.8c0-69.9-50.5-129.5-119.4-141C347 36.5 300.6 51.4 268 84L256 96 244 84c-32.6-32.6-79-47.5-124.6-39.9C50.5 55.6 0 115.2 0 185.1v5.8c0 41.5 17.2 81.2 47.6 109.5z');
                 heartSVG.appendChild(path);
@@ -280,13 +281,21 @@
                     heartSVG.classList.add('filled');
                     if (bonuses[i]) {
                         heartSVG.dataset.bonus = `Nível ${i}: ${bonuses[i]}`;
-                        heartSVG.addEventListener('click', () => { clearTimeout(clickTimer); clickTimer = setTimeout(() => showTemporaryTooltip(heartSVG, heartSVG.dataset.bonus), 200); });
+                        heartSVG.addEventListener('click', () => {
+                            clearTimeout(clickTimer);
+                            clickTimer = setTimeout(() => showTemporaryTooltip(heartSVG, heartSVG.dataset.bonus, socialHeartsContainer), 200);
+                        });
                     }
                 } else {
                     heartSVG.classList.add('empty');
                 }
                 
-                heartSVG.addEventListener('dblclick', () => { clearTimeout(clickTimer); handleHeartDoubleClick(edgeId, i, currentLevel); });
+                heartSVG.addEventListener('dblclick', () => {
+                    clearTimeout(clickTimer);
+                    const oldTooltip = socialHeartsContainer.querySelector('.temp-tooltip');
+                    if (oldTooltip) oldTooltip.remove();
+                    handleHeartDoubleClick(edgeId, i, currentLevel);
+                });
                 socialHeartsContainer.appendChild(heartSVG);
             }
             relationshipModal.style.display = 'flex';
@@ -303,7 +312,6 @@
 
             if (updateSuccess) {
                 setTimeout(() => {
-                    const updatedRel = allRelationships.find(r => r.id === linkId);
                     if (relationshipModal.style.display === 'flex') {
                        showRelationshipModal(linkId);
                     }
