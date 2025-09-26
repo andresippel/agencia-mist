@@ -42,13 +42,13 @@
         #relationship-modal .rel-char-image { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid #ddd; }
         #relationship-modal .rel-char-names { font-size: 1.5em; font-weight: bold; color: #333; }
         
-        .social-hearts-container { display: flex; gap: 10px; margin-top: 20px; position: relative; }
+        .social-hearts-container { display: flex; gap: 10px; margin-top: 20px; }
         .social-heart { cursor: pointer; transition: transform 0.2s ease; }
         .social-heart:hover { transform: scale(1.1); }
         .social-heart.filled path { fill: #e74c3c; }
         .social-heart.empty path { fill: none; stroke: #888; stroke-width: 25; }
         
-        .temp-tooltip { position: absolute; background-color: #333; color: #fff; padding: 8px 12px; border-radius: 5px; font-size: 0.9em; white-space: nowrap; z-index: 10; pointer-events: none; transform: translate(-50%, -120%); transition: opacity 0.3s ease-in-out; opacity: 1; }
+        .temp-tooltip { position: fixed; background-color: #333; color: #fff; padding: 8px 12px; border-radius: 5px; font-size: 0.9em; white-space: nowrap; z-index: 9999; pointer-events: none; transform: translate(-50%, -120%); transition: opacity 0.3s ease-in-out; opacity: 1; }
         
         .relationship-actions { margin-top: 25px; padding-top: 15px; border-top: 1px solid #eee; width: 100%; display: flex; justify-content: center; gap: 10px; }
     </style>
@@ -186,17 +186,16 @@
         const deleteRelationshipBtn = document.getElementById('delete-relationship-btn');
 
         // --- FUNÇÕES ---
-        function showTemporaryTooltip(element, text, container) {
-            const oldTooltip = container.querySelector('.temp-tooltip');
-            if (oldTooltip) oldTooltip.remove();
-
+        function showTemporaryTooltip(element, text) {
             const tooltip = document.createElement('div');
             tooltip.className = 'temp-tooltip';
             tooltip.textContent = text;
-            container.appendChild(tooltip);
+            document.body.appendChild(tooltip);
 
-            tooltip.style.left = `${element.offsetLeft + element.offsetWidth / 2}px`;
-            tooltip.style.top = `${element.offsetTop}px`;
+            const rect = element.getBoundingClientRect();
+            tooltip.style.left = `${rect.left + rect.width / 2}px`;
+            tooltip.style.top = `${rect.top}px`;
+            tooltip.style.transform = 'translate(-50%, -110%)';
             
             setTimeout(() => {
                 tooltip.style.opacity = '0';
@@ -281,21 +280,13 @@
                     heartSVG.classList.add('filled');
                     if (bonuses[i]) {
                         heartSVG.dataset.bonus = `Nível ${i}: ${bonuses[i]}`;
-                        heartSVG.addEventListener('click', () => {
-                            clearTimeout(clickTimer);
-                            clickTimer = setTimeout(() => showTemporaryTooltip(heartSVG, heartSVG.dataset.bonus, socialHeartsContainer), 200);
-                        });
+                        heartSVG.addEventListener('click', () => { clearTimeout(clickTimer); clickTimer = setTimeout(() => showTemporaryTooltip(heartSVG, heartSVG.dataset.bonus), 200); });
                     }
                 } else {
                     heartSVG.classList.add('empty');
                 }
                 
-                heartSVG.addEventListener('dblclick', () => {
-                    clearTimeout(clickTimer);
-                    const oldTooltip = socialHeartsContainer.querySelector('.temp-tooltip');
-                    if (oldTooltip) oldTooltip.remove();
-                    handleHeartDoubleClick(edgeId, i, currentLevel);
-                });
+                heartSVG.addEventListener('dblclick', () => { clearTimeout(clickTimer); handleHeartDoubleClick(edgeId, i, currentLevel); });
                 socialHeartsContainer.appendChild(heartSVG);
             }
             relationshipModal.style.display = 'flex';
@@ -330,6 +321,14 @@
         };
         
         function resetAndHideForm() { characterDetailsForm.reset(); editFormWrapper.style.display = 'none'; }
+        
+        function handleEscKey(event) {
+            if (event.key === 'Escape') {
+                if (relationshipModal.style.display === 'flex') relationshipModal.style.display = 'none';
+                if (characterModal.style.display === 'flex') characterModal.style.display = 'none';
+                if (cropperModal.style.display === 'flex') cropperModal.style.display = 'none';
+            }
+        }
 
         // --- OBSERVERS E EVENT LISTENERS ---
         db.collection("character_details").onSnapshot(snapshot => {
@@ -384,6 +383,8 @@
             const linkId = e.target.dataset.linkId; if (!linkId) return;
             if (confirm("Excluir esta relação permanentemente?")) { await db.collection('social_links').doc(linkId).delete(); relationshipModal.style.display = 'none'; }
         });
+        
+        document.addEventListener('keydown', handleEscKey);
 
         document.getElementById('char-image-upload').addEventListener('change', (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (event) => { const imageToCrop = document.getElementById('image-to-crop'); imageToCrop.src = event.target.result; cropperModal.style.display = 'flex'; if (cropper) cropper.destroy(); cropper = new Cropper(imageToCrop, { aspectRatio: 1, viewMode: 1, background: false, autoCropArea: 0.8, movable: true, zoomable: true, rotatable: false, scalable: false }); }; reader.readAsDataURL(file); });
         document.getElementById('save-crop-btn').addEventListener('click', () => { if (!cropper) return; const btn = document.getElementById('save-crop-btn'); btn.textContent = 'Enviando...'; btn.disabled = true; cropper.getCroppedCanvas({ width: 512, height: 512 }).toBlob(async (blob) => { const charName = document.getElementById('char-name').value.trim() || 'personagem'; const fileName = `char_${charName.replace(/\s+/g, '_')}_${Date.now()}.png`; const storageRef = storage.ref(`character_images/${fileName}`); try { const uploadTask = await storageRef.put(blob); document.getElementById('char-image-url').value = await uploadTask.ref.getDownloadURL(); cropperModal.style.display = 'none'; } catch (error) { console.error("Erro no upload: ", error); } finally { btn.textContent = 'Salvar Corte'; btn.disabled = false; } }, 'image/png'); });
