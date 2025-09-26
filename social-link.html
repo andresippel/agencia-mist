@@ -47,8 +47,22 @@
         .social-heart:hover { transform: scale(1.1); }
         .social-heart.filled path { fill: #e74c3c; }
         .social-heart.empty path { fill: none; stroke: #888; stroke-width: 25; }
-        
-        .temp-tooltip { position: fixed; background-color: #333; color: #fff; padding: 8px 12px; border-radius: 5px; font-size: 0.9em; white-space: nowrap; z-index: 9999; pointer-events: none; transform: translate(-50%, -120%); transition: opacity 0.3s ease-in-out; opacity: 1; }
+
+        #bonus-display-area {
+            margin-top: 15px;
+            padding: 10px;
+            width: 90%;
+            min-height: 2.5em; /* Garante que o modal não "pule" de tamanho */
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border: 1px solid #e9ecef;
+            font-style: italic;
+            color: #6c757d;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
         
         .relationship-actions { margin-top: 25px; padding-top: 15px; border-top: 1px solid #eee; width: 100%; display: flex; justify-content: center; gap: 10px; }
     </style>
@@ -72,45 +86,17 @@
 
             <div class="form-container">
                 <h3>Criar Novo Personagem (NPC)</h3>
-                <form id="create-character-form">
-                    <div class="form-group">
-                        <label for="new-char-name">Nome do Personagem:</label>
-                        <input type="text" id="new-char-name" required>
-                    </div>
-                    <button type="submit">Criar Personagem</button>
-                </form>
+                <form id="create-character-form"><div class="form-group"><label for="new-char-name">Nome:</label><input type="text" id="new-char-name" required></div><button type="submit">Criar</button></form>
             </div>
 
             <div class="form-container">
                 <button id="toggle-char-management-btn" class="secondary-btn">Gerenciar Personagens</button>
-                <div id="character-management-content" style="display: none;">
-                    <hr>
-                    <div id="edit-form-wrapper" style="display: none;">
-                        <h3 id="char-form-title">Editar Personagem</h3>
-                        <form id="character-details-form">
-                            <input type="hidden" id="char-doc-id">
-                            <div class="form-group"><label for="char-name">Nome:</label><input type="text" id="char-name" required></div>
-                            <div class="form-group"><label for="char-image-upload">Imagem:</label><input type="file" id="char-image-upload" accept="image/*"></div>
-                            <div class="form-group"><label for="char-image-url">URL da Imagem:</label><input type="text" id="char-image-url" readonly></div>
-                            <div class="form-group"><label for="char-description">Descrição do Personagem:</label><textarea id="char-description" rows="4"></textarea></div>
-                            <button type="submit">Salvar Alterações</button>
-                            <button type="button" id="cancel-char-edit-btn">Cancelar</button>
-                        </form>
-                        <hr>
-                    </div>
-                    <h3>Personagens Cadastrados</h3>
-                    <ul id="character-details-list"></ul>
-                </div>
+                <div id="character-management-content" style="display: none;"><hr><div id="edit-form-wrapper" style="display: none;"><h3 id="char-form-title">Editar Personagem</h3><form id="character-details-form"><input type="hidden" id="char-doc-id"><div class="form-group"><label for="char-name">Nome:</label><input type="text" id="char-name" required></div><div class="form-group"><label for="char-image-upload">Imagem:</label><input type="file" id="char-image-upload" accept="image/*"></div><div class="form-group"><label for="char-image-url">URL:</label><input type="text" id="char-image-url" readonly></div><div class="form-group"><label for="char-description">Descrição:</label><textarea id="char-description" rows="4"></textarea></div><button type="submit">Salvar</button><button type="button" id="cancel-char-edit-btn">Cancelar</button></form><hr></div><h3>Personagens Cadastrados</h3><ul id="character-details-list"></ul></div>
             </div>
 
             <div class="form-container">
                 <h3>Criar Conexão</h3>
-                <form id="social-link-form">
-                    <div class="form-group"><label for="char1">De:</label><select id="char1" required></select></div>
-                    <div class="form-group"><label for="char2">Para:</label><select id="char2" required></select></div>
-                    <div class="form-group"><label for="relationship-description">Relacionamento:</label><textarea id="relationship-description" rows="3"></textarea></div>
-                    <button type="submit">Criar Conexão</button>
-                </form>
+                <form id="social-link-form"><div class="form-group"><label for="char1">De:</label><select id="char1" required></select></div><div class="form-group"><label for="char2">Para:</label><select id="char2" required></select></div><div class="form-group"><label for="relationship-description">Relacionamento:</label><textarea id="relationship-description" rows="3"></textarea></div><button type="submit">Criar</button></form>
             </div>
             
             <hr style="margin: 40px 0;">
@@ -123,53 +109,30 @@
         </main>
     </div>
 
-    <div id="character-modal" class="modal">
-        <div class="modal-content">
-            <span class="close-button">&times;</span>
-            <img id="modal-image" src="" class="modal-character-image">
-            <h2 id="modal-name"></h2>
-            <h4>Descrição</h4>
-            <p id="modal-description"></p>
-            <button id="modal-edit-btn" class="edit-btn" style="margin-top: 20px;">Editar</button>
-        </div>
-    </div>
-    <div id="cropper-modal" class="modal">
-        <div class="modal-content">
-            <h3>Recortar Imagem</h3>
-            <div><img id="image-to-crop" src=""></div>
-            <button id="save-crop-btn" class="edit-btn" style="margin-top: 20px;">Salvar Corte</button>
-        </div>
-    </div>
+    <div id="character-modal" class="modal"><div class="modal-content"><span class="close-button">&times;</span><img id="modal-image" src="" class="modal-character-image"><h2 id="modal-name"></h2><h4>Descrição</h4><p id="modal-description"></p><button id="modal-edit-btn" class="edit-btn" style="margin-top: 20px;">Editar</button></div></div>
+    <div id="cropper-modal" class="modal"><div class="modal-content"><h3>Recortar Imagem</h3><div><img id="image-to-crop" src=""></div><button id="save-crop-btn" class="edit-btn" style="margin-top: 20px;">Salvar</button></div></div>
+    
     <div id="relationship-modal" class="modal">
         <div class="modal-content">
             <span class="close-button">&times;</span>
-            <div class="image-container">
-                <img id="rel-char1-image" src="" class="rel-char-image">
-                <span class="rel-char-names"><span id="rel-char1-name"></span> &harr; <span id="rel-char2-name"></span></span>
-                <img id="rel-char2-image" src="" class="rel-char-image">
-            </div>
-            <h4>Relacionamento</h4>
-            <p id="rel-description"></p>
+            <div class="image-container"><img id="rel-char1-image" class="rel-char-image"><span class="rel-char-names"><span id="rel-char1-name"></span> &harr; <span id="rel-char2-name"></span></span><img id="rel-char2-image" class="rel-char-image"></div>
+            <h4>Relacionamento</h4><p id="rel-description"></p>
             <div id="social-hearts-container" class="social-hearts-container"></div>
-            <div class="relationship-actions">
-                <button id="edit-relationship-btn" class="edit-btn">Editar</button>
-                <button id="delete-relationship-btn" class="delete-btn">Excluir</button>
-            </div>
+            <p id="bonus-display-area"></p>
+            <div class="relationship-actions"><button id="edit-relationship-btn" class="edit-btn">Editar</button><button id="delete-relationship-btn" class="delete-btn">Excluir</button></div>
         </div>
     </div>
 
     <script>
         // --- CONFIGURAÇÃO E CONSTANTES ---
-        
+       
         const db = firebase.firestore();
         const storage = firebase.storage();
         const SOCIAL_LEVELS = ["", "Amigo", "Confidente", "Vínculo Inabalável"];
         
-        // --- VARIÁVEIS DE ESTADO ---
-        let network, cropper;
+        let network, cropper, clickTimer = null;
         let allRelationships = [], allCharacterDetails = {};
         let centralCharacter = 'Akane'; 
-        let clickTimer = null;
 
         // --- MAPEAMENTO DO DOM ---
         const mapTitle = document.getElementById('map-title');
@@ -184,24 +147,9 @@
         const characterManagementContent = document.getElementById('character-management-content');
         const editRelationshipBtn = document.getElementById('edit-relationship-btn');
         const deleteRelationshipBtn = document.getElementById('delete-relationship-btn');
+        const bonusDisplayArea = document.getElementById('bonus-display-area');
 
         // --- FUNÇÕES ---
-        function showTemporaryTooltip(element, text) {
-            const tooltip = document.createElement('div');
-            tooltip.className = 'temp-tooltip';
-            tooltip.textContent = text;
-            document.body.appendChild(tooltip);
-
-            const rect = element.getBoundingClientRect();
-            tooltip.style.left = `${rect.left + rect.width / 2}px`;
-            tooltip.style.top = `${rect.top}px`;
-            tooltip.style.transform = 'translate(-50%, -110%)';
-            
-            setTimeout(() => {
-                tooltip.style.opacity = '0';
-                setTimeout(() => tooltip.remove(), 300);
-            }, 2500);
-        }
 
         function drawRelationshipMap() {
             if (!allCharacterDetails[centralCharacter]) return;
@@ -220,11 +168,7 @@
                 nodes.add(nodeOptions);
             });
 
-            const edges = new vis.DataSet(relevantRelationships.map(link => ({
-                id: link.id, 
-                from: link.char1, 
-                to: link.char2
-            })));
+            const edges = new vis.DataSet(relevantRelationships.map(link => ({ id: link.id, from: link.char1, to: link.char2 })));
             
             const data = { nodes, edges };
             const options = { physics: { enabled: true, solver: 'barnesHut', barnesHut: { gravitationalConstant: -4000 } }, nodes: { font: { size: 16, color: '#333' } }, edges: { color: '#888', width: 2, smooth: true }, groups: { central: { color: { border: '#e67e22' } } } };
@@ -234,7 +178,6 @@
             network = new vis.Network(mapContainer, data, options);
 
             network.on("doubleClick", params => {
-                clearTimeout(clickTimer);
                 if (params.nodes.length > 0) showCharacterModal(params.nodes[0]);
                 else if (params.edges.length > 0) showRelationshipModal(params.edges[0]);
             });
@@ -266,6 +209,11 @@
             document.getElementById('rel-description').textContent = relationship.description || "";
 
             socialHeartsContainer.innerHTML = '';
+            const defaultBonusText = 'Passe o mouse ou clique em um coração para ver o bônus.';
+            bonusDisplayArea.textContent = defaultBonusText;
+            bonusDisplayArea.style.fontStyle = 'italic';
+            bonusDisplayArea.style.color = '#6c757d';
+
             const currentLevel = relationship.socialLink?.level || 0;
             const bonuses = relationship.socialLink?.bonuses || {};
 
@@ -279,14 +227,16 @@
                 if (i <= currentLevel) {
                     heartSVG.classList.add('filled');
                     if (bonuses[i]) {
-                        heartSVG.dataset.bonus = `Nível ${i}: ${bonuses[i]}`;
-                        heartSVG.addEventListener('click', () => { clearTimeout(clickTimer); clickTimer = setTimeout(() => showTemporaryTooltip(heartSVG, heartSVG.dataset.bonus), 200); });
+                        const bonusText = `Nível ${i} (${SOCIAL_LEVELS[i]}): ${bonuses[i]}`;
+                        heartSVG.addEventListener('mouseenter', () => { bonusDisplayArea.textContent = bonusText; bonusDisplayArea.style.fontStyle = 'normal'; bonusDisplayArea.style.color = '#212529'; });
+                        heartSVG.addEventListener('click', () => { bonusDisplayArea.textContent = bonusText; bonusDisplayArea.style.fontStyle = 'normal'; bonusDisplayArea.style.color = '#212529'; });
                     }
                 } else {
                     heartSVG.classList.add('empty');
                 }
                 
-                heartSVG.addEventListener('dblclick', () => { clearTimeout(clickTimer); handleHeartDoubleClick(edgeId, i, currentLevel); });
+                heartSVG.addEventListener('mouseleave', () => { bonusDisplayArea.textContent = defaultBonusText; bonusDisplayArea.style.fontStyle = 'italic'; bonusDisplayArea.style.color = '#6c757d'; });
+                heartSVG.addEventListener('dblclick', () => handleHeartDoubleClick(edgeId, i, currentLevel));
                 socialHeartsContainer.appendChild(heartSVG);
             }
             relationshipModal.style.display = 'flex';
@@ -301,13 +251,7 @@
                 if (confirm(`Remover o nível "${SOCIAL_LEVELS[clickedLevel]}"?`)) { await db.collection('social_links').doc(linkId).set({ socialLink: { level: currentLevel - 1, [`bonuses.${currentLevel}`]: firebase.firestore.FieldValue.delete() } }, { merge: true }); updateSuccess = true; }
             }
 
-            if (updateSuccess) {
-                setTimeout(() => {
-                    if (relationshipModal.style.display === 'flex') {
-                       showRelationshipModal(linkId);
-                    }
-                }, 200);
-            }
+            if (updateSuccess) { setTimeout(() => { if (relationshipModal.style.display === 'flex') { showRelationshipModal(linkId); } }, 200); }
         }
 
         const editCharacterDetails = (docId, data) => {
