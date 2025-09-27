@@ -168,8 +168,11 @@
             network = new vis.Network(mapContainer, data, options);
 
             network.on("doubleClick", params => {
-                if (params.nodes.length > 0) showCharacterModal(params.nodes[0]);
-                else if (params.edges.length > 0) showRelationshipModal(params.edges[0]);
+                if (params.nodes.length > 0) {
+                    showCharacterModal(params.nodes[0]);
+                } else if (params.edges.length > 0) {
+                    showRelationshipModal(params.edges[0]);
+                }
             });
         }
 
