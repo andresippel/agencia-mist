@@ -85,7 +85,7 @@
     <div id="relationship-modal" class="modal"><div class="modal-content"><span class="close-button">&times;</span><div class="image-container"><img id="rel-char1-image" class="rel-char-image"><span class="rel-char-names"><span id="rel-char1-name"></span> &harr; <span id="rel-char2-name"></span></span><img id="rel-char2-image" class="rel-char-image"></div><h4>Relacionamento</h4><p id="rel-description"></p><div id="social-hearts-container" class="social-hearts-container"></div><p id="bonus-display-area"></p><div class="relationship-actions"><button id="edit-relationship-btn" class="edit-btn">Editar</button><button id="delete-relationship-btn" class="delete-btn">Excluir</button></div></div></div>
 
     <script>
-       
+        
         const db = firebase.firestore();
         const storage = firebase.storage();
         const SOCIAL_LEVELS = ["", "Amigo", "Confidente", "Vínculo Inabalável"];
@@ -110,6 +110,7 @@
         const bonusDisplayArea = document.getElementById('bonus-display-area');
         const charThumbUrlInput = document.getElementById('char-thumb-url');
         const charOriginalUrlInput = document.getElementById('char-original-url');
+        const imageToCrop = document.getElementById('image-to-crop');
 
         function drawRelationshipMap() {
             if (Object.keys(allCharacterDetails).length === 0 || !allCharacterDetails[centralCharacter]) return;
@@ -123,7 +124,7 @@
             charactersInMap.forEach(charName => {
                 const charData = allCharacterDetails[charName];
                 if (!charData) return;
-                const nodeOptions = { id: charData.name, label: charData.name, shape: 'circularImage', image: charData.image_thumb_url || 'https://dummyimage.com/150x150/ccc/000.png&text=X', borderWidth: 3, size: 30 };
+                const nodeOptions = { id: charData.name, label: charData.name, shape: 'circularImage', image: charData.image_thumb_url || charData.image_url || 'https://dummyimage.com/150x150/ccc/000.png&text=X', borderWidth: 3, size: 30 };
                 if (charData.name === centralCharacter) Object.assign(nodeOptions, { group: 'central', fixed: true, x: 0, y: 0, size: 40 });
                 nodes.add(nodeOptions);
             });
@@ -146,7 +147,7 @@
         async function showCharacterModal(characterName) {
             const details = allCharacterDetails[characterName];
             if (!details) return;
-            document.getElementById('modal-image').src = details.image_original_url || details.image_thumb_url || 'https://dummyimage.com/150x150/ccc/000.png&text=X';
+            document.getElementById('modal-image').src = details.image_original_url || details.image_thumb_url || details.image_url || 'https://dummyimage.com/150x150/ccc/000.png&text=X';
             document.getElementById('modal-name').textContent = details.name;
             document.getElementById('modal-description').textContent = details.description || 'Nenhuma descrição.';
             document.getElementById('modal-edit-btn').onclick = () => { characterModal.style.display = 'none'; editCharacterDetails(details.id, details); };
@@ -162,8 +163,8 @@
             editRelationshipBtn.dataset.linkId = edgeId;
             deleteRelationshipBtn.dataset.linkId = edgeId;
 
-            document.getElementById('rel-char1-image').src = char1.image_thumb_url || 'https://dummyimage.com/150x150/ccc/000.png&text=X';
-            document.getElementById('rel-char2-image').src = char2.image_thumb_url || 'https://dummyimage.com/150x150/ccc/000.png&text=X';
+            document.getElementById('rel-char1-image').src = char1.image_thumb_url || char1.image_url || 'https://dummyimage.com/150x150/ccc/000.png&text=X';
+            document.getElementById('rel-char2-image').src = char2.image_thumb_url || char2.image_url || 'https://dummyimage.com/150x150/ccc/000.png&text=X';
             document.getElementById('rel-char1-name').textContent = char1.name;
             document.getElementById('rel-char2-name').textContent = char2.name;
             document.getElementById('rel-description').textContent = relationship.description || "";
@@ -322,10 +323,10 @@
             originalFileToUpload = file;
             const reader = new FileReader();
             reader.onload = (event) => {
-                document.getElementById('image-to-crop').src = event.target.result;
+                imageToCrop.src = event.target.result;
                 cropperModal.style.display = 'flex';
                 if (cropper) cropper.destroy();
-                cropper = new Cropper(image_to_crop, { aspectRatio: 1, viewMode: 1, background: false, autoCropArea: 0.8, movable: true, zoomable: true, rotatable: false, scalable: false });
+                cropper = new Cropper(imageToCrop, { aspectRatio: 1, viewMode: 1, background: false, autoCropArea: 0.8, movable: true, zoomable: true, rotatable: false, scalable: false });
             };
             reader.readAsDataURL(file);
         });
@@ -338,30 +339,38 @@
 
             const charName = document.getElementById('char-name').value.trim() || 'personagem';
             const timestamp = Date.now();
-
-            // Upload da imagem original
-            const originalFileName = `char_${charName}_${timestamp}_original.png`;
+            
+            const originalFileName = `char_${charName.replace(/\s+/g, '_')}_${timestamp}_original.png`;
             const originalStorageRef = storage.ref(`character_images/${originalFileName}`);
-            originalStorageRef.put(originalFileToUpload).then(snapshot => snapshot.ref.getDownloadURL()).then(downloadURL => {
-                charOriginalUrlInput.value = downloadURL;
-                
-                // Upload da imagem cortada (thumb)
-                cropper.getCroppedCanvas({ width: 256, height: 256 }).toBlob(blob => {
-                    const thumbFileName = `char_${charName}_${timestamp}_thumb.png`;
-                    const thumbStorageRef = storage.ref(`character_images/${thumbFileName}`);
-                    thumbStorageRef.put(blob).then(snapshot => snapshot.ref.getDownloadURL()).then(downloadURL => {
-                        charThumbUrlInput.value = downloadURL;
-                        alert('Imagens enviadas com sucesso! Clique em "Salvar" para aplicar as mudanças.');
-                        cropperModal.style.display = 'none';
-                        btn.textContent = 'Salvar';
-                        btn.disabled = false;
-                    });
-                }, 'image/png');
-            }).catch(error => {
-                console.error("Erro no upload: ", error);
-                btn.textContent = 'Salvar';
-                btn.disabled = false;
-            });
+            
+            originalStorageRef.put(originalFileToUpload)
+                .then(snapshot => snapshot.ref.getDownloadURL())
+                .then(downloadURL => {
+                    charOriginalUrlInput.value = downloadURL;
+                    
+                    cropper.getCroppedCanvas({ width: 256, height: 256 }).toBlob(blob => {
+                        const thumbFileName = `char_${charName.replace(/\s+/g, '_')}_${timestamp}_thumb.png`;
+                        const thumbStorageRef = storage.ref(`character_images/${thumbFileName}`);
+                        
+                        thumbStorageRef.put(blob)
+                            .then(snapshot => snapshot.ref.getDownloadURL())
+                            .then(downloadURL => {
+                                charThumbUrlInput.value = downloadURL;
+                                alert('Imagens enviadas com sucesso! Clique em "Salvar" para aplicar as mudanças.');
+                                cropperModal.style.display = 'none';
+                            })
+                            .catch(err => console.error("Erro no upload do thumb:", err))
+                            .finally(() => {
+                                btn.textContent = 'Salvar';
+                                btn.disabled = false;
+                            });
+                    }, 'image/png');
+                })
+                .catch(error => {
+                    console.error("Erro no upload da imagem original: ", error);
+                    btn.textContent = 'Salvar';
+                    btn.disabled = false;
+                });
         });
     </script>
 </body>
