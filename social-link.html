@@ -11,6 +11,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
     <script src="auth-check.js"></script>
 
+    <script src="https://unpkg.com/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
     <script type="text/javascript" src="https://unpkg.com/vis-network@9.1.0/dist/vis-network.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css">
@@ -52,8 +53,10 @@
         
         .relationship-actions { margin-top: 25px; padding-top: 15px; border-top: 1px solid #eee; width: 100%; display: flex; justify-content: center; gap: 10px; }
         
-        #full-image-modal-content { padding: 10px; background-color: rgba(0,0,0,0.8); border: none; width: auto; height: auto; max-width: 90vw; max-height: 90vh; }
-        #full-modal-image { max-width: 100%; max-height: 100%; object-fit: contain; }
+        #full-image-modal .modal-content { padding: 5px; background-color: rgba(0,0,0,0.7); border: none; width: 95vw; height: 95vh; }
+        #full-modal-image { max-width: 100%; max-height: 100%; object-fit: contain; cursor: grab; }
+        #full-modal-image:active { cursor: grabbing; }
+        .zoom-instruction { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); color: white; background-color: rgba(0,0,0,0.5); padding: 5px 10px; border-radius: 5px; font-size: 0.8em; pointer-events: none; }
     </style>
 </head>
 <body>
@@ -72,8 +75,7 @@
     <div id="character-modal" class="modal"><div class="modal-content"><span class="close-button">&times;</span><img id="modal-image" src="" class="modal-character-image"><h2 id="modal-name"></h2><h4>Descrição</h4><p id="modal-description"></p><button id="modal-edit-btn" class="edit-btn" style="margin-top: 20px;">Editar</button></div></div>
     <div id="cropper-modal" class="modal"><div class="modal-content"><h3>Recortar Imagem</h3><div><img id="image-to-crop" src=""></div><button id="save-crop-btn" class="edit-btn" style="margin-top: 20px;">Salvar</button></div></div>
     <div id="relationship-modal" class="modal"><div class="modal-content"><span class="close-button">&times;</span><div class="image-container"><img id="rel-char1-image" class="rel-char-image"><span class="rel-char-names"><span id="rel-char1-name"></span> &harr; <span id="rel-char2-name"></span></span><img id="rel-char2-image" class="rel-char-image"></div><h4>Relacionamento</h4><p id="rel-description"></p><div id="social-hearts-container" class="social-hearts-container"></div><p id="bonus-display-area"></p><div class="relationship-actions"><button id="edit-relationship-btn" class="edit-btn">Editar</button><button id="delete-relationship-btn" class="delete-btn">Excluir</button></div></div></div>
-    
-    <div id="full-image-modal" class="modal"><div id="full-image-modal-content" class="modal-content"><span class="close-button">&times;</span><img id="full-modal-image" src=""></div></div>
+    <div id="full-image-modal" class="modal"><div class="modal-content"><span class="close-button" style="color: #fff;">&times;</span><img id="full-modal-image" src=""><div class="zoom-instruction">Use a roda do mouse para dar zoom</div></div></div>
 
     <script>
         
@@ -81,7 +83,7 @@
         const storage = firebase.storage();
         const SOCIAL_LEVELS = ["", "Amigo", "Confidente", "Vínculo Inabalável"];
         
-        let network, cropper;
+        let network, cropper, panzoomInstance;
         let allRelationships = [], allCharacterDetails = {};
         let centralCharacter = 'Akane';
         let originalFileToUpload = null;
@@ -103,6 +105,7 @@
         const charOriginalUrlInput = document.getElementById('char-original-url');
         const imageToCrop = document.getElementById('image-to-crop');
         const fullImageModal = document.getElementById('full-image-modal');
+        const fullModalImage = document.getElementById('full-modal-image');
 
         function drawRelationshipMap() {
             if (Object.keys(allCharacterDetails).length === 0 || !allCharacterDetails[centralCharacter]) return;
@@ -156,8 +159,20 @@
         }
 
         function showFullImageModal(imageUrl) {
-            document.getElementById('full-modal-image').src = imageUrl;
+            fullModalImage.src = imageUrl;
             fullImageModal.style.display = 'flex';
+            
+            if (panzoomInstance) panzoomInstance.destroy();
+            panzoomInstance = Panzoom(fullModalImage, { maxScale: 5, minScale: 0.7 });
+            fullImageModal.parentElement.addEventListener('wheel', panzoomInstance.zoomWithWheel);
+        }
+        
+        function closeFullImageModal() {
+            if (panzoomInstance) {
+                panzoomInstance.destroy();
+                panzoomInstance = null;
+            }
+            fullImageModal.style.display = 'none';
         }
 
         async function showRelationshipModal(edgeId) {
@@ -245,7 +260,7 @@
         
         function handleEscKey(event) {
             if (event.key === 'Escape') {
-                if (fullImageModal.style.display === 'flex') fullImageModal.style.display = 'none';
+                if (fullImageModal.style.display === 'flex') closeFullImageModal();
                 else if (relationshipModal.style.display === 'flex') relationshipModal.style.display = 'none';
                 else if (characterModal.style.display === 'flex') characterModal.style.display = 'none';
                 else if (cropperModal.style.display === 'flex') cropperModal.style.display = 'none';
@@ -310,7 +325,7 @@
         
         characterModal.querySelector('.close-button').addEventListener('click', () => { characterModal.style.display = 'none'; });
         relationshipModal.querySelector('.close-button').addEventListener('click', () => { relationshipModal.style.display = 'none'; });
-        fullImageModal.querySelector('.close-button').addEventListener('click', () => { fullImageModal.style.display = 'none'; });
+        fullImageModal.querySelector('.close-button').addEventListener('click', closeFullImageModal);
         
         editRelationshipBtn.addEventListener('click', async (e) => {
             const linkId = e.target.dataset.linkId; if (!linkId) return;
