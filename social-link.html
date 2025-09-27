@@ -70,7 +70,6 @@
 <body>
     <div class="container">
         <header><h1>Mapa de Relações</h1><nav><a href="index.html" style="margin-right: 20px;">Página Inicial</a><a href="#" onclick="logout()">Sair</a></nav></header>
-
         <main>
             <div class="form-container">
                 <div class="form-group">
@@ -83,24 +82,16 @@
                     </select>
                 </div>
             </div>
-
             <div class="form-container">
                 <h3>Criar Novo Personagem (NPC)</h3>
                 <form id="create-character-form"><div class="form-group"><label for="new-char-name">Nome:</label><input type="text" id="new-char-name" required></div><button type="submit">Criar</button></form>
             </div>
-
-            <div class="form-container">
-                <button id="toggle-char-management-btn" class="secondary-btn">Gerenciar Personagens</button>
-                <div id="character-management-content" style="display: none;"><hr><div id="edit-form-wrapper" style="display: none;"><h3 id="char-form-title">Editar Personagem</h3><form id="character-details-form"><input type="hidden" id="char-doc-id"><div class="form-group"><label for="char-name">Nome:</label><input type="text" id="char-name" required></div><div class="form-group"><label for="char-image-upload">Imagem:</label><input type="file" id="char-image-upload" accept="image/*"></div><div class="form-group"><label for="char-image-url">URL:</label><input type="text" id="char-image-url" readonly></div><div class="form-group"><label for="char-description">Descrição:</label><textarea id="char-description" rows="4"></textarea></div><button type="submit">Salvar</button><button type="button" id="cancel-char-edit-btn">Cancelar</button></form><hr></div><h3>Personagens Cadastrados</h3><ul id="character-details-list"></ul></div>
-            </div>
-
+            <div class="form-container"><button id="toggle-char-management-btn" class="secondary-btn">Gerenciar Personagens</button><div id="character-management-content" style="display: none;"><hr><div id="edit-form-wrapper" style="display: none;"><h3 id="char-form-title">Editar Personagem</h3><form id="character-details-form"><input type="hidden" id="char-doc-id"><div class="form-group"><label for="char-name">Nome:</label><input type="text" id="char-name" required></div><div class="form-group"><label for="char-image-upload">Imagem:</label><input type="file" id="char-image-upload" accept="image/*"></div><div class="form-group"><label for="char-image-url">URL:</label><input type="text" id="char-image-url" readonly></div><div class="form-group"><label for="char-description">Descrição:</label><textarea id="char-description" rows="4"></textarea></div><button type="submit">Salvar</button><button type="button" id="cancel-char-edit-btn">Cancelar</button></form><hr></div><h3>Personagens Cadastrados</h3><ul id="character-details-list"></ul></div></div>
             <div class="form-container">
                 <h3>Criar Conexão</h3>
                 <form id="social-link-form"><div class="form-group"><label for="char1">De:</label><select id="char1" required></select></div><div class="form-group"><label for="char2">Para:</label><select id="char2" required></select></div><div class="form-group"><label for="relationship-description">Relacionamento:</label><textarea id="relationship-description" rows="3"></textarea></div><button type="submit">Criar</button></form>
             </div>
-            
             <hr style="margin: 40px 0;">
-            
             <div class="form-container">
                 <h3 id="map-title">Mapa de Relações de Akane</h3>
                 <p>Dê um duplo clique em um personagem ou em uma linha para ver detalhes.</p>
@@ -243,9 +234,10 @@
 
         async function handleHeartDoubleClick(linkId, clickedLevel, currentLevel) {
             let updateSuccess = false;
-            // AUMENTAR NÍVEL
+            let bonusText = null;
+
             if (clickedLevel === currentLevel + 1) {
-                const bonusText = prompt(`Nível "${SOCIAL_LEVELS[clickedLevel]}" alcançado!\nDigite o bônus:`);
+                bonusText = prompt(`Nível "${SOCIAL_LEVELS[clickedLevel]}" alcançado!\nDigite o bônus:`);
                 if (bonusText !== null) {
                     await db.collection('social_links').doc(linkId).update({
                         'socialLink.level': clickedLevel,
@@ -253,7 +245,6 @@
                     });
                     updateSuccess = true;
                 }
-            // REBAIXAR NÍVEL
             } else if (clickedLevel === currentLevel && clickedLevel > 0) {
                 if (confirm(`Remover o nível "${SOCIAL_LEVELS[clickedLevel]}"?`)) {
                     await db.collection('social_links').doc(linkId).update({
@@ -264,15 +255,20 @@
                 }
             }
 
-            // ATUALIZAÇÃO MANUAL DA UI (SEM RACE CONDITION)
             if (updateSuccess) {
                 const relToUpdate = allRelationships.find(r => r.id === linkId);
-                if(relToUpdate) { // Atualiza os dados locais primeiro
+                if (relToUpdate) {
+                    if (!relToUpdate.socialLink) relToUpdate.socialLink = {};
+                    if (!relToUpdate.socialLink.bonuses) relToUpdate.socialLink.bonuses = {};
+                    
                     relToUpdate.socialLink.level = clickedLevel === currentLevel ? currentLevel - 1 : clickedLevel;
-                    if(clickedLevel === currentLevel) delete relToUpdate.socialLink.bonuses[currentLevel];
-                    else if (relToUpdate.socialLink.bonuses) relToUpdate.socialLink.bonuses[clickedLevel] = prompt.toString(); // Simula a mudança
+                    if (clickedLevel === currentLevel) {
+                        delete relToUpdate.socialLink.bonuses[currentLevel];
+                    } else if (bonusText !== null) {
+                        relToUpdate.socialLink.bonuses[clickedLevel] = bonusText;
+                    }
                 }
-                showRelationshipModal(linkId); // Redesenha com os dados locais atualizados
+                showRelationshipModal(linkId);
             }
         }
 
@@ -344,8 +340,8 @@
             const newDescription = prompt("Editar descrição:", relationship.description || "");
             if (newDescription !== null) { 
                 await db.collection('social_links').doc(linkId).update({ description: newDescription });
-                relationship.description = newDescription; // Atualiza localmente
-                showRelationshipModal(linkId); // Redesenha
+                relationship.description = newDescription;
+                showRelationshipModal(linkId);
             }
         });
 
