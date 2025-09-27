@@ -71,51 +71,20 @@
     <div class="container">
         <header><h1>Mapa de Relações</h1><nav><a href="index.html" style="margin-right: 20px;">Página Inicial</a><a href="#" onclick="logout()">Sair</a></nav></header>
         <main>
-            <div class="form-container">
-                <div class="form-group">
-                    <label for="character-map-select" style="font-size: 1.2em;"><strong>Ver Mapa de:</strong></label>
-                    <select id="character-map-select">
-                        <option value="Akane">Akane</option>
-                        <option value="Gemini">Gemini</option>
-                        <option value="Tilas">Tilas</option>
-                        <option value="Daemian">Daemian</option>
-                    </select>
-                </div>
-            </div>
-            <div class="form-container">
-                <h3>Criar Novo Personagem (NPC)</h3>
-                <form id="create-character-form"><div class="form-group"><label for="new-char-name">Nome:</label><input type="text" id="new-char-name" required></div><button type="submit">Criar</button></form>
-            </div>
+            <div class="form-container"><div class="form-group"><label for="character-map-select" style="font-size: 1.2em;"><strong>Ver Mapa de:</strong></label><select id="character-map-select"><option value="Akane">Akane</option><option value="Gemini">Gemini</option><option value="Tilas">Tilas</option><option value="Daemian">Daemian</option></select></div></div>
+            <div class="form-container"><h3>Criar Novo Personagem (NPC)</h3><form id="create-character-form"><div class="form-group"><label for="new-char-name">Nome:</label><input type="text" id="new-char-name" required></div><button type="submit">Criar</button></form></div>
             <div class="form-container"><button id="toggle-char-management-btn" class="secondary-btn">Gerenciar Personagens</button><div id="character-management-content" style="display: none;"><hr><div id="edit-form-wrapper" style="display: none;"><h3 id="char-form-title">Editar Personagem</h3><form id="character-details-form"><input type="hidden" id="char-doc-id"><div class="form-group"><label for="char-name">Nome:</label><input type="text" id="char-name" required></div><div class="form-group"><label for="char-image-upload">Imagem:</label><input type="file" id="char-image-upload" accept="image/*"></div><div class="form-group"><label for="char-image-url">URL:</label><input type="text" id="char-image-url" readonly></div><div class="form-group"><label for="char-description">Descrição:</label><textarea id="char-description" rows="4"></textarea></div><button type="submit">Salvar</button><button type="button" id="cancel-char-edit-btn">Cancelar</button></form><hr></div><h3>Personagens Cadastrados</h3><ul id="character-details-list"></ul></div></div>
-            <div class="form-container">
-                <h3>Criar Conexão</h3>
-                <form id="social-link-form"><div class="form-group"><label for="char1">De:</label><select id="char1" required></select></div><div class="form-group"><label for="char2">Para:</label><select id="char2" required></select></div><div class="form-group"><label for="relationship-description">Relacionamento:</label><textarea id="relationship-description" rows="3"></textarea></div><button type="submit">Criar</button></form>
-            </div>
+            <div class="form-container"><h3>Criar Conexão</h3><form id="social-link-form"><div class="form-group"><label for="char1">De:</label><select id="char1" required></select></div><div class="form-group"><label for="char2">Para:</label><select id="char2" required></select></div><div class="form-group"><label for="relationship-description">Relacionamento:</label><textarea id="relationship-description" rows="3"></textarea></div><button type="submit">Criar</button></form></div>
             <hr style="margin: 40px 0;">
-            <div class="form-container">
-                <h3 id="map-title">Mapa de Relações de Akane</h3>
-                <p>Dê um duplo clique em um personagem ou em uma linha para ver detalhes.</p>
-                <div id="relationship-map"></div>
-            </div>
+            <div class="form-container"><h3 id="map-title">Mapa de Relações de Akane</h3><p>Dê um duplo clique em um personagem ou em uma linha para ver detalhes.</p><div id="relationship-map"></div></div>
         </main>
     </div>
 
     <div id="character-modal" class="modal"><div class="modal-content"><span class="close-button">&times;</span><img id="modal-image" src="" class="modal-character-image"><h2 id="modal-name"></h2><h4>Descrição</h4><p id="modal-description"></p><button id="modal-edit-btn" class="edit-btn" style="margin-top: 20px;">Editar</button></div></div>
     <div id="cropper-modal" class="modal"><div class="modal-content"><h3>Recortar Imagem</h3><div><img id="image-to-crop" src=""></div><button id="save-crop-btn" class="edit-btn" style="margin-top: 20px;">Salvar</button></div></div>
-    
-    <div id="relationship-modal" class="modal">
-        <div class="modal-content">
-            <span class="close-button">&times;</span>
-            <div class="image-container"><img id="rel-char1-image" class="rel-char-image"><span class="rel-char-names"><span id="rel-char1-name"></span> &harr; <span id="rel-char2-name"></span></span><img id="rel-char2-image" class="rel-char-image"></div>
-            <h4>Relacionamento</h4><p id="rel-description"></p>
-            <div id="social-hearts-container" class="social-hearts-container"></div>
-            <p id="bonus-display-area"></p>
-            <div class="relationship-actions"><button id="edit-relationship-btn" class="edit-btn">Editar</button><button id="delete-relationship-btn" class="delete-btn">Excluir</button></div>
-        </div>
-    </div>
+    <div id="relationship-modal" class="modal"><div class="modal-content"><span class="close-button">&times;</span><div class="image-container"><img id="rel-char1-image" class="rel-char-image"><span class="rel-char-names"><span id="rel-char1-name"></span> &harr; <span id="rel-char2-name"></span></span><img id="rel-char2-image" class="rel-char-image"></div><h4>Relacionamento</h4><p id="rel-description"></p><div id="social-hearts-container" class="social-hearts-container"></div><p id="bonus-display-area"></p><div class="relationship-actions"><button id="edit-relationship-btn" class="edit-btn">Editar</button><button id="delete-relationship-btn" class="delete-btn">Excluir</button></div></div></div>
 
     <script>
-        // --- CONFIGURAÇÃO E CONSTANTES ---
         
         const db = firebase.firestore();
         const storage = firebase.storage();
@@ -125,7 +94,6 @@
         let allRelationships = [], allCharacterDetails = {};
         let centralCharacter = 'Akane'; 
 
-        // --- MAPEAMENTO DO DOM ---
         const mapTitle = document.getElementById('map-title');
         const characterMapSelect = document.getElementById('character-map-select');
         const relationshipModal = document.getElementById('relationship-modal');
@@ -140,11 +108,8 @@
         const deleteRelationshipBtn = document.getElementById('delete-relationship-btn');
         const bonusDisplayArea = document.getElementById('bonus-display-area');
 
-        // --- FUNÇÕES ---
         function drawRelationshipMap() {
-            if (Object.keys(allCharacterDetails).length === 0) return; // Não desenha se não houver personagens
-            if (!allCharacterDetails[centralCharacter]) return;
-
+            if (Object.keys(allCharacterDetails).length === 0 || !allCharacterDetails[centralCharacter]) return;
             mapTitle.textContent = `Mapa de Relações de ${centralCharacter}`;
             
             const relevantRelationships = allRelationships.filter(rel => rel.char1 === centralCharacter || rel.char2 === centralCharacter);
@@ -156,7 +121,7 @@
                 const charData = allCharacterDetails[charName];
                 if (!charData) return;
                 const nodeOptions = { id: charData.name, label: charData.name, shape: 'circularImage', image: charData.image_url || 'https://dummyimage.com/150x150/ccc/000.png&text=X', borderWidth: 3, size: 30 };
-                if (charData.name === centralCharacter) { Object.assign(nodeOptions, { group: 'central', fixed: true, x: 0, y: 0, size: 40 }); }
+                if (charData.name === centralCharacter) Object.assign(nodeOptions, { group: 'central', fixed: true, x: 0, y: 0, size: 40 });
                 nodes.add(nodeOptions);
             });
 
@@ -180,11 +145,17 @@
 
         async function showCharacterModal(characterName) {
             const details = allCharacterDetails[characterName];
-            if (!details) return;
+            if (!details) {
+                console.error("Detalhes não encontrados para:", characterName);
+                return;
+            }
             document.getElementById('modal-image').src = details.image_url || 'https://dummyimage.com/150x150/ccc/000.png&text=X';
             document.getElementById('modal-name').textContent = details.name;
             document.getElementById('modal-description').textContent = details.description || 'Nenhuma descrição.';
-            document.getElementById('modal-edit-btn').onclick = () => { characterModal.style.display = 'none'; editCharacterDetails(details.id, details); };
+            document.getElementById('modal-edit-btn').onclick = () => { 
+                characterModal.style.display = 'none'; 
+                editCharacterDetails(details.id, details); 
+            };
             characterModal.style.display = 'flex';
         }
 
@@ -226,9 +197,7 @@
                         heartSVG.addEventListener('mouseenter', () => { bonusDisplayArea.textContent = bonusText; bonusDisplayArea.style.fontStyle = 'normal'; bonusDisplayArea.style.color = '#212529'; });
                         heartSVG.addEventListener('click', () => { bonusDisplayArea.textContent = bonusText; bonusDisplayArea.style.fontStyle = 'normal'; bonusDisplayArea.style.color = '#212529'; });
                     }
-                } else {
-                    heartSVG.classList.add('empty');
-                }
+                } else { heartSVG.classList.add('empty'); }
                 
                 heartSVG.addEventListener('mouseleave', () => { bonusDisplayArea.textContent = defaultBonusText; bonusDisplayArea.style.fontStyle = 'italic'; bonusDisplayArea.style.color = '#6c757d'; });
                 heartSVG.addEventListener('dblclick', () => handleHeartDoubleClick(edgeId, i, currentLevel));
@@ -280,7 +249,6 @@
             }
         }
 
-        // --- OBSERVERS E EVENT LISTENERS ---
         db.collection("character_details").onSnapshot(snapshot => {
             allCharacterDetails = {};
             snapshot.docs.forEach(doc => { allCharacterDetails[doc.id] = {id: doc.id, ...doc.data()}; });
