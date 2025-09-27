@@ -142,7 +142,9 @@
 
         // --- FUNÇÕES ---
         function drawRelationshipMap() {
+            if (Object.keys(allCharacterDetails).length === 0) return; // Não desenha se não houver personagens
             if (!allCharacterDetails[centralCharacter]) return;
+
             mapTitle.textContent = `Mapa de Relações de ${centralCharacter}`;
             
             const relevantRelationships = allRelationships.filter(rel => rel.char1 === centralCharacter || rel.char2 === centralCharacter);
@@ -238,24 +240,11 @@
         async function handleHeartDoubleClick(linkId, clickedLevel, currentLevel) {
             let updateSuccess = false;
             let bonusText = null;
-
             if (clickedLevel === currentLevel + 1) {
                 bonusText = prompt(`Nível "${SOCIAL_LEVELS[clickedLevel]}" alcançado!\nDigite o bônus:`);
-                if (bonusText !== null) {
-                    await db.collection('social_links').doc(linkId).update({
-                        'socialLink.level': clickedLevel,
-                        [`socialLink.bonuses.${clickedLevel}`]: bonusText
-                    });
-                    updateSuccess = true;
-                }
+                if (bonusText !== null) { await db.collection('social_links').doc(linkId).update({ 'socialLink.level': clickedLevel, [`socialLink.bonuses.${clickedLevel}`]: bonusText }); updateSuccess = true; }
             } else if (clickedLevel === currentLevel && clickedLevel > 0) {
-                if (confirm(`Remover o nível "${SOCIAL_LEVELS[clickedLevel]}"?`)) {
-                    await db.collection('social_links').doc(linkId).update({
-                        'socialLink.level': currentLevel - 1,
-                        [`socialLink.bonuses.${currentLevel}`]: firebase.firestore.FieldValue.delete()
-                    });
-                    updateSuccess = true;
-                }
+                if (confirm(`Remover o nível "${SOCIAL_LEVELS[clickedLevel]}"?`)) { await db.collection('social_links').doc(linkId).update({ 'socialLink.level': currentLevel - 1, [`socialLink.bonuses.${currentLevel}`]: firebase.firestore.FieldValue.delete() }); updateSuccess = true; }
             }
 
             if (updateSuccess) {
@@ -263,13 +252,9 @@
                 if (relToUpdate) {
                     if (!relToUpdate.socialLink) relToUpdate.socialLink = {};
                     if (!relToUpdate.socialLink.bonuses) relToUpdate.socialLink.bonuses = {};
-                    
                     relToUpdate.socialLink.level = clickedLevel === currentLevel ? currentLevel - 1 : clickedLevel;
-                    if (clickedLevel === currentLevel) {
-                        delete relToUpdate.socialLink.bonuses[currentLevel];
-                    } else if (bonusText !== null) {
-                        relToUpdate.socialLink.bonuses[clickedLevel] = bonusText;
-                    }
+                    if (clickedLevel === currentLevel) { delete relToUpdate.socialLink.bonuses[currentLevel]; } 
+                    else if (bonusText !== null) { relToUpdate.socialLink.bonuses[clickedLevel] = bonusText; }
                 }
                 showRelationshipModal(linkId);
             }
@@ -318,7 +303,12 @@
             sortedChars.forEach(char => char2Select.innerHTML += `<option value="${char.name}">${char.name}</option>`);
             char1Select.innerHTML = `<option value="${centralCharacter}">${centralCharacter}</option>`;
             
-            db.collection("social_links").onSnapshot(linkSnapshot => { allRelationships = linkSnapshot.docs.map(doc => ({id: doc.id, ...doc.data()})); drawRelationshipMap(); });
+            drawRelationshipMap();
+        });
+        
+        db.collection("social_links").onSnapshot(linkSnapshot => { 
+            allRelationships = linkSnapshot.docs.map(doc => ({id: doc.id, ...doc.data()})); 
+            drawRelationshipMap(); 
         });
 
         characterMapSelect.addEventListener('change', (e) => {
