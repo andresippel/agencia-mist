@@ -73,7 +73,7 @@
         <main>
             <div class="form-container"><div class="form-group"><label for="character-map-select" style="font-size: 1.2em;"><strong>Ver Mapa de:</strong></label><select id="character-map-select"><option value="Akane">Akane</option><option value="Gemini">Gemini</option><option value="Tilas">Tilas</option><option value="Daemian">Daemian</option></select></div></div>
             <div class="form-container"><h3>Criar Novo Personagem (NPC)</h3><form id="create-character-form"><div class="form-group"><label for="new-char-name">Nome:</label><input type="text" id="new-char-name" required></div><button type="submit">Criar</button></form></div>
-            <div class="form-container"><button id="toggle-char-management-btn" class="secondary-btn">Gerenciar Personagens</button><div id="character-management-content" style="display: none;"><hr><div id="edit-form-wrapper" style="display: none;"><h3 id="char-form-title">Editar Personagem</h3><form id="character-details-form"><input type="hidden" id="char-doc-id"><div class="form-group"><label for="char-name">Nome:</label><input type="text" id="char-name" required></div><div class="form-group"><label for="char-image-upload">Imagem:</label><input type="file" id="char-image-upload" accept="image/*"></div><div class="form-group"><label for="char-image-url">URL:</label><input type="text" id="char-image-url" readonly></div><div class="form-group"><label for="char-description">Descrição:</label><textarea id="char-description" rows="4"></textarea></div><button type="submit">Salvar</button><button type="button" id="cancel-char-edit-btn">Cancelar</button></form><hr></div><h3>Personagens Cadastrados</h3><ul id="character-details-list"></ul></div></div>
+            <div class="form-container"><button id="toggle-char-management-btn" class="secondary-btn">Gerenciar Personagens</button><div id="character-management-content" style="display: none;"><hr><div id="edit-form-wrapper" style="display: none;"><h3 id="char-form-title">Editar Personagem</h3><form id="character-details-form"><input type="hidden" id="char-doc-id"><div class="form-group"><label for="char-name">Nome:</label><input type="text" id="char-name" required></div><div class="form-group"><label for="char-image-upload">Imagem:</label><input type="file" id="char-image-upload" accept="image/*"></div><div class="form-group"><label for="char-thumb-url">URL da Miniatura (gerado):</label><input type="text" id="char-thumb-url" readonly></div><div class="form-group"><label for="char-original-url">URL Original (gerado):</label><input type="text" id="char-original-url" readonly></div><div class="form-group"><label for="char-description">Descrição:</label><textarea id="char-description" rows="4"></textarea></div><button type="submit">Salvar</button><button type="button" id="cancel-char-edit-btn">Cancelar</button></form><hr></div><h3>Personagens Cadastrados</h3><ul id="character-details-list"></ul></div></div>
             <div class="form-container"><h3>Criar Conexão</h3><form id="social-link-form"><div class="form-group"><label for="char1">De:</label><select id="char1" required></select></div><div class="form-group"><label for="char2">Para:</label><select id="char2" required></select></div><div class="form-group"><label for="relationship-description">Relacionamento:</label><textarea id="relationship-description" rows="3"></textarea></div><button type="submit">Criar</button></form></div>
             <hr style="margin: 40px 0;">
             <div class="form-container"><h3 id="map-title">Mapa de Relações de Akane</h3><p>Dê um duplo clique em um personagem ou em uma linha para ver detalhes.</p><div id="relationship-map"></div></div>
@@ -85,14 +85,15 @@
     <div id="relationship-modal" class="modal"><div class="modal-content"><span class="close-button">&times;</span><div class="image-container"><img id="rel-char1-image" class="rel-char-image"><span class="rel-char-names"><span id="rel-char1-name"></span> &harr; <span id="rel-char2-name"></span></span><img id="rel-char2-image" class="rel-char-image"></div><h4>Relacionamento</h4><p id="rel-description"></p><div id="social-hearts-container" class="social-hearts-container"></div><p id="bonus-display-area"></p><div class="relationship-actions"><button id="edit-relationship-btn" class="edit-btn">Editar</button><button id="delete-relationship-btn" class="delete-btn">Excluir</button></div></div></div>
 
     <script>
-        
+       
         const db = firebase.firestore();
         const storage = firebase.storage();
         const SOCIAL_LEVELS = ["", "Amigo", "Confidente", "Vínculo Inabalável"];
         
         let network, cropper;
         let allRelationships = [], allCharacterDetails = {};
-        let centralCharacter = 'Akane'; 
+        let centralCharacter = 'Akane';
+        let originalFileToUpload = null;
 
         const mapTitle = document.getElementById('map-title');
         const characterMapSelect = document.getElementById('character-map-select');
@@ -107,6 +108,8 @@
         const editRelationshipBtn = document.getElementById('edit-relationship-btn');
         const deleteRelationshipBtn = document.getElementById('delete-relationship-btn');
         const bonusDisplayArea = document.getElementById('bonus-display-area');
+        const charThumbUrlInput = document.getElementById('char-thumb-url');
+        const charOriginalUrlInput = document.getElementById('char-original-url');
 
         function drawRelationshipMap() {
             if (Object.keys(allCharacterDetails).length === 0 || !allCharacterDetails[centralCharacter]) return;
@@ -120,7 +123,7 @@
             charactersInMap.forEach(charName => {
                 const charData = allCharacterDetails[charName];
                 if (!charData) return;
-                const nodeOptions = { id: charData.name, label: charData.name, shape: 'circularImage', image: charData.image_url || 'https://dummyimage.com/150x150/ccc/000.png&text=X', borderWidth: 3, size: 30 };
+                const nodeOptions = { id: charData.name, label: charData.name, shape: 'circularImage', image: charData.image_thumb_url || 'https://dummyimage.com/150x150/ccc/000.png&text=X', borderWidth: 3, size: 30 };
                 if (charData.name === centralCharacter) Object.assign(nodeOptions, { group: 'central', fixed: true, x: 0, y: 0, size: 40 });
                 nodes.add(nodeOptions);
             });
@@ -135,27 +138,18 @@
             network = new vis.Network(mapContainer, data, options);
 
             network.on("doubleClick", params => {
-                if (params.nodes.length > 0) {
-                    showCharacterModal(params.nodes[0]);
-                } else if (params.edges.length > 0) {
-                    showRelationshipModal(params.edges[0]);
-                }
+                if (params.nodes.length > 0) showCharacterModal(params.nodes[0]);
+                else if (params.edges.length > 0) showRelationshipModal(params.edges[0]);
             });
         }
 
         async function showCharacterModal(characterName) {
             const details = allCharacterDetails[characterName];
-            if (!details) {
-                console.error("Detalhes não encontrados para:", characterName);
-                return;
-            }
-            document.getElementById('modal-image').src = details.image_url || 'https://dummyimage.com/150x150/ccc/000.png&text=X';
+            if (!details) return;
+            document.getElementById('modal-image').src = details.image_original_url || details.image_thumb_url || 'https://dummyimage.com/150x150/ccc/000.png&text=X';
             document.getElementById('modal-name').textContent = details.name;
             document.getElementById('modal-description').textContent = details.description || 'Nenhuma descrição.';
-            document.getElementById('modal-edit-btn').onclick = () => { 
-                characterModal.style.display = 'none'; 
-                editCharacterDetails(details.id, details); 
-            };
+            document.getElementById('modal-edit-btn').onclick = () => { characterModal.style.display = 'none'; editCharacterDetails(details.id, details); };
             characterModal.style.display = 'flex';
         }
 
@@ -168,8 +162,8 @@
             editRelationshipBtn.dataset.linkId = edgeId;
             deleteRelationshipBtn.dataset.linkId = edgeId;
 
-            document.getElementById('rel-char1-image').src = char1.image_url || 'https://dummyimage.com/150x150/ccc/000.png&text=X';
-            document.getElementById('rel-char2-image').src = char2.image_url || 'https://dummyimage.com/150x150/ccc/000.png&text=X';
+            document.getElementById('rel-char1-image').src = char1.image_thumb_url || 'https://dummyimage.com/150x150/ccc/000.png&text=X';
+            document.getElementById('rel-char2-image').src = char2.image_thumb_url || 'https://dummyimage.com/150x150/ccc/000.png&text=X';
             document.getElementById('rel-char1-name').textContent = char1.name;
             document.getElementById('rel-char2-name').textContent = char2.name;
             document.getElementById('rel-description').textContent = relationship.description || "";
@@ -233,7 +227,8 @@
             editFormWrapper.style.display = 'block';
             document.getElementById('char-doc-id').value = docId;
             document.getElementById('char-name').value = data.name;
-            document.getElementById('char-image-url').value = data.image_url || '';
+            charThumbUrlInput.value = data.image_thumb_url || '';
+            charOriginalUrlInput.value = data.image_original_url || '';
             document.getElementById('char-description').value = data.description || '';
             document.getElementById('char-form-title').textContent = `Editar: ${data.name}`;
             window.scrollTo({ top: editFormWrapper.offsetTop - 20, behavior: 'smooth' });
@@ -281,14 +276,27 @@
 
         characterMapSelect.addEventListener('change', (e) => {
             centralCharacter = e.target.value;
-            const char1Select = document.getElementById('char1');
-            char1Select.innerHTML = `<option value="${centralCharacter}">${centralCharacter}</option>`;
+            document.getElementById('char1').innerHTML = `<option value="${centralCharacter}">${centralCharacter}</option>`;
             drawRelationshipMap();
         });
 
         document.getElementById('toggle-char-management-btn').addEventListener('click', () => { const isVisible = characterManagementContent.style.display !== 'none'; if (!isVisible) { resetAndHideForm(); characterManagementContent.style.display = 'block'; } else { characterManagementContent.style.display = 'none'; } });
         document.getElementById('create-character-form').addEventListener('submit', async (e) => { e.preventDefault(); const name = document.getElementById('new-char-name').value.trim(); if (name) { await db.collection("character_details").doc(name).set({ name }, { merge: true }); e.target.reset(); } });
-        characterDetailsForm.addEventListener('submit', async (e) => { e.preventDefault(); const docId = document.getElementById('char-doc-id').value; if (!docId) return; const data = { name: document.getElementById('char-name').value, image_url: document.getElementById('char-image-url').value, description: document.getElementById('char-description').value }; await db.collection("character_details").doc(docId).update(data); resetAndHideForm(); });
+        
+        characterDetailsForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const docId = document.getElementById('char-doc-id').value;
+            if (!docId) return;
+            const dataToUpdate = {
+                name: document.getElementById('char-name').value,
+                description: document.getElementById('char-description').value,
+                image_thumb_url: charThumbUrlInput.value,
+                image_original_url: charOriginalUrlInput.value
+            };
+            await db.collection("character_details").doc(docId).update(dataToUpdate);
+            resetAndHideForm();
+        });
+
         cancelCharEditBtn.addEventListener('click', resetAndHideForm);
         document.getElementById('social-link-form').addEventListener('submit', async (e) => { e.preventDefault(); const data = { char1: document.getElementById('char1').value, char2: document.getElementById('char2').value, description: document.getElementById('relationship-description').value, socialLink: { level: 0, bonuses: {} } }; await db.collection("social_links").add(data); e.target.reset(); });
         
@@ -299,11 +307,7 @@
             const linkId = e.target.dataset.linkId; if (!linkId) return;
             const relationship = allRelationships.find(rel => rel.id === linkId);
             const newDescription = prompt("Editar descrição:", relationship.description || "");
-            if (newDescription !== null) { 
-                await db.collection('social_links').doc(linkId).update({ description: newDescription });
-                relationship.description = newDescription;
-                showRelationshipModal(linkId);
-            }
+            if (newDescription !== null) { await db.collection('social_links').doc(linkId).update({ description: newDescription }); relationship.description = newDescription; showRelationshipModal(linkId); }
         });
 
         deleteRelationshipBtn.addEventListener('click', async (e) => {
@@ -313,8 +317,52 @@
         
         document.addEventListener('keydown', handleEscKey);
 
-        document.getElementById('char-image-upload').addEventListener('change', (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (event) => { const imageToCrop = document.getElementById('image-to-crop'); imageToCrop.src = event.target.result; cropperModal.style.display = 'flex'; if (cropper) cropper.destroy(); cropper = new Cropper(imageToCrop, { aspectRatio: 1, viewMode: 1, background: false, autoCropArea: 0.8, movable: true, zoomable: true, rotatable: false, scalable: false }); }; reader.readAsDataURL(file); });
-        document.getElementById('save-crop-btn').addEventListener('click', () => { if (!cropper) return; const btn = document.getElementById('save-crop-btn'); btn.textContent = 'Enviando...'; btn.disabled = true; cropper.getCroppedCanvas({ width: 512, height: 512 }).toBlob(async (blob) => { const charName = document.getElementById('char-name').value.trim() || 'personagem'; const fileName = `char_${charName.replace(/\s+/g, '_')}_${Date.now()}.png`; const storageRef = storage.ref(`character_images/${fileName}`); try { const uploadTask = await storageRef.put(blob); document.getElementById('char-image-url').value = await uploadTask.ref.getDownloadURL(); cropperModal.style.display = 'none'; } catch (error) { console.error("Erro no upload: ", error); } finally { btn.textContent = 'Salvar Corte'; btn.disabled = false; } }, 'image/png'); });
+        document.getElementById('char-image-upload').addEventListener('change', (e) => {
+            const file = e.target.files[0]; if (!file) return;
+            originalFileToUpload = file;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                document.getElementById('image-to-crop').src = event.target.result;
+                cropperModal.style.display = 'flex';
+                if (cropper) cropper.destroy();
+                cropper = new Cropper(image_to_crop, { aspectRatio: 1, viewMode: 1, background: false, autoCropArea: 0.8, movable: true, zoomable: true, rotatable: false, scalable: false });
+            };
+            reader.readAsDataURL(file);
+        });
+
+        document.getElementById('save-crop-btn').addEventListener('click', () => {
+            if (!cropper || !originalFileToUpload) return;
+            const btn = document.getElementById('save-crop-btn');
+            btn.textContent = 'Enviando...';
+            btn.disabled = true;
+
+            const charName = document.getElementById('char-name').value.trim() || 'personagem';
+            const timestamp = Date.now();
+
+            // Upload da imagem original
+            const originalFileName = `char_${charName}_${timestamp}_original.png`;
+            const originalStorageRef = storage.ref(`character_images/${originalFileName}`);
+            originalStorageRef.put(originalFileToUpload).then(snapshot => snapshot.ref.getDownloadURL()).then(downloadURL => {
+                charOriginalUrlInput.value = downloadURL;
+                
+                // Upload da imagem cortada (thumb)
+                cropper.getCroppedCanvas({ width: 256, height: 256 }).toBlob(blob => {
+                    const thumbFileName = `char_${charName}_${timestamp}_thumb.png`;
+                    const thumbStorageRef = storage.ref(`character_images/${thumbFileName}`);
+                    thumbStorageRef.put(blob).then(snapshot => snapshot.ref.getDownloadURL()).then(downloadURL => {
+                        charThumbUrlInput.value = downloadURL;
+                        alert('Imagens enviadas com sucesso! Clique em "Salvar" para aplicar as mudanças.');
+                        cropperModal.style.display = 'none';
+                        btn.textContent = 'Salvar';
+                        btn.disabled = false;
+                    });
+                }, 'image/png');
+            }).catch(error => {
+                console.error("Erro no upload: ", error);
+                btn.textContent = 'Salvar';
+                btn.disabled = false;
+            });
+        });
     </script>
 </body>
 </html>
