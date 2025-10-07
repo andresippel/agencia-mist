@@ -11,13 +11,28 @@
     <script src="auth-check.js"></script>
 
     <link rel="stylesheet" href="style.css">
-
     <style>
         .markmap {
             width: 100%;
-            height: 75vh; /* Ajustei um pouco a altura para caber melhor com o header */
-            border: 1px solid #ddd; /* Adiciona uma borda sutil */
-            border-radius: 8px; /* Cantos arredondados */
+            height: 75vh;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        /* Estilos para a área de edição */
+        #editor-container {
+            display: none; /* Começa escondido */
+            margin-top: 20px;
+        }
+        #markdown-editor {
+            width: 100%;
+            height: 400px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .editor-actions {
+            margin-top: 10px;
+            text-align: right;
         }
     </style>
 </head>
@@ -27,11 +42,20 @@
             <h1>Mapa Mental do Universo</h1>
             <nav>
                 <a href="index.html" style="margin-right: 20px;">Página Inicial</a>
+                <a href="#" id="toggle-editor-btn" style="margin-right: 20px;">Modo Edição</a>
                 <a href="#" onclick="logout()">Sair</a>
             </nav>
         </header>
 
         <svg class="markmap"></svg>
+
+        <div id="editor-container">
+            <h3>Editando o Mapa Mental</h3>
+            <textarea id="markdown-editor" placeholder="Cole ou edite seu texto em formato Markdown aqui..."></textarea>
+            <div class="editor-actions">
+                <button id="save-btn">Salvar Alterações</button>
+            </div>
+        </div>
 
     </div> <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
     <script src="https://cdn.jsdelivr.net/npm/markmap-view@0.15"></script>
@@ -39,52 +63,71 @@
 
     <script>
       document.addEventListener('DOMContentLoaded', () => {
+        const db = firebase.firestore();
+        const mindmapDocRef = db.collection("conteudo").doc("mapa-mental");
+
         const { Transformer, Markmap } = window.markmap;
         const transformer = new Transformer();
         const svgEl = document.querySelector('.markmap');
+        
+        let markmapInstance; // Variável para guardar a instância do mapa
 
-        // Os dados do seu mapa mental (pode editar aqui quando quiser)
-        const markdown = `
-# Esfera Tecnológica
+        // Elementos do editor
+        const editorContainer = document.getElementById('editor-container');
+        const editorTextarea = document.getElementById('markdown-editor');
+        const toggleEditorBtn = document.getElementById('toggle-editor-btn');
+        const saveBtn = document.getElementById('save-btn');
 
-- Sobre as quatro forças universais
-  - A escuridão cósmica
-  - O Divino
-    - A origem de Deus
-    - Os três anjos de Deus
-      - Nephilim, a voz de Deus
-      - Luci, a força de Deus
-      - Abel, os olhos de Deus
-    - As três armas divinas
-      - Divino Sacrifício, a arma divina de Nephilim
-      - Mão de Deus, a arma divina de Luci
-      - Estrela Mobius, a arma divina de Abel
-    - Alcançando Deus
-    - A Ameaça Gnosi
-  - A magia verdadeira
-  - O paradoxo
+        // Função para renderizar o mapa mental
+        function renderMindmap(markdown) {
+          // Limpa o SVG anterior antes de desenhar um novo
+          svgEl.innerHTML = '';
+          const { root } = transformer.transform(markdown);
+          // Cria ou atualiza o mapa
+          if (markmapInstance) {
+            markmapInstance.setData(root);
+          } else {
+            markmapInstance = Markmap.create(svgEl, null, root);
+          }
+        }
 
-- Sobre Gaia
-  - A Fantasia de Gaia
-    - A fada Serena
-    - A fada Luna
-    - A destruição do Coração de Luz
-    - Fulgor
-    - Celina, o guerreiro da Luz
-    - Katsuo, o filho da fada Serena
-    - Espers
-    - Os minérios Gaianos
-      - O poder de Serena no núcleo Gaiano
-      - Os minérios Gaianos e seu uso na revolução tecnológica
-      - O uso da magia Gaiana para despertar o anjo
-      - Glória à Humanidade
-  - Nia
-    - A voz definitiva
-    - "Ainda que meus olhos não enxerguem mais, ainda que eu não tenha forças para mais nada mover, saibam que minha voz sempre os alcançará"
-        `;
+        // Função para carregar os dados do Firestore
+        function loadMindmapFromDB() {
+          mindmapDocRef.onSnapshot(doc => {
+            if (doc.exists) {
+              const markdown = doc.data().markdown;
+              editorTextarea.value = markdown; // Atualiza o editor
+              renderMindmap(markdown); // Renderiza o mapa
+            } else {
+              console.log("Documento do mapa mental não encontrado!");
+              // Você pode renderizar um mapa padrão ou mostrar uma mensagem
+              renderMindmap("# Mapa não encontrado\n- Crie o documento 'mapa-mental' no Firestore.");
+            }
+          });
+        }
+        
+        // Alternar a visibilidade do editor
+        toggleEditorBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const isHidden = editorContainer.style.display === 'none' || editorContainer.style.display === '';
+            editorContainer.style.display = isHidden ? 'block' : 'none';
+        });
 
-        const { root } = transformer.transform(markdown);
-        Markmap.create(svgEl, null, root);
+        // Salvar as alterações no Firestore
+        saveBtn.addEventListener('click', async () => {
+          const newMarkdown = editorTextarea.value;
+          try {
+            await mindmapDocRef.update({ markdown: newMarkdown });
+            alert("Mapa mental salvo com sucesso!");
+            editorContainer.style.display = 'none'; // Esconde o editor após salvar
+          } catch (error) {
+            console.error("Erro ao salvar o mapa mental: ", error);
+            alert("Ocorreu um erro ao salvar. Verifique o console.");
+          }
+        });
+
+        // Carrega o mapa mental quando a página abre
+        loadMindmapFromDB();
       });
     </script>
 </body>
