@@ -117,7 +117,7 @@
         saveBtn.addEventListener('click', async () => {
           const newMarkdown = editorTextarea.value;
           try {
-            await mindmapDocRef.update({ markdown: newMarkdown });
+            await mindmapDocRef.set({ markdown: newMarkdown });
             alert("Mapa mental salvo com sucesso!");
             editorContainer.style.display = 'none'; // Esconde o editor após salvar
           } catch (error) {
