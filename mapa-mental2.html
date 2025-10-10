@@ -11,6 +11,7 @@
     <script src="auth-check.js"></script>
 
     <link rel="stylesheet" href="style.css">
+
     <style>
         .markmap {
             width: 100%;
@@ -19,21 +20,7 @@
             border-radius: 8px;
             margin-bottom: 20px;
         }
-        /* Estilos para a área de edição */
-        #editor-container {
-            display: none; /* Começa escondido */
-            margin-top: 20px;
-        }
-        #markdown-editor {
-            width: 100%;
-            height: 400px;
-            font-family: monospace;
-            font-size: 14px;
-        }
-        .editor-actions {
-            margin-top: 10px;
-            text-align: right;
-        }
+
         /* Estilos do Modal */
         .modal-overlay {
             display: none; /* Começa escondido */
@@ -54,12 +41,11 @@
             max-width: 600px;
             width: 90%;
             box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            color: #333; /* Garante que o texto dentro do modal seja legível */
         }
         #modal-title {
             margin-top: 0;
         }
-
-
     </style>
 </head>
 <body>
@@ -68,7 +54,6 @@
             <h1>Mapa Mental do Universo</h1>
             <nav>
                 <a href="index.html" style="margin-right: 20px;">Página Inicial</a>
-                <a href="#" id="toggle-editor-btn" style="margin-right: 20px;">Modo Edição</a>
                 <a href="#" onclick="logout()">Sair</a>
             </nav>
         </header>
@@ -83,120 +68,112 @@
             </div>
         </div>
 
-        <div id="editor-container">
-            <h3>Editando o Mapa Mental</h3>
-            <textarea id="markdown-editor" placeholder="Cole ou edite seu texto em formato Markdown aqui..."></textarea>
-            <div class="editor-actions">
-                <button id="save-btn">Salvar Alterações</button>
-            </div>
-        </div>
-
     </div> <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
     <script src="https://cdn.jsdelivr.net/npm/markmap-view@0.15"></script>
     <script src="https://cdn.jsdelivr.net/npm/markmap-lib@0.15"></script>
 
     <script>
-      document.addEventListener('DOMContentLoaded', () => {
-      const db = firebase.firestore();
-      const nodesCollection = db.collection("mapa-mental-nodes");
+    document.addEventListener('DOMContentLoaded', () => {
+        const db = firebase.firestore();
+        const nodesCollection = db.collection("mapa-mental-nodes");
 
-      const { Transformer, Markmap } = window.markmap;
-      const transformer = new Transformer();
-      const svgEl = document.querySelector('.svg.markmap'); // Se o svg tiver a classe 'markmap'
-      
-      let markmapInstance;
-      let allNodes = []; // Array para guardar todos os nós do DB
+        const { Transformer, Markmap } = window.markmap;
+        const transformer = new Transformer();
+        const svgEl = document.querySelector('.markmap'); // Seletor corrigido!
+        
+        let markmapInstance;
+        let allNodes = []; // Array para guardar todos os nós do DB
 
-      // Elementos do Modal
-      const modal = document.getElementById('info-modal');
-      const modalTitle = document.getElementById('modal-title');
-      const modalDescription = document.getElementById('modal-description');
-      const modalCloseBtn = document.getElementById('modal-close-btn');
+        // Elementos do Modal
+        const modal = document.getElementById('info-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalDescription = document.getElementById('modal-description');
+        const modalCloseBtn = document.getElementById('modal-close-btn');
 
-      // Função para construir o texto Markdown a partir dos dados estruturados
-      function buildMarkdown(parentId = "root", level = 0) {
-          const indent = '  '.repeat(level);
-          const children = allNodes
-              .filter(node => node.parentId === parentId)
-              .sort((a, b) => a.ordem - b.ordem);
+        // Função recursiva para construir o texto Markdown
+        function buildMarkdown(parentId = "root", level = 0) {
+            const indent = '  '.repeat(level);
+            const children = allNodes
+                .filter(node => node.parentId === parentId)
+                .sort((a, b) => a.ordem - b.ordem);
 
-          let markdown = '';
-          children.forEach(child => {
-              // Adiciona um ID único no formato [texto](#ID) para podermos clicar depois
-              markdown += `${indent}- [${child.titulo}](#${child.id})\n`;
-              markdown += buildMarkdown(child.id, level + 1);
-          });
-          return markdown;
-      }
+            let markdown = '';
+            children.forEach(child => {
+                markdown += `${indent}- [${child.titulo}](#${child.id})\n`;
+                markdown += buildMarkdown(child.id, level + 1);
+            });
+            return markdown;
+        }
 
-      // Função para renderizar o mapa
-      function renderMindmap(markdown) {
-          svgEl.innerHTML = '';
-          const { root, features } = transformer.transform(markdown);
-          markmapInstance = Markmap.create(svgEl, null, root);
-      }
-      
-      // Função para mostrar o modal com as informações do nó
-      function showNodeInfo(nodeId) {
-          const node = allNodes.find(n => n.id === nodeId);
-          if (node && node.descricao) {
-              modalTitle.textContent = node.titulo;
-              modalDescription.textContent = node.descricao;
-              modal.style.display = 'flex'; // Mostra o modal
-          }
-      }
+        // Função para renderizar o mapa mental
+        function renderMindmap(markdown) {
+            svgEl.innerHTML = '';
+            const { root } = transformer.transform(markdown);
+            markmapInstance = Markmap.create(svgEl, null, root);
+        }
+        
+        // Função para mostrar o modal com as informações do nó
+        function showNodeInfo(nodeId) {
+            const node = allNodes.find(n => n.id === nodeId);
+            if (node && node.descricao) {
+                modalTitle.textContent = node.titulo;
+                modalDescription.textContent = node.descricao;
+                modal.style.display = 'flex';
+            } else if (node) {
+                // Caso o nó exista mas não tenha descrição
+                modalTitle.textContent = node.titulo;
+                modalDescription.textContent = "Nenhuma descrição disponível para este item.";
+                modal.style.display = 'flex';
+            }
+        }
 
-      // Carrega todos os nós do Firestore
-      nodesCollection.orderBy("ordem").get().then(snapshot => {
-          snapshot.forEach(doc => {
-              allNodes.push({ id: doc.id, ...doc.data() });
-          });
+        // --- LÓGICA PRINCIPAL ---
+        // Carrega todos os nós do Firestore
+        nodesCollection.orderBy("ordem").get().then(snapshot => {
+            if (snapshot.empty) {
+                console.error("A coleção 'mapa-mental-nodes' está vazia ou não foi encontrada.");
+                renderMindmap("# Erro\n- A coleção 'mapa-mental-nodes' no Firestore está vazia.\n- Verifique o nome da coleção e se os documentos foram criados.");
+                return;
+            }
 
-          // 1. Constrói o markdown a partir dos nós carregados
-          // O título principal pode ser adicionado aqui, se não estiver no banco
-          const markdownContent = "# Esfera Tecnológica\n" + buildMarkdown();
+            snapshot.forEach(doc => {
+                allNodes.push({ id: doc.id, ...doc.data() });
+            });
 
-          // 2. Renderiza o mapa
-          renderMindmap(markdownContent);
+            const markdownContent = buildMarkdown();
+            renderMindmap(markdownContent);
 
-          // 3. Adiciona os 'escutadores' de clique a cada nó do mapa
-          // Atraso mínimo para garantir que o SVG foi totalmente renderizado pelo Markmap
-          setTimeout(() => {
-              svgEl.querySelectorAll('g.markmap-node').forEach(el => {
-                  const link = el.querySelector('a');
-                  if (link) {
-                      const href = link.getAttribute('href');
-                      // Verifica se o link é uma âncora interna (#) que criamos
-                      if (href && href.startsWith('#')) {
-                          const nodeId = href.substring(1);
-                          // Só adiciona o clique se houver um nodeId válido
-                          if (allNodes.some(n => n.id === nodeId)) {
-                              el.style.cursor = 'pointer';
-                              
-                              // --- ESTA É A LINHA CORRIGIDA ---
-                              el.addEventListener('click', () => showNodeInfo(nodeId));
-                          }
-                      }
-                  }
-              });
-          }, 100); // 100ms de espera
-
-      });
-      
-      // Funcionalidade para fechar o modal
-      modalCloseBtn.addEventListener('click', () => {
-          modal.style.display = 'none';
-      });
-      // Fecha também se clicar fora do conteúdo
-      modal.addEventListener('click', (e) => {
-          if (e.target === modal) {
-              modal.style.display = 'none';
-          }
-      });
-
-      // O código de edição foi removido, pois precisará de uma nova lógica
-      // para manipular os documentos individuais em vez de um único texto.
-      });
+            setTimeout(() => {
+                svgEl.querySelectorAll('g.markmap-node').forEach(el => {
+                    const link = el.querySelector('a');
+                    if (link) {
+                        const href = link.getAttribute('href');
+                        if (href && href.startsWith('#')) {
+                            const nodeId = href.substring(1);
+                            if (allNodes.some(n => n.id === nodeId)) {
+                                el.style.cursor = 'pointer';
+                                el.addEventListener('click', () => showNodeInfo(nodeId));
+                            }
+                        }
+                    }
+                });
+            }, 200);
+        }).catch(error => {
+            console.error("Erro ao buscar dados do Firestore: ", error);
+            renderMindmap(`# Erro ao carregar\n- Verifique o console (F12) para detalhes do erro de conexão com o Firestore.`);
+        });
+        
+        // Funcionalidade para fechar o modal
+        function closeModal() {
+            modal.style.display = 'none';
+        }
+        modalCloseBtn.addEventListener('click', closeModal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeModal();
+            }
+        });
+    });
     </script>
 </body>
 </html>
