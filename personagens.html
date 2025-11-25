@@ -9,6 +9,8 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <script src="auth-check.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <link rel="stylesheet" href="style.css">
 
@@ -28,16 +30,21 @@
         .stat-box .label { font-size: 11px; font-weight: bold; text-transform: uppercase; color: #555; }
         .stat-box .value { font-size: 18px; font-weight: bold; color: #000; }
         
-        /* TÁTICAS MANUAIS (EDITÁVEIS) */
+        /* TÁTICAS MANUAIS (FORMATADAS) */
         .tactics-box { background-color: #eaf2f8; border-left: 5px solid #3498db; padding: 15px; margin-bottom: 20px; border-radius: 0 5px 5px 0; font-size: 0.95em; line-height: 1.6; position: relative; }
         .tactics-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #cbdceb; padding-bottom: 5px; }
         .tactics-title { font-weight: bold; color: #2980b9; text-transform: uppercase; font-size: 0.85em; }
         .btn-edit-tactics { background: none; border: none; color: #7f8c8d; cursor: pointer; font-size: 0.8em; text-decoration: underline; }
-        .tactics-content { white-space: pre-wrap; } /* Mantém quebras de linha */
+        
+        /* Estilo do texto renderizado pelo Marked */
+        .tactics-content { color: #2c3e50; }
+        .tactics-content strong { color: #2980b9; }
+        .tactics-content ul { padding-left: 25px; margin: 10px 0; }
+        .tactics-content li { margin-bottom: 5px; }
         
         /* Editor de Táticas */
         .tactics-editor { display: none; margin-top: 10px; }
-        .tactics-textarea { width: 100%; height: 150px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; font-size: 0.9em; resize: vertical; }
+        .tactics-textarea { width: 100%; height: 200px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; font-size: 0.9em; resize: vertical; }
         .btn-save-tactics { background-color: #27ae60; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 5px; }
 
         /* PETS */
@@ -149,21 +156,24 @@
         const mEditText = document.getElementById('editor-text');
         const mLink = document.getElementById('modal-nethys-link');
         let currentSpellName = "";
-        let currentCharName = ""; // Para saber qual char estamos editando as táticas
+        let currentCharName = "";
+        let currentRawTactics = ""; 
 
-        // --- FUNÇÕES DE TÁTICA MANUAL ---
+        // --- FUNÇÕES DE TÁTICA MANUAL (COM MARKDOWN) ---
         window.toggleTacticsEdit = () => {
             const editor = document.getElementById('tactics-editor');
             const display = document.getElementById('tactics-content');
             const btn = document.getElementById('btn-edit-tactics');
+            const txtArea = document.getElementById('tactics-textarea');
             
             if (editor.style.display === 'none' || editor.style.display === '') {
+                // MODO EDIÇÃO
                 editor.style.display = 'block';
                 display.style.display = 'none';
                 btn.innerText = "Cancelar Edição";
-                // Preenche o textarea com o texto atual
-                document.getElementById('tactics-textarea').value = display.innerText === "Nenhuma anotação tática. Clique em editar para adicionar." ? "" : display.innerText;
+                txtArea.value = currentRawTactics || "";
             } else {
+                // MODO VISUALIZAÇÃO
                 editor.style.display = 'none';
                 display.style.display = 'block';
                 btn.innerText = "✎ Editar Táticas";
@@ -173,20 +183,14 @@
         window.saveTactics = async () => {
             const newText = document.getElementById('tactics-textarea').value;
             const display = document.getElementById('tactics-content');
-            
             try {
-                await charsCollection.doc(currentCharName).update({
-                    tacticsText: newText
-                });
-                
-                // Atualiza a tela
-                display.innerText = newText || "Nenhuma anotação tática. Clique em editar para adicionar.";
-                window.toggleTacticsEdit(); // Fecha o editor
-                alert("Táticas salvas com sucesso!");
-            } catch (error) {
-                console.error(error);
-                alert("Erro ao salvar táticas: " + error.message);
-            }
+                await charsCollection.doc(currentCharName).update({ tacticsText: newText });
+                currentRawTactics = newText;
+                // Renderiza o Markdown
+                const htmlContent = newText ? marked.parse(newText) : "<i>Nenhuma anotação tática. Clique em editar para adicionar.</i>";
+                display.innerHTML = htmlContent;
+                window.toggleTacticsEdit(); 
+            } catch (error) { console.error(error); alert("Erro ao salvar: " + error.message); }
         };
 
         // --- IMPORTAÇÃO ---
@@ -195,18 +199,16 @@
                 if (!jsonData.build) throw new Error("JSON inválido.");
                 const rawData = extractPathbuilderData(jsonData.build);
                 const charData = JSON.parse(JSON.stringify(rawData));
-                
-                // Link Pathbuilder
                 let pbLink = pathInput.value.trim();
                 if (pbLink.includes("build=")) pbLink = pbLink.split("build=")[1];
                 if (pbLink) charData.pathbuilderId = pbLink;
-
                 await charsCollection.doc(charData.nome).set(charData, { merge: true });
                 alert(`Personagem ${charData.nome} atualizado!`);
                 fileInput.value = ''; textArea.value = ''; pathInput.value = '';
             } catch (error) { console.error(error); alert("Erro: " + error.message); }
         }
 
+        // --- EXTRAÇÃO (COM LÓGICA CORRIGIDA) ---
         function extractPathbuilderData(build) {
             const safeNum = (v) => (v && !isNaN(v)) ? Number(v) : 0;
             const safeStr = (v) => (v) ? String(v) : "";
@@ -215,10 +217,7 @@
             const getAbilMod = (n) => Math.floor((getAbilVal(n) - 10) / 2);
 
             let hp = safeNum(build.attributes.hp);
-            if (hp === 0) {
-                 const conMod = getAbilMod('con');
-                 hp = safeNum(build.attributes.ancestryhp) + ((safeNum(build.attributes.classhp) + conMod) * level) + safeNum(build.attributes.bonushp);
-            }
+            if (hp === 0) { const conMod = getAbilMod('con'); hp = safeNum(build.attributes.ancestryhp) + ((safeNum(build.attributes.classhp) + conMod) * level) + safeNum(build.attributes.bonushp); }
 
             const petsList = [];
             const processPet = (p, tipo) => ({ nome: p.name||"Pet", tipo: tipo, hp: safeNum(p.attributes?.hp)||(level*5), ca: safeNum(p.ac)||(10+level+2), atributos: { for: safeNum(p.abilities?.str), des: safeNum(p.abilities?.dex), con: safeNum(p.abilities?.con), int: safeNum(p.abilities?.int), sab: safeNum(p.abilities?.wis), car: safeNum(p.abilities?.cha) } });
@@ -229,7 +228,7 @@
                 const nameLower = (w.display || w.name || "").toLowerCase();
                 const traits = (w.traits || []).map(t => String(t).toLowerCase());
                 const isRanged = traits.some(t => t.includes('range')) || nameLower.includes('crossbow') || nameLower.includes('bow') || nameLower.includes('gun') || nameLower.includes('sling');
-                const finesseNames = ['rapier', 'dagger', 'shortsword', 'whip'];
+                const finesseNames = ['rapier', 'dagger', 'shortsword', 'whip', 'elven curve blade', 'aldori dueling sword'];
                 const isFinesse = traits.includes('finesse') || finesseNames.some(n => nameLower.includes(n));
                 const isPropulsive = traits.includes('propulsive'); const isThrown = traits.includes('thrown');
                 let atkAttr = 'str';
@@ -274,23 +273,22 @@
 
         // --- RENDERIZAÇÃO ---
         function renderSheet(char) {
-            currentCharName = char.nome; // Guarda o nome para salvar táticas depois
+            currentCharName = char.nome; 
+            currentRawTactics = char.tacticsText || ""; 
+            
+            // RENDERIZA O MARKDOWN AQUI
+            const tacticsHtmlContent = currentRawTactics ? marked.parse(currentRawTactics) : "<i>Nenhuma anotação tática. Clique em editar para adicionar.</i>";
+
             const mod = (v) => Math.floor((v-10)/2); const fmt = (v) => v>=0?`+${v}`:v; const fmtSave = (v) => `CD ${10+v} (${fmt(v)})`;
             let pbLinkHtml = ""; if (char.pathbuilderId) { pbLinkHtml = `<a href="https://pathbuilder2e.com/launch.html?build=${char.pathbuilderId}" target="_blank" style="display:block; text-align:center; background:#d4af37; color:white; padding:10px; border-radius:5px; text-decoration:none; font-weight:bold; margin-bottom:15px; box-shadow:0 2px 5px rgba(0,0,0,0.2);">📜 Abrir Ficha Original no Pathbuilder</a>`; }
 
-            // CAIXA DE TÁTICAS MANUAL
-            // Verifica se existe texto salvo, senão coloca placeholder
-            const tacticsText = char.tacticsText || "Nenhuma anotação tática. Clique em editar para adicionar.";
-            
             let tacticsHtml = `
             <div class="tactics-box">
                 <div class="tactics-header">
                     <span class="tactics-title">🧠 Resumo Tático & Anotações</span>
                     <button id="btn-edit-tactics" class="btn-edit-tactics" onclick="toggleTacticsEdit()">✎ Editar Táticas</button>
                 </div>
-                
-                <div id="tactics-content" class="tactics-content">${tacticsText}</div>
-                
+                <div id="tactics-content" class="tactics-content">${tacticsHtmlContent}</div>
                 <div id="tactics-editor" class="tactics-editor">
                     <textarea id="tactics-textarea" class="tactics-textarea"></textarea>
                     <button class="btn-save-tactics" onclick="saveTactics()">Salvar Alterações</button>
@@ -302,7 +300,6 @@
                 petsHtml = `<div class="section-title">Companheiros & Familiares</div>` + char.pets.map(p => `
                     <div class="pet-block"><div class="pet-header"><span>${p.nome}</span> <span>${p.tipo}</span></div><div class="pet-stats"><span>❤️ <b>HP:</b> ${p.hp}</span><span>🛡️ <b>CA:</b> ${p.ca}</span></div><div class="abilities-row" style="font-size:0.8em; margin-top:5px; border-top:1px dashed #ccc;"><div>S: ${fmt(mod(p.atributos.for))}</div><div>D: ${fmt(mod(p.atributos.des))}</div><div>C: ${fmt(mod(p.atributos.con))}</div><div>I: ${fmt(mod(p.atributos.int))}</div><div>S: ${fmt(mod(p.atributos.sab))}</div><div>C: ${fmt(mod(p.atributos.car))}</div></div></div>`).join('');
             }
-
             const getBadge = (prof) => { let l="U", c="prof-u"; if(prof>=2){l="T";c="prof-t";} if(prof>=4){l="E";c="prof-e";} if(prof>=6){l="M";c="prof-m";} if(prof>=8){l="L";c="prof-l";} return `<div class="prof-badge ${c}">${l}</div>`; };
             const skillsHtml = char.skills.map(s => `<div class="skill-row">${getBadge(s.prof)}<div class="skill-bonus">${fmt(s.total)}</div><div class="skill-name">${s.name}</div></div>`).join('');
             const spellsHtml = (char.magias||[]).map(n => `<div><strong>${n.nivel}</strong>: ${n.magias.map(m=>`<span class="spell-tag" onclick="openSpellModal('${m.nome}', '${m.acao}')">${m.nome} ${m.acao}</span>`).join('')}</div>`).join('');
@@ -321,7 +318,7 @@
             `;
         }
 
-        // Listeners e Modals (Manter igual)
+        // Listeners e Modals
         window.openSpellModal = async (name, action) => { currentSpellName=name; mName.innerText=name; mAct.innerText=action||"?"; mDesc.innerHTML="Buscando..."; mLink.href=`https://2e.aonprd.com/Search.aspx?q=${name}`; spellModal.style.display='flex'; try{const doc=await spellsCollection.doc(name).get();if(doc.exists)mDesc.innerHTML=doc.data().desc.replace(/\n/g,'<br>');}catch(e){} };
         window.toggleEdit = () => { mEditor.style.display=mEditor.style.display==='none'?'block':'none'; if(mEditor.style.display==='block')mEditText.value=mDesc.innerText; };
         window.saveSpellDesc = async () => { await spellsCollection.doc(currentSpellName).set({name:currentSpellName, desc:mEditText.value},{merge:true}); mDesc.innerHTML=mEditText.value; mEditor.style.display='none'; };
