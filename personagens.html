@@ -34,16 +34,12 @@
         textarea.json-in { height: 60px; font-family: monospace; font-size: 11px; }
         button#btn-import-text { width: 100%; padding: 10px; background-color: #3498db; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
 
-        /* Layout Wrapper */
+        /* Layout */
         .content-wrapper { display: flex; gap: 20px; align-items: flex-start; }
-        
-        /* Lista de Personagens */
         .char-list { flex: 1; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); min-width: 200px; max-width: 250px; }
         .char-list h3 { margin-top: 0; color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px;}
         .char-item { padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; transition: background 0.2s; font-weight: 500; color: #333; }
         .char-item:hover { background-color: #f0f0f0; }
-
-        /* Ficha */
         .char-sheet { flex: 3; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); width: 100%; }
 
         /* Mobile */
@@ -57,20 +53,20 @@
             .stat-grid { gap: 5px; }
             .stat-box { min-width: 45%; }
             .skills-grid { grid-template-columns: 1fr 1fr; }
+            .pet-row-stats { flex-wrap: wrap; }
         }
 
-        /* Internos da Ficha */
+        /* Ficha Interna */
         .statblock-header { border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px; text-align: center; }
         .statblock-header h1 { margin: 0; font-size: 1.8rem; color: #2c3e50; }
         
-        /* Stats Grid */
         .stat-grid { display: flex; justify-content: space-around; align-items: center; background: #f4f6f7; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e0e0e0; flex-wrap: wrap; gap: 15px; }
         .stat-box { text-align: center; flex: 1; min-width: 80px; }
         .stat-box .label { font-size: 0.7rem; font-weight: bold; text-transform: uppercase; color: #7f8c8d; margin-bottom: 2px;}
         .stat-box .value { font-size: 1.2rem; font-weight: bold; color: #2c3e50; }
         .stat-box.main-stat .value { font-size: 1.8rem; display: flex; align-items: center; justify-content: center; gap: 5px; }
 
-        /* Tactics Box */
+        /* Táticas */
         .tactics-box { background-color: #eaf2f8; border-left: 5px solid #3498db; padding: 15px; margin-bottom: 20px; border-radius: 4px; font-size: 0.95em; line-height: 1.6; }
         .tactics-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #cbdceb; padding-bottom: 5px; }
         .tactics-title { font-weight: bold; color: #2980b9; text-transform: uppercase; font-size: 0.85em; }
@@ -81,8 +77,60 @@
         .tactics-textarea { width: 100%; height: 200px; padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; }
         .btn-save-tactics { width: 100%; background: #27ae60; color: white; border: none; padding: 10px; margin-top: 5px; border-radius: 4px; font-weight: bold; }
 
-        /* Detalhes */
-        .abilities-row { display: flex; justify-content: space-between; margin: 10px 0; border-top: 1px solid #ddd; padding-top: 10px; flex-wrap: wrap; gap: 10px; }
+        /* --- PETS REFORMULADOS (ESTILO PATHBUILDER) --- */
+        .pet-block { 
+            background: #222; /* Fundo escuro como no print */
+            border: 1px solid #444; 
+            padding: 0; 
+            margin-top: 15px; 
+            border-radius: 6px; 
+            color: #eee;
+            overflow: hidden;
+        }
+        .pet-header { 
+            background: #d35400; /* Laranja Pathbuilder */
+            color: white; 
+            padding: 8px 15px;
+            font-weight: bold; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            font-size: 1rem;
+        }
+        .btn-delete-pet { color: white; background: none; border: none; font-weight: bold; cursor: pointer; font-size: 1.2em; opacity: 0.8; }
+        .btn-delete-pet:hover { opacity: 1; text-shadow: 0 0 5px black; }
+
+        .pet-body { padding: 15px; }
+
+        /* Linha de Status Principais (AC, HP, Speed) */
+        .pet-row-stats { 
+            display: flex; gap: 15px; margin-bottom: 15px; 
+            background: #333; padding: 10px; border-radius: 4px; border: 1px solid #555;
+        }
+        .pet-stat-group { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+        .pet-stat-label { font-size: 0.7em; text-transform: uppercase; color: #aaa; font-weight: bold; }
+        .pet-input { 
+            background: #444; border: 1px solid #666; color: white; 
+            padding: 5px; border-radius: 3px; font-weight: bold; text-align: center; width: 100%;
+        }
+        
+        /* Linha de Saves/Atributos */
+        .pet-grid-mini { 
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(60px, 1fr)); 
+            gap: 5px; margin-bottom: 15px; 
+        }
+        .pet-mini-box { text-align: center; background: #333; padding: 5px; border-radius: 3px; }
+        .pet-mini-label { font-size: 0.65em; color: #bbb; font-weight: bold; }
+        .pet-input-mini { width: 100%; background: transparent; border: none; color: white; text-align: center; font-weight: bold; font-size: 0.9em;}
+
+        /* Área de Texto (Ataques/Notas) */
+        .pet-notes { 
+            width: 100%; height: 100px; background: #333; color: #ddd; 
+            border: 1px solid #555; border-radius: 4px; padding: 8px; 
+            font-family: monospace; font-size: 0.85em; resize: vertical;
+        }
+
+        /* Outros */
         .skills-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 5px 10px; margin-top: 10px; }
         .skill-row { display: flex; align-items: center; font-size: 0.9em; border-bottom: 1px solid #f9f9f9; padding: 3px 0; }
         .skill-name { flex: 1; margin-left: 8px; color: #333; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
@@ -91,10 +139,9 @@
         .prof-u { background-color: #95a5a6; } .prof-t { background-color: #34495e; } .prof-e { background-color: #27ae60; } .prof-m { background-color: #f39c12; } .prof-l { background-color: #8e44ad; }
         .saves-row { display: flex; gap: 10px; margin: 10px 0; font-weight: bold; justify-content: space-around; flex-wrap: wrap; }
         .section-title { background-color: #333; color: #fff; padding: 5px 10px; font-weight: bold; margin-top: 20px; border-radius: 3px; font-size: 0.9rem; }
+        .abilities-row { display: flex; justify-content: space-between; margin: 10px 0; border-top: 1px solid #ddd; padding-top: 10px; flex-wrap: wrap; gap: 10px; }
 
-        /* Pets & Modais */
-        .pet-block { background: #fdfefe; border: 1px solid #ddd; border-left: 4px solid #27ae60; padding: 10px; margin-top: 10px; border-radius: 4px; }
-        .pet-header { font-weight: bold; color: #27ae60; display: flex; justify-content: space-between; }
+        /* Modais */
         .spell-tag { background: #eef; padding: 4px 8px; border-radius: 4px; font-size: 0.85em; border: 1px solid #dde; cursor: pointer; display: inline-block; margin: 2px; }
         .spell-modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; justify-content: center; align-items: center; }
         .spell-card { background: white; width: 90%; max-width: 500px; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; max-height: 80vh; }
@@ -185,6 +232,7 @@
         let currentSpellName = "";
         let currentCharName = "";
         let currentRawTactics = ""; 
+        let currentCharData = null; 
 
         // --- TÁTICAS ---
         window.toggleTacticsEdit = () => {
@@ -192,7 +240,6 @@
             const display = document.getElementById('tactics-content');
             const btn = document.getElementById('btn-edit-tactics');
             const txtArea = document.getElementById('tactics-textarea');
-            
             if (editor.classList.contains('is-visible')) {
                 editor.classList.remove('is-visible'); display.style.display = 'block'; btn.innerText = "✎ Editar Táticas";
             } else {
@@ -211,6 +258,33 @@
             } catch (error) { alert("Erro ao salvar: " + error.message); }
         };
 
+        // --- GERENCIAMENTO DE PETS (ATUALIZADO) ---
+        window.updatePet = async (index, field, value) => {
+            if (!currentCharData || !currentCharData.pets) return;
+            
+            // Permite edição aninhada (ex: saves.fort) ou direta
+            if (field.includes('.')) {
+                const parts = field.split('.');
+                if (!currentCharData.pets[index][parts[0]]) currentCharData.pets[index][parts[0]] = {};
+                currentCharData.pets[index][parts[0]][parts[1]] = value; // Mantém string se necessário, ou converte depois
+            } else {
+                currentCharData.pets[index][field] = value;
+            }
+
+            try {
+                await charsCollection.doc(currentCharName).update({ pets: currentCharData.pets });
+            } catch (e) { console.error("Erro ao salvar pet", e); }
+        };
+
+        window.deletePet = async (index) => {
+            if (!confirm("Remover este pet?")) return;
+            currentCharData.pets.splice(index, 1);
+            try {
+                await charsCollection.doc(currentCharName).update({ pets: currentCharData.pets });
+                renderSheet(currentCharData);
+            } catch (e) { alert("Erro: " + e.message); }
+        };
+
         // --- IMPORTAÇÃO ---
         btnImportText.addEventListener('click', async () => {
             const jsonText = textArea.value.trim();
@@ -227,6 +301,22 @@
         async function importCharData(jsonData) {
             if (!jsonData.build) throw new Error("Formato inválido.");
             const rawData = extractPathbuilderData(jsonData.build);
+            
+            // Preserva dados manuais dos pets se existirem
+            try {
+                const existingDoc = await charsCollection.doc(rawData.nome).get();
+                if (existingDoc.exists) {
+                    const existingData = existingDoc.data();
+                    // Se os nomes e tipos coincidirem, mantém os dados antigos (editados)
+                    if (existingData.pets && existingData.pets.length > 0) {
+                        rawData.pets = rawData.pets.map((newPet) => {
+                            const oldPet = existingData.pets.find(p => p.nome === newPet.nome && p.tipo === newPet.tipo);
+                            return oldPet || newPet;
+                        });
+                    }
+                }
+            } catch(e) { console.log("Erro no merge de pets", e); }
+
             const charData = JSON.parse(JSON.stringify(rawData));
             let pbLink = pathInput.value.trim(); if (pbLink.includes("build=")) pbLink = pbLink.split("build=")[1]; if (pbLink) charData.pathbuilderId = pbLink;
             await charsCollection.doc(charData.nome).set(charData, { merge: true });
@@ -234,7 +324,7 @@
             fileInput.value = ''; textArea.value = ''; pathInput.value = '';
         }
 
-        // --- EXTRAÇÃO E CÁLCULOS (CORRIGIDO PARA O BART) ---
+        // --- EXTRAÇÃO ---
         function extractPathbuilderData(build) {
             const safeNum = (v) => (v && !isNaN(v)) ? Number(v) : 0;
             const safeStr = (v) => (v) ? String(v) : "";
@@ -245,45 +335,38 @@
             let hp = safeNum(build.attributes.hp);
             if (hp === 0) { const conMod = getAbilMod('con'); hp = safeNum(build.attributes.ancestryhp) + ((safeNum(build.attributes.classhp) + conMod) * level) + safeNum(build.attributes.bonushp); }
 
+            // PETS: Estrutura inicial para edição manual
             const petsList = [];
-            const processPet = (p, tipo) => ({ nome: p.name||"Pet", tipo: tipo, hp: safeNum(p.attributes?.hp)||(level*5), ca: safeNum(p.ac)||(10+level+2), atributos: { for: safeNum(p.abilities?.str), des: safeNum(p.abilities?.dex), con: safeNum(p.abilities?.con), int: safeNum(p.abilities?.int), sab: safeNum(p.abilities?.wis), car: safeNum(p.abilities?.cha) } });
-            if(build.pets) build.pets.forEach(p=>petsList.push(processPet(p, p.type||"Comp.")));
-            if(build.familiars) build.familiars.forEach(f=>petsList.push(processPet(f, "Fam.")));
+            const createPet = (p, tipo) => ({ 
+                nome: p.name||"Pet", 
+                tipo: tipo, 
+                hp: "", ac: "", speed: "",
+                saves: { fort: "", ref: "", will: "", perc: "" },
+                attributes: { str: "", dex: "", con: "", int: "", wis: "", cha: "" },
+                notes: "Cole aqui ataques e habilidades..."
+            });
+            if(build.pets) build.pets.forEach(p=>petsList.push(createPet(p, "Animal Companion")));
+            if(build.familiars) build.familiars.forEach(f=>petsList.push(createPet(f, "Familiar")));
 
-            // ARMAS: AQUI ESTÁ O FIX DO BART (+8 -> +10)
+            // ... (Resto da extração igual: armas, spells, skills, etc) ...
             const weapons = (build.weapons || []).map(w => {
                 const nameLower = (w.display || w.name || "").toLowerCase();
                 const traits = (w.traits || []).map(t => String(t).toLowerCase());
-                const isRanged = traits.some(t => t.includes('range')) || nameLower.includes('crossbow') || nameLower.includes('bow');
+                const isRanged = traits.some(t => t.includes('range')) || nameLower.includes('crossbow') || nameLower.includes('bow') || nameLower.includes('gun') || nameLower.includes('sling');
                 const finesseNames = ['rapier', 'dagger', 'shortsword', 'whip', 'elven curve blade', 'aldori dueling sword'];
                 const isFinesse = traits.includes('finesse') || finesseNames.some(n => nameLower.includes(n));
                 const isPropulsive = traits.includes('propulsive'); const isThrown = traits.includes('thrown');
                 let atkAttr = 'str'; if (isRanged) { atkAttr = 'dex'; } else if (isFinesse) { if (getAbilVal('dex') > getAbilVal('str')) atkAttr = 'dex'; }
-                
-                // Correção de Proficiência Unarmed (Bart)
-                let profKey = w.prof;
-                if (!profKey && traits.includes("unarmed")) profKey = "unarmed";
-                
+                let profKey = w.prof; if (!profKey && traits.includes("unarmed")) profKey = "unarmed";
                 let profBonus = 0; if (profKey && build.proficiencies[profKey]) profBonus = build.proficiencies[profKey]; else profBonus = 2;
-                
-                const pot = safeNum(w.pot); 
-                const extraBonus = safeNum(w.attackBonus);
-                
-                // Cálculo Base
+                const pot = safeNum(w.pot); const extraBonus = safeNum(w.attackBonus);
                 let calculatedAtk = level + profBonus + getAbilMod(atkAttr) + pot + extraBonus;
-                
-                // FIX: Se o JSON já trouxe o valor pronto (w.attack), use-o!
-                // O Pathbuilder calcula isso melhor que a gente.
-                if (w.attack && w.attack > 0) {
-                    calculatedAtk = w.attack;
-                }
-
+                if (w.attack && w.attack > 0) { calculatedAtk = w.attack; }
                 let dmgBonus = 0;
                 if (!isRanged || isThrown) { dmgBonus += getAbilMod('str'); } else if (isPropulsive) { dmgBonus += Math.floor(getAbilMod('str') / 2); }
                 if (profBonus >= 4) dmgBonus += 2; if (profBonus >= 6) dmgBonus += 1;
                 if (safeStr(build.class).toLowerCase().includes("thaumaturge")) { dmgBonus += 2; }
                 const die = w.die || "d4"; const diceCount = w.str ? 2 : 1; const traitsFormatted = w.traits ? `(${w.traits.join(', ')})` : '';
-                
                 return { nome: w.display || w.name, ataque: `+${calculatedAtk}`, dano: `${diceCount}${die} + ${dmgBonus}`, extras: `${pot?`+${pot} `:''}${w.str?'Striking ':''}${traitsFormatted}` };
             });
 
@@ -301,47 +384,28 @@
                 });
             }
 
-            // --- FILTRO DE PERÍCIAS (CORRIGIDO) ---
-            const standardSkills = [
-                {id:'acrobatics',name:'Acrobatics',attr:'dex'},{id:'arcana',name:'Arcana',attr:'int'},{id:'athletics',name:'Athletics',attr:'str'},{id:'crafting',name:'Crafting',attr:'int'},{id:'deception',name:'Deception',attr:'cha'},{id:'diplomacy',name:'Diplomacy',attr:'cha'},{id:'intimidation',name:'Intimidation',attr:'cha'},{id:'medicine',name:'Medicine',attr:'wis'},{id:'nature',name:'Nature',attr:'wis'},{id:'occultism',name:'Occultism',attr:'int'},{id:'performance',name:'Performance',attr:'cha'},{id:'religion',name:'Religion',attr:'wis'},{id:'society',name:'Society',attr:'int'},{id:'stealth',name:'Stealth',attr:'dex'},{id:'survival',name:'Survival',attr:'wis'},{id:'thievery',name:'Thievery',attr:'dex'}
-            ];
-            const processedSkills = []; 
-            const profs = build.proficiencies || {};
-            
-            // 1. Adiciona Padrões
-            standardSkills.forEach(skill => { 
-                const profValue = safeNum(profs[skill.id]); 
-                const total = (profValue > 0 ? (profValue + level) : 0) + getAbilMod(skill.attr); 
-                processedSkills.push({ name: skill.name, total: total, prof: profValue }); 
-            });
-
-            // 2. Filtra Lores (Exclusão Rigorosa)
-            const excludedExactKeys = ['fortitude', 'reflex', 'will', 'perception', 'classDC', ...standardSkills.map(s => s.id)];
+            const standardSkills = [{id:'acrobatics',name:'Acrobatics',attr:'dex'},{id:'arcana',name:'Arcana',attr:'int'},{id:'athletics',name:'Athletics',attr:'str'},{id:'crafting',name:'Crafting',attr:'int'},{id:'deception',name:'Deception',attr:'cha'},{id:'diplomacy',name:'Diplomacy',attr:'cha'},{id:'intimidation',name:'Intimidation',attr:'cha'},{id:'medicine',name:'Medicine',attr:'wis'},{id:'nature',name:'Nature',attr:'wis'},{id:'occultism',name:'Occultism',attr:'int'},{id:'performance',name:'Performance',attr:'cha'},{id:'religion',name:'Religion',attr:'wis'},{id:'society',name:'Society',attr:'int'},{id:'stealth',name:'Stealth',attr:'dex'},{id:'survival',name:'Survival',attr:'wis'},{id:'thievery',name:'Thievery',attr:'dex'}];
+            const processedSkills = []; const profs = build.proficiencies || {};
+            standardSkills.forEach(skill => { const profValue = safeNum(profs[skill.id]); const total = (profValue > 0 ? (profValue + level) : 0) + getAbilMod(skill.attr); processedSkills.push({ name: skill.name, total: total, prof: profValue }); });
+            const excludedKeys = ['fortitude', 'reflex', 'will', 'perception', 'classDC', ...standardSkills.map(s => s.id)];
             const forbidden = ['weapon', 'armor', 'shield', 'unarmored', 'simple', 'martial', 'advanced', 'unarmed', 'casting', 'spell', 'light', 'medium', 'heavy'];
-
             Object.keys(profs).forEach(key => { 
-                if (excludedExactKeys.includes(key)) return;
+                if (excludedKeys.includes(key)) return;
                 if (forbidden.some(bad => key.toLowerCase().includes(bad))) return;
                 const profValue = safeNum(profs[key]); const total = (profValue > 0 ? (profValue + level) : 0) + getAbilMod('int'); 
                 let name = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1').trim(); 
                 if (!name.includes("Lore")) name = `Lore: ${name}`;
                 processedSkills.push({ name: name, total: total, prof: profValue }); 
             });
-
-            // 3. Adiciona Lores do Array 'build.lores' (Bart: Pilotagem)
             if (build.lores && Array.isArray(build.lores)) {
                 build.lores.forEach(loreArr => {
-                    // Lore vem como ["Name", ProfValue]
-                    const loreName = loreArr[0];
-                    const loreProf = loreArr[1];
-                    // Evita duplicatas se já estiver em 'profs'
+                    const loreName = loreArr[0]; const loreProf = loreArr[1];
                     if (!processedSkills.some(s => s.name.includes(loreName))) {
                         const total = (loreProf > 0 ? (loreProf + level) : 0) + getAbilMod('int');
                         processedSkills.push({ name: `Lore: ${loreName}`, total: total, prof: loreProf });
                     }
                 });
             }
-
             processedSkills.sort((a, b) => a.name.localeCompare(b.name));
 
             const calcSave = (k, ab) => { const p = safeNum(build.proficiencies[k]); return (p>0 ? p+level : 0) + getAbilMod(ab); };
@@ -360,13 +424,48 @@
         // --- RENDERIZAÇÃO ---
         function renderSheet(char) {
             currentCharName = char.nome; 
+            currentCharData = char;
             currentRawTactics = char.tacticsText || ""; 
             const tacticsHtmlContent = currentRawTactics ? marked.parse(currentRawTactics) : "<i>Nenhuma anotação. Clique em editar.</i>";
             const mod = (v) => Math.floor((v-10)/2); const fmt = (v) => v>=0?`+${v}`:v; const fmtSave = (v) => `CD ${10+v} (${fmt(v)})`;
             let pbLinkHtml = ""; if (char.pathbuilderId) { pbLinkHtml = `<a href="https://pathbuilder2e.com/launch.html?build=${char.pathbuilderId}" target="_blank" class="pb-link">📜 Abrir Ficha Original no Pathbuilder</a>`; }
             let statusGridHtml = `<div class="stat-grid"><div class="stat-box main-stat"><div class="label">Pontos de Vida</div><div class="value" style="color:#c0392b;">❤️ ${char.hp}</div></div><div class="stat-box main-stat"><div class="label">Classe de Armadura</div><div class="value" style="color:#2980b9;">🛡️ ${char.ca}</div></div><div class="stat-box"><div class="label">Iniciativa (Perc)</div><div class="value">👁️ +${char.percepcao}</div></div><div class="stat-box"><div class="label">Velocidade</div><div class="value">🦶 ${char.velocidade} ft</div></div><div class="stat-box"><div class="label">Class DC</div><div class="value">🎓 ${char.classDC.val}</div></div></div>`;
             let tacticsHtml = `<div class="tactics-box"><div class="tactics-header"><span class="tactics-title">🧠 Resumo Tático & Anotações</span><button id="btn-edit-tactics" class="btn-edit-tactics" onclick="toggleTacticsEdit()">✎ Editar Táticas</button></div><div id="tactics-content" class="tactics-content">${tacticsHtmlContent}</div><div id="tactics-editor" class="tactics-editor" style="display:none;"><textarea id="tactics-textarea" class="tactics-textarea"></textarea><button class="btn-save-tactics" onclick="saveTactics()">Salvar Alterações</button></div></div>`;
-            let petsHtml = ""; if (char.pets && char.pets.length > 0) { petsHtml = `<div class="section-title">Companheiros & Familiares</div>` + char.pets.map(p => `<div class="pet-block"><div class="pet-header"><span>${p.nome}</span> <span>${p.tipo}</span></div><div class="pet-stats"><span>❤️ <b>HP:</b> ${p.hp}</span><span>🛡️ <b>CA:</b> ${p.ca}</span></div><div class="abilities-row" style="font-size:0.8em; margin-top:5px; border-top:1px dashed #ccc;"><div>S: ${fmt(mod(p.atributos.for))}</div><div>D: ${fmt(mod(p.atributos.des))}</div><div>C: ${fmt(mod(p.atributos.con))}</div><div>I: ${fmt(mod(p.atributos.int))}</div><div>S: ${fmt(mod(p.atributos.sab))}</div><div>C: ${fmt(mod(p.atributos.car))}</div></div></div>`).join(''); }
+            
+            // RENDER DOS PETS (ESTILO DARK - EDITÁVEL)
+            let petsHtml = ""; 
+            if (char.pets && char.pets.length > 0) { 
+                petsHtml = char.pets.map((p, idx) => `
+                    <div class="pet-block">
+                        <div class="pet-header">
+                            <span>${p.nome} <span style="font-size:0.8em; opacity:0.8;">(${p.tipo})</span></span>
+                            <button class="btn-delete-pet" onclick="deletePet(${idx})">×</button>
+                        </div>
+                        <div class="pet-body">
+                            <div class="pet-row-stats">
+                                <div class="pet-stat-group"><span class="pet-stat-label">AC</span><input class="pet-input" value="${p.ac||''}" onchange="updatePet(${idx}, 'ac', this.value)"></div>
+                                <div class="pet-stat-group"><span class="pet-stat-label">HP</span><input class="pet-input" value="${p.hp||''}" onchange="updatePet(${idx}, 'hp', this.value)"></div>
+                                <div class="pet-stat-group"><span class="pet-stat-label">Speed</span><input class="pet-input" value="${p.speed||''}" onchange="updatePet(${idx}, 'speed', this.value)"></div>
+                            </div>
+                            <div class="pet-grid-mini">
+                                <div class="pet-mini-box"><span class="pet-mini-label">STR</span><input class="pet-input-mini" value="${p.attributes.str||''}" onchange="updatePet(${idx}, 'attributes.str', this.value)"></div>
+                                <div class="pet-mini-box"><span class="pet-mini-label">DEX</span><input class="pet-input-mini" value="${p.attributes.dex||''}" onchange="updatePet(${idx}, 'attributes.dex', this.value)"></div>
+                                <div class="pet-mini-box"><span class="pet-mini-label">CON</span><input class="pet-input-mini" value="${p.attributes.con||''}" onchange="updatePet(${idx}, 'attributes.con', this.value)"></div>
+                                <div class="pet-mini-box"><span class="pet-mini-label">INT</span><input class="pet-input-mini" value="${p.attributes.int||''}" onchange="updatePet(${idx}, 'attributes.int', this.value)"></div>
+                                <div class="pet-mini-box"><span class="pet-mini-label">WIS</span><input class="pet-input-mini" value="${p.attributes.wis||''}" onchange="updatePet(${idx}, 'attributes.wis', this.value)"></div>
+                                <div class="pet-mini-box"><span class="pet-mini-label">CHA</span><input class="pet-input-mini" value="${p.attributes.cha||''}" onchange="updatePet(${idx}, 'attributes.cha', this.value)"></div>
+                            </div>
+                            <div class="pet-grid-mini">
+                                <div class="pet-mini-box"><span class="pet-mini-label">FORT</span><input class="pet-input-mini" value="${p.saves?.fort||''}" onchange="updatePet(${idx}, 'saves.fort', this.value)"></div>
+                                <div class="pet-mini-box"><span class="pet-mini-label">REF</span><input class="pet-input-mini" value="${p.saves?.ref||''}" onchange="updatePet(${idx}, 'saves.ref', this.value)"></div>
+                                <div class="pet-mini-box"><span class="pet-mini-label">WILL</span><input class="pet-input-mini" value="${p.saves?.will||''}" onchange="updatePet(${idx}, 'saves.will', this.value)"></div>
+                                <div class="pet-mini-box"><span class="pet-mini-label">PERC</span><input class="pet-input-mini" value="${p.saves?.perc||''}" onchange="updatePet(${idx}, 'saves.perc', this.value)"></div>
+                            </div>
+                            <textarea class="pet-notes" placeholder="Cole aqui: Ataques, Habilidades, Notas..." onchange="updatePet(${idx}, 'notes', this.value)">${p.notes||''}</textarea>
+                        </div>
+                    </div>`).join(''); 
+            }
+
             const getBadge = (prof) => { let l="U", c="prof-u"; if(prof>=2){l="T";c="prof-t";} if(prof>=4){l="E";c="prof-e";} if(prof>=6){l="M";c="prof-m";} if(prof>=8){l="L";c="prof-l";} return `<div class="prof-badge ${c}">${l}</div>`; };
             const skillsHtml = char.skills.map(s => `<div class="skill-row">${getBadge(s.prof)}<div class="skill-bonus">${fmt(s.total)}</div><div class="skill-name">${s.name}</div></div>`).join('');
             const spellsHtml = (char.magias||[]).map(n => `<div><strong>${n.nivel}</strong>: ${n.magias.map(m=>`<span class="spell-tag" onclick="openSpellModal('${m.nome}', '${m.acao}')">${m.nome} ${m.acao}</span>`).join('')}</div>`).join('');
@@ -380,8 +479,8 @@
                 <div class="section-title">Perícias</div><div class="skills-grid">${skillsHtml}</div>
                 <div class="section-title">Defesas</div><div class="saves-row"><span>Fort: ${fmtSave(char.saves.fort)}</span><span>Ref: ${fmtSave(char.saves.ref)}</span><span>Vont: ${fmtSave(char.saves.vont)}</span></div>
                 <div class="section-title">Ofensiva</div><ul>${weaponsHtml}</ul>
-                <div class="section-title">Magias</div>${spellStatsHtml}${spellsHtml}${petsHtml}
-            `;
+                <div class="section-title">Magias</div>${spellStatsHtml}${spellsHtml}
+                ${petsHtml} `;
         }
 
         window.openSpellModal = async (name, action) => { currentSpellName=name; mName.innerText=name; mAct.innerText=action||"?"; mDesc.innerHTML="Buscando..."; mLink.href=`https://2e.aonprd.com/Search.aspx?q=${name}`; spellModal.style.display='flex'; try{const doc=await spellsCollection.doc(name).get();if(doc.exists)mDesc.innerHTML=doc.data().desc.replace(/\n/g,'<br>');}catch(e){} };
