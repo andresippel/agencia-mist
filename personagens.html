@@ -28,6 +28,19 @@
         .stat-box .label { font-size: 11px; font-weight: bold; text-transform: uppercase; color: #555; }
         .stat-box .value { font-size: 18px; font-weight: bold; color: #000; }
         
+        /* NOVO: RESUMO TÁTICO */
+        .tactics-box {
+            background-color: #eaf2f8;
+            border-left: 5px solid #3498db;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 0 5px 5px 0;
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+        .tactics-title { font-weight: bold; color: #2980b9; display: block; margin-bottom: 5px; text-transform: uppercase; font-size: 0.85em; }
+        .tactics-role { font-weight: bold; color: #2c3e50; }
+
         /* GRID DE PERÍCIAS */
         .skills-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 5px 15px; margin-top: 10px; }
         .skill-row { display: flex; align-items: center; font-size: 0.9em; border-bottom: 1px solid #f9f9f9; padding: 3px 0; }
@@ -97,22 +110,18 @@
                 <h2 id="modal-spell-name" style="margin:0;">Magia</h2>
                 <span id="modal-spell-action" style="background:#333; padding:2px 8px; border-radius:4px; font-size:0.8em;"></span>
             </div>
-            
             <div class="spell-body">
                 <div id="modal-spell-desc" class="spell-desc-content">Carregando...</div>
-                
                 <div style="margin-top:15px; font-size:0.9em; border-top:1px solid #eee; padding-top:10px;">
                      <a href="#" id="modal-nethys-link" target="_blank" class="nethys-link">🔍 Buscar no Nethys</a>
-                     <button onclick="toggleEdit()" class="edit-btn">✎ Editar/Corrigir Descrição</button>
+                     <button onclick="toggleEdit()" class="edit-btn">✎ Editar Descrição</button>
                 </div>
-
                 <div id="spell-editor" class="spell-editor">
-                    <label style="font-weight:bold; font-size:0.8em;">Cole a descrição aqui (Salve para usar sempre):</label>
+                    <label style="font-weight:bold; font-size:0.8em;">Descrição Personalizada:</label>
                     <textarea id="editor-text" style="width:100%; height:150px; margin-top:5px; font-family:inherit;"></textarea>
-                    <button onclick="saveSpellDesc()" style="background:#27ae60; color:white; border:none; padding:8px; width:100%; margin-top:5px; cursor:pointer; font-weight:bold;">Salvar na Biblioteca</button>
+                    <button onclick="saveSpellDesc()" style="background:#27ae60; color:white; border:none; padding:8px; width:100%; margin-top:5px; cursor:pointer; font-weight:bold;">Salvar</button>
                 </div>
             </div>
-            
             <button onclick="document.getElementById('spell-modal').style.display='none'" style="width:100%; padding:15px; border:none; background:#eee; cursor:pointer; font-weight:bold; color:#333;">Fechar</button>
         </div>
     </div>
@@ -121,7 +130,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         const db = firebase.firestore();
         const charsCollection = db.collection("personagens");
-        const spellsCollection = db.collection("biblioteca_magias"); // NOVA COLEÇÃO
+        const spellsCollection = db.collection("biblioteca_magias");
         
         const fileInput = document.getElementById('json-file');
         const textArea = document.getElementById('json-textarea');
@@ -129,7 +138,7 @@
         const listContainer = document.getElementById('list-container');
         const sheetDisplay = document.getElementById('sheet-display');
         
-        // Elementos do Modal
+        // Elementos Modal
         const spellModal = document.getElementById('spell-modal');
         const mName = document.getElementById('modal-spell-name');
         const mAct = document.getElementById('modal-spell-action');
@@ -137,10 +146,71 @@
         const mEditor = document.getElementById('spell-editor');
         const mEditText = document.getElementById('editor-text');
         const mLink = document.getElementById('modal-nethys-link');
-        
         let currentSpellName = "";
 
-        // --- SISTEMA DE MAGIA INTELIGENTE ---
+        // --- SISTEMA DE ESTRATÉGIA DE COMBATE (NOVO) ---
+        function analyzeTactics(charData, build) {
+            const cls = charData.classe.toLowerCase();
+            const str = charData.atributos.for;
+            const dex = charData.atributos.des;
+            const con = charData.atributos.con;
+            const int = charData.atributos.int;
+            
+            let role = "Aventureiro Versátil";
+            let tips = [];
+
+            // 1. Análise por Classe
+            if (cls.includes("thaumaturge")) {
+                role = "Striker Utilitário & Debuffer";
+                tips.push("⚡ <b>Ação Obrigatória:</b> Use <i>Exploit Vulnerability</i> (1 ação) no início do combate contra o inimigo mais forte.");
+                tips.push("🛡️ Lembre-se que seu 'Implement's Empowerment' (+2 dano) exige que você tenha apenas o implemento e a arma (nada na outra mão).");
+                tips.push("📚 Use seu 'Esoteric Lore' para identificar praticamente qualquer monstro.");
+            } 
+            else if (cls.includes("magus")) {
+                role = "Striker Mágico (Burst Damage)";
+                tips.push("⚔️ <b>Spellstrike:</b> É seu trunfo. Use com <i>Ignition</i> ou <i>Gouging Claw</i>. Cuidado: custa 2 ações e te deixa sem reação.");
+                tips.push("🔄 <b>Recarregar:</b> Lembre-se de usar a ação de recarregar o Spellstrike (Conflux Spell ou ação normal) ou você ficará inútil.");
+                tips.push("⚠️ Sua economia de ações é apertada. Evite se mover demais.");
+            }
+            else if (cls.includes("fighter")) {
+                role = "Dano Crítico & Controle";
+                tips.push("🎯 Seu acerto (+2 acima dos outros) é sua maior força. Ataque Oportunista é essencial para controlar o campo.");
+                tips.push("Use manobras (Derrubar/Agarrar) pois sua chance de sucesso é alta.");
+            }
+            else if (cls.includes("rogue")) {
+                role = "Striker de Precisão & Skill Monkey";
+                tips.push("💀 <b>Sneak Attack:</b> Você SÓ dá dano se o inimigo estiver <i>Flat-footed</i> (Off-guard). Flanqueie sempre ou use Fintar/Esconder-se.");
+            }
+            else if (cls.includes("cleric") || cls.includes("oracle")) {
+                role = "Suporte & Cura";
+                tips.push("❤️ Priorize manter o time em pé. <i>Heal</i> de 2 ações é o mais eficiente.");
+            }
+            else if (cls.includes("wizard") || cls.includes("sorcerer")) {
+                role = "Conjurador (AoE & Controle)";
+                tips.push("🔥 Guarde seus slots para momentos críticos. Use Cantrips (Electric Arc) como dano sustentável.");
+                tips.push("Use magias de controle (Grease, Fear) para gastar ações dos inimigos.");
+            }
+
+            // 2. Análise por Atributos/Armas
+            const hasRanged = charData.armas.some(a => a.nome.toLowerCase().includes("bow") || a.nome.toLowerCase().includes("crossbow"));
+            
+            if (hasRanged && dex > str) {
+                tips.push("🏹 <b>Distância:</b> Mantenha-se longe. Use cobertura para aumentar sua CA.");
+            } else if (con >= 16) {
+                tips.push("🧱 <b>Tanque:</b> Você tem HP para aguentar a linha de frente.");
+            } else if (con < 12) {
+                tips.push("⚠️ <b>Frágil:</b> Seu HP é baixo. Fique na retaguarda e use 'Shield' sempre que sobrar uma ação.");
+            }
+
+            // 3. Montagem do HTML
+            return {
+                role: role,
+                html: tips.map(t => `<li style="margin-bottom:5px;">${t}</li>`).join('')
+            };
+        }
+
+
+        // --- FUNÇÕES DE MAGIA/MODAL ---
         window.openSpellModal = async (name, action) => {
             currentSpellName = name;
             mName.innerText = name;
@@ -148,58 +218,27 @@
             mDesc.innerHTML = "<i>Buscando descrição...</i>";
             mEditor.style.display = 'none';
             mEditText.value = "";
-            
-            // Link do Nethys
             mLink.href = `https://2e.aonprd.com/Search.aspx?q=${name.replace(/\s+/g, '+')}`;
-            
             spellModal.style.display = 'flex';
-
             try {
-                // Tenta buscar no banco de dados
                 const doc = await spellsCollection.doc(name).get();
-                if (doc.exists && doc.data().desc) {
-                    mDesc.innerHTML = doc.data().desc.replace(/\n/g, '<br>');
-                } else {
-                    mDesc.innerHTML = "<em>Descrição não encontrada na biblioteca.</em><br>Clique em <b>'Buscar no Nethys'</b>, copie o texto e clique em <b>'Editar'</b> para salvar aqui para sempre.";
-                }
-            } catch (e) {
-                console.error(e);
-                mDesc.innerText = "Erro ao buscar magia.";
-            }
+                if (doc.exists && doc.data().desc) mDesc.innerHTML = doc.data().desc.replace(/\n/g, '<br>');
+                else mDesc.innerHTML = "<em>Descrição não encontrada.</em><br>Busque no Nethys e edite aqui.";
+            } catch (e) { console.error(e); }
         };
-
         window.toggleEdit = () => {
             mEditor.style.display = mEditor.style.display === 'none' ? 'block' : 'none';
-            // Se o editor abriu e o texto estava vazio, tenta preencher com o atual (sem HTML)
-            if (mEditor.style.display === 'block') {
-                 mEditText.value = mDesc.innerText.includes("Descrição não encontrada") ? "" : mDesc.innerText;
-                 mEditText.focus();
-            }
+            if (mEditor.style.display === 'block') { mEditText.value = mDesc.innerText.includes("não encontrada") ? "" : mDesc.innerText; mEditText.focus(); }
         };
-
         window.saveSpellDesc = async () => {
-            const text = mEditText.value;
-            if (!text) return;
-            
+            const text = mEditText.value; if (!text) return;
             try {
-                // Salva na coleção separada para não poluir a ficha do personagem
-                await spellsCollection.doc(currentSpellName).set({
-                    name: currentSpellName,
-                    desc: text,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                }, { merge: true });
-                
-                mDesc.innerHTML = text.replace(/\n/g, '<br>');
-                mEditor.style.display = 'none';
-                alert("Magia salva na biblioteca do grupo!");
-            } catch (e) {
-                alert("Erro ao salvar: " + e.message);
-            }
+                await spellsCollection.doc(currentSpellName).set({ name: currentSpellName, desc: text }, { merge: true });
+                mDesc.innerHTML = text.replace(/\n/g, '<br>'); mEditor.style.display = 'none';
+            } catch (e) { alert("Erro: " + e.message); }
         };
 
-        // ... [RESTANTE DO CÓDIGO DE IMPORTAÇÃO IGUAL AO ANTERIOR] ...
-        // (Vou repetir aqui para garantir que você tenha o arquivo completo funcionando)
-        
+        // --- IMPORTAÇÃO E RENDER ---
         const standardSkills = [
             { id: 'acrobatics', name: 'Acrobatics', attr: 'dex' }, { id: 'arcana', name: 'Arcana', attr: 'int' },
             { id: 'athletics', name: 'Athletics', attr: 'str' }, { id: 'crafting', name: 'Crafting', attr: 'int' },
@@ -216,6 +255,11 @@
                 if (!jsonData.build) throw new Error("JSON inválido.");
                 const rawData = extractPathbuilderData(jsonData.build);
                 const charData = JSON.parse(JSON.stringify(rawData));
+                
+                // Adiciona a análise tática antes de salvar
+                const tactics = analyzeTactics(charData, jsonData.build);
+                charData.tactics = tactics;
+
                 await charsCollection.doc(charData.nome).set(charData);
                 alert(`Personagem ${charData.nome} atualizado!`);
                 fileInput.value = ''; textArea.value = '';
@@ -262,8 +306,8 @@
             const weapons = (build.weapons || []).map(w => {
                 const nameLower = (w.display || w.name || "").toLowerCase();
                 const traits = (w.traits || []).map(t => String(t).toLowerCase());
-                const isRanged = traits.some(t => t.includes('range')) || nameLower.includes('crossbow') || nameLower.includes('bow') || nameLower.includes('gun') || nameLower.includes('sling');
-                const finesseNames = ['rapier', 'dagger', 'shortsword', 'whip', 'elven curve blade', 'aldori dueling sword'];
+                const isRanged = traits.some(t => t.includes('range')) || nameLower.includes('crossbow') || nameLower.includes('bow');
+                const finesseNames = ['rapier', 'dagger', 'shortsword', 'whip'];
                 const isFinesse = traits.includes('finesse') || finesseNames.some(n => nameLower.includes(n));
                 const isPropulsive = traits.includes('propulsive'); const isThrown = traits.includes('thrown');
 
@@ -284,7 +328,6 @@
                 const die = w.die || "d4"; const diceCount = w.str ? 2 : 1; 
                 const traitsFormatted = w.traits ? `(${w.traits.join(', ')})` : '';
                 const extraText = `${pot?`+${pot} `:''}${w.str?'Striking ':''}${traitsFormatted}`;
-
                 return { nome: w.display || w.name, ataque: `+${atk}`, dano: `${diceCount}${die} + ${dmgBonus}`, extras: extraText };
             });
 
@@ -304,7 +347,6 @@
                         caster.spells.forEach(obj => {
                             const list = (obj.list || []).map(s => {
                                 let sName = (typeof s === 'string') ? s : (s.name || "Magia");
-                                // AQUI: Removemos a dependência do glossário fixo. Usamos o nome e ação, a descrição vem do Firebase depois.
                                 let sAct = (typeof s === 'object' && s.actions) ? mapAction(s.actions) : "?";
                                 return { nome: sName, acao: sAct };
                             });
@@ -313,7 +355,6 @@
                     }
                 });
             }
-
             const calcSave = (k, ab) => { const p = safeNum(build.proficiencies[k]); return (p>0 ? p+level : 0) + getAbilMod(ab); };
 
             return {
@@ -327,7 +368,7 @@
             };
         }
 
-        // --- RENDER ---
+        // Handlers e Render
         fileInput.addEventListener('change', (e) => { const f = e.target.files[0]; if(!f)return; const r = new FileReader(); r.onload=(ev)=>{try{importCharData(JSON.parse(ev.target.result));}catch(e){alert("Erro JSON");}}; r.readAsText(f); });
         btnImportText.addEventListener('click', () => { try{ importCharData(JSON.parse(textArea.value.trim())); }catch(e){alert("JSON inválido.");} });
         charsCollection.onSnapshot(snap => { listContainer.innerHTML=''; snap.forEach(doc => { const d = document.createElement('div'); d.className='char-item'; d.textContent=doc.data().nome; d.onclick=()=>renderSheet(doc.data()); listContainer.appendChild(d); }); });
@@ -337,6 +378,17 @@
             const getBadge = (prof) => { let l="U", c="prof-u"; if(prof>=2){l="T";c="prof-t";} if(prof>=4){l="E";c="prof-e";} if(prof>=6){l="M";c="prof-m";} if(prof>=8){l="L";c="prof-l";} return `<div class="prof-badge ${c}">${l}</div>`; };
             const skillsHtml = char.skills.map(s => `<div class="skill-row">${getBadge(s.prof)}<div class="skill-bonus">${fmt(s.total)}</div><div class="skill-name">${s.name}</div></div>`).join('');
             
+            // Render Tática
+            let tacticsHtml = "";
+            if (char.tactics) {
+                tacticsHtml = `
+                <div class="tactics-box">
+                    <span class="tactics-title">🧠 Resumo Tático & Estilo de Jogo</span>
+                    <div style="margin-bottom:10px;">Papel: <span class="tactics-role">${char.tactics.role}</span></div>
+                    <ul style="padding-left:20px; margin:0;">${char.tactics.html}</ul>
+                </div>`;
+            }
+
             let spellStatsHtml = '';
             if (char.spellStats && char.spellStats.dc > 0) {
                 spellStatsHtml = `<div style="background:#e8f6f3; padding:10px; border-radius:5px; margin: 10px 0; border: 1px solid #1abc9c; display:flex; justify-content:space-around; text-align:center;">
@@ -351,7 +403,8 @@
 
             sheetDisplay.innerHTML = `
                 <div class="statblock-header"><h1>${char.nome}</h1><div class="sub">Nível ${char.nivel} ${char.ancestralidade} ${char.classe}</div></div>
-                <div class="stat-grid">
+                
+                ${tacticsHtml} <div class="stat-grid">
                     <div class="stat-box"><div class="label">Class DC</div><div class="value" style="color:#d35400;">${char.classDC.val}</div></div>
                     <div class="stat-box"><div class="label">Percepção</div><div class="value">+${char.percepcao}</div></div>
                     <div class="stat-box"><div class="label">PV</div><div class="value" style="color:#c0392b;">${char.hp}</div></div>
