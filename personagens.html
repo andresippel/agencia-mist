@@ -167,6 +167,7 @@
         };
 
         // --- INTELIGÊNCIA ARTIFICIAL (GEMINI) ---
+        // --- INTELIGÊNCIA ARTIFICIAL (GEMINI) - VERSÃO DEBUG ---
         window.generateAiTactics = async (charName) => {
             const apiKey = localStorage.getItem('gemini_key');
             if (!apiKey) return alert("Por favor, configure a API Key do Gemini no topo da página.");
@@ -179,24 +180,23 @@
             container.innerHTML = "<i>Analisando ficha e talentos...</i>";
 
             try {
-                // Busca dados do personagem no Firestore
+                // Busca dados do personagem
                 const doc = await charsCollection.doc(charName).get();
-                if (!doc.exists) throw new Error("Personagem não encontrado.");
+                if (!doc.exists) throw new Error("Personagem não encontrado no banco de dados.");
                 const charData = doc.data();
 
-                // Prepara o resumo para a IA (pra não estourar tokens)
+                // Resumo para a IA
                 const summary = {
                     name: charData.nome,
                     class: charData.classe,
                     level: charData.nivel,
                     attributes: charData.atributos,
-                    weapons: charData.armas.map(w => w.nome),
-                    feats: charData.featsList || [], // Lista de nomes de talentos
+                    weapons: charData.armas ? charData.armas.map(w => w.nome) : [],
+                    feats: charData.featsList || [], 
                     spells: (charData.magias || []).map(l => l.magias.map(m => m.nome)).flat(),
                     pets: charData.pets || []
                 };
 
-                // O Prompt
                 const prompt = `
                 Atue como um especialista em Pathfinder 2e. Analise este personagem: ${JSON.stringify(summary)}.
                 Crie um resumo tático curto e direto em HTML (use tags <ul>, <li>, <b>).
@@ -206,32 +206,42 @@
                 Não use Markdown, use apenas HTML simples dentro da resposta. Seja conciso.
                 `;
 
-                // Chamada à API REST do Gemini
+                // Chamada API
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }]
-                    })
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
                 });
+
+                // --- AQUI ESTÁ A CORREÇÃO PARA MOSTRAR O ERRO REAL ---
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error?.message || `Erro HTTP: ${response.status}`);
+                }
 
                 const data = await response.json();
+                
+                // Verificação extra se a IA retornou vazio
+                if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+                    throw new Error("A IA não retornou texto. Verifique filtros de segurança.");
+                }
+
                 const aiText = data.candidates[0].content.parts[0].text;
                 
-                // Salva no Firestore para não gastar API de novo
-                await charsCollection.doc(charName).update({
-                    aiTactics: aiText
-                });
-
+                // Salva e exibe
+                await charsCollection.doc(charName).update({ aiTactics: aiText });
                 container.innerHTML = aiText;
                 btn.innerText = "Regenerar Estratégia";
-                btn.disabled = false;
 
             } catch (error) {
-                console.error(error);
-                container.innerText = "Erro ao consultar a IA. Verifique a chave ou o console.";
-                btn.disabled = false;
+                console.error("ERRO DETALHADO:", error);
+                // Mostra o erro na tela para você ler
+                container.innerHTML = `<div style="color:red; background:#fdd; padding:10px; border-radius:5px;">
+                    <b>Ocorreu um erro:</b><br>${error.message}
+                </div>`;
                 btn.innerText = "Tentar Novamente";
+            } finally {
+                btn.disabled = false;
             }
         };
 
