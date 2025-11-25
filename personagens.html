@@ -76,7 +76,7 @@
         .tactics-title { font-weight: bold; color: #2980b9; text-transform: uppercase; font-size: 0.85em; }
         .btn-edit-tactics { background: none; border: none; color: #7f8c8d; cursor: pointer; font-size: 0.8em; text-decoration: underline; }
         .tactics-content ul { padding-left: 25px; margin: 10px 0; }
-        .tactics-editor { display: none !important; margin-top: 10px; } /* Force hide on load */
+        .tactics-editor { display: none !important; margin-top: 10px; }
         .tactics-editor.is-visible { display: block !important; }
         .tactics-textarea { width: 100%; height: 200px; padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; }
         .btn-save-tactics { width: 100%; background: #27ae60; color: white; border: none; padding: 10px; margin-top: 5px; border-radius: 4px; font-weight: bold; }
@@ -192,16 +192,10 @@
             const display = document.getElementById('tactics-content');
             const btn = document.getElementById('btn-edit-tactics');
             const txtArea = document.getElementById('tactics-textarea');
-            
             if (editor.classList.contains('is-visible')) {
-                editor.classList.remove('is-visible');
-                display.style.display = 'block';
-                btn.innerText = "✎ Editar Táticas";
+                editor.classList.remove('is-visible'); display.style.display = 'block'; btn.innerText = "✎ Editar Táticas";
             } else {
-                editor.classList.add('is-visible');
-                display.style.display = 'none';
-                btn.innerText = "Cancelar";
-                txtArea.value = currentRawTactics || "";
+                editor.classList.add('is-visible'); display.style.display = 'none'; btn.innerText = "Cancelar"; txtArea.value = currentRawTactics || "";
             }
         };
 
@@ -216,6 +210,7 @@
             } catch (error) { alert("Erro ao salvar: " + error.message); }
         };
 
+        // --- IMPORTAÇÃO ---
         btnImportText.addEventListener('click', async () => {
             const jsonText = textArea.value.trim();
             const linkText = pathInput.value.trim();
@@ -238,7 +233,7 @@
             fileInput.value = ''; textArea.value = ''; pathInput.value = '';
         }
 
-        // --- EXTRAÇÃO E FILTRO DE PERÍCIAS (CORRIGIDO) ---
+        // --- EXTRAÇÃO E CÁLCULOS (CORRIGIDO) ---
         function extractPathbuilderData(build) {
             const safeNum = (v) => (v && !isNaN(v)) ? Number(v) : 0;
             const safeStr = (v) => (v) ? String(v) : "";
@@ -262,9 +257,23 @@
                 const isFinesse = traits.includes('finesse') || finesseNames.some(n => nameLower.includes(n));
                 const isPropulsive = traits.includes('propulsive'); const isThrown = traits.includes('thrown');
                 let atkAttr = 'str'; if (isRanged) { atkAttr = 'dex'; } else if (isFinesse) { if (getAbilVal('dex') > getAbilVal('str')) atkAttr = 'dex'; }
-                let profBonus = 0; if (w.prof && build.proficiencies[w.prof]) profBonus = build.proficiencies[w.prof]; else profBonus = 2;
-                const pot = safeNum(w.pot); const atk = level + profBonus + getAbilMod(atkAttr) + pot;
-                let dmgBonus = 0; if (!isRanged || isThrown) { dmgBonus += getAbilMod('str'); } else if (isPropulsive) { dmgBonus += Math.floor(getAbilMod('str') / 2); }
+                
+                // CORREÇÃO: PROFICIÊNCIA DESARMADA (UNARMED)
+                let profKey = w.prof;
+                if (!profKey && traits.includes("unarmed")) profKey = "unarmed"; // Se não tiver key, mas for unarmed, usa 'unarmed'
+                
+                let profBonus = 0; 
+                if (profKey && build.proficiencies[profKey]) profBonus = build.proficiencies[profKey]; 
+                else profBonus = 2; // Fallback Trained
+
+                // CORREÇÃO: BÔNUS DE ATAQUE EXTRA (ex: +1 Handwraps)
+                // Pathbuilder soma 'pot' (Runa) E 'attackBonus' (Item/Buff)
+                const pot = safeNum(w.pot); 
+                const extraBonus = safeNum(w.attackBonus);
+                const atk = level + profBonus + getAbilMod(atkAttr) + pot + extraBonus;
+
+                let dmgBonus = 0;
+                if (!isRanged || isThrown) { dmgBonus += getAbilMod('str'); } else if (isPropulsive) { dmgBonus += Math.floor(getAbilMod('str') / 2); }
                 if (profBonus >= 4) dmgBonus += 2; if (profBonus >= 6) dmgBonus += 1;
                 if (safeStr(build.class).toLowerCase().includes("thaumaturge")) { dmgBonus += 2; }
                 const die = w.die || "d4"; const diceCount = w.str ? 2 : 1; const traitsFormatted = w.traits ? `(${w.traits.join(', ')})` : '';
@@ -285,37 +294,24 @@
                 });
             }
 
-            // --- FILTRO DE PERÍCIAS (ATUALIZADO) ---
+            // --- FILTRO DE PERÍCIAS (CORRIGIDO) ---
             const standardSkills = [
                 {id:'acrobatics',name:'Acrobatics',attr:'dex'},{id:'arcana',name:'Arcana',attr:'int'},{id:'athletics',name:'Athletics',attr:'str'},{id:'crafting',name:'Crafting',attr:'int'},{id:'deception',name:'Deception',attr:'cha'},{id:'diplomacy',name:'Diplomacy',attr:'cha'},{id:'intimidation',name:'Intimidation',attr:'cha'},{id:'medicine',name:'Medicine',attr:'wis'},{id:'nature',name:'Nature',attr:'wis'},{id:'occultism',name:'Occultism',attr:'int'},{id:'performance',name:'Performance',attr:'cha'},{id:'religion',name:'Religion',attr:'wis'},{id:'society',name:'Society',attr:'int'},{id:'stealth',name:'Stealth',attr:'dex'},{id:'survival',name:'Survival',attr:'wis'},{id:'thievery',name:'Thievery',attr:'dex'}
             ];
-            const processedSkills = []; 
-            const profs = build.proficiencies || {};
+            const processedSkills = []; const profs = build.proficiencies || {};
+            standardSkills.forEach(skill => { const profValue = safeNum(profs[skill.id]); const total = (profValue > 0 ? (profValue + level) : 0) + getAbilMod(skill.attr); processedSkills.push({ name: skill.name, total: total, prof: profValue }); });
             
-            // 1. Adiciona as 16 perícias padrão
-            standardSkills.forEach(skill => { 
-                const profValue = safeNum(profs[skill.id]); 
-                const total = (profValue > 0 ? (profValue + level) : 0) + getAbilMod(skill.attr); 
-                processedSkills.push({ name: skill.name, total: total, prof: profValue }); 
-            });
-
-            // 2. Filtra Lores (Exclui armas, armaduras, spellcasting e palavras proibidas)
-            const excludedExactKeys = ['fortitude', 'reflex', 'will', 'perception', 'classDC', ...standardSkills.map(s => s.id)];
-            // Lista de palavras que indicam que NÃO é uma perícia
-            const forbiddenSubstrings = ['weapon', 'armor', 'shield', 'unarmored', 'simple', 'martial', 'advanced', 'unarmed', 'casting', 'spell', 'light', 'medium', 'heavy'];
+            // BLOCKLIST RIGOROSA
+            const excludedKeys = ['fortitude', 'reflex', 'will', 'perception', 'classDC', ...standardSkills.map(s => s.id)];
+            const forbidden = ['weapon', 'armor', 'shield', 'unarmored', 'simple', 'martial', 'advanced', 'unarmed', 'casting', 'spell', 'light', 'medium', 'heavy'];
 
             Object.keys(profs).forEach(key => { 
-                const keyLower = key.toLowerCase();
-                // Se está na lista exata de exclusão, pula
-                if (excludedExactKeys.includes(key)) return;
-                // Se contém qualquer palavra proibida, pula
-                if (forbiddenSubstrings.some(badWord => keyLower.includes(badWord))) return;
+                if (excludedKeys.includes(key)) return;
+                if (forbidden.some(bad => key.toLowerCase().includes(bad))) return; // Filtro forte
 
-                const profValue = safeNum(profs[key]); 
-                const total = (profValue > 0 ? (profValue + level) : 0) + getAbilMod('int'); 
+                const profValue = safeNum(profs[key]); const total = (profValue > 0 ? (profValue + level) : 0) + getAbilMod('int'); 
                 let name = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1').trim(); 
                 if (!name.includes("Lore")) name = `Lore: ${name}`;
-                
                 processedSkills.push({ name: name, total: total, prof: profValue }); 
             });
             processedSkills.sort((a, b) => a.name.localeCompare(b.name));
@@ -333,6 +329,7 @@
             };
         }
 
+        // --- RENDERIZAÇÃO ---
         function renderSheet(char) {
             currentCharName = char.nome; 
             currentRawTactics = char.tacticsText || ""; 
