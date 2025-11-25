@@ -104,7 +104,6 @@
         const listContainer = document.getElementById('list-container');
         const sheetDisplay = document.getElementById('sheet-display');
         
-        // --- MAPA DE PERÍCIAS PADRÃO ---
         const standardSkills = [
             { id: 'acrobatics', name: 'Acrobatics', attr: 'dex' }, { id: 'arcana', name: 'Arcana', attr: 'int' },
             { id: 'athletics', name: 'Athletics', attr: 'str' }, { id: 'crafting', name: 'Crafting', attr: 'int' },
@@ -116,13 +115,11 @@
             { id: 'survival', name: 'Survival', attr: 'wis' }, { id: 'thievery', name: 'Thievery', attr: 'dex' }
         ];
 
-        // Glossário de Magias
         const spellLibrary = {
             "Ignition": { action: "◆◆", desc: "A spell attack dealing fire damage." },
             "Shield": { action: "◆", desc: "Raise a magical shield (+1 AC)." }
         };
 
-        // --- IMPORTAÇÃO ---
         async function importCharData(jsonData) {
             try {
                 if (!jsonData.build) throw new Error("JSON inválido.");
@@ -134,13 +131,10 @@
             } catch (error) { console.error(error); alert("Erro: " + error.message); }
         }
 
-        // --- EXTRAÇÃO (LÓGICA CORRIGIDA) ---
         function extractPathbuilderData(build) {
             const safeNum = (v) => (v && !isNaN(v)) ? Number(v) : 0;
             const safeStr = (v) => (v) ? String(v) : "";
             const level = safeNum(build.level);
-            
-            // Helpers de Atributo
             const getAbilVal = (n) => safeNum(build.abilities[n]);
             const getAbilMod = (n) => Math.floor((getAbilVal(n) - 10) / 2);
 
@@ -159,10 +153,9 @@
                 const total = (profValue > 0 ? (profValue + level) : 0) + getAbilMod(skill.attr);
                 processedSkills.push({ name: skill.name, total: total, prof: profValue });
             });
-            // Lores e Outros
             const excludedKeys = ['fortitude', 'reflex', 'will', 'perception', 'classDC', ...standardSkills.map(s => s.id)];
             Object.keys(profs).forEach(key => {
-                if (!excludedKeys.includes(key) && !key.includes("Weapon") && !key.includes("Armor")) {
+                if (!excludedKeys.includes(key) && !key.includes("Weapon") && !key.includes("Armor") && !key.includes("Unarmored")) {
                     const profValue = safeNum(profs[key]);
                     const total = (profValue > 0 ? (profValue + level) : 0) + getAbilMod('int');
                     const name = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1').trim();
@@ -178,64 +171,62 @@
                 classDC.val = 10 + level + safeNum(build.proficiencies.classDC) + Math.max(...mods);
             }
 
-            // --- ARMAS (CORREÇÃO DAEMIAN) ---
+            // --- ARMAS (LÓGICA CORRIGIDA) ---
             const weapons = (build.weapons || []).map(w => {
-                // 1. Definição do Atributo de Ataque
+                const nameLower = (w.display || w.name || "").toLowerCase();
+                const traits = w.traits || [];
+                
+                // DETECÇÃO DE TIPO DE ARMA
+                // Verifica se é ranged procurando 'range' (ex: Range 30ft), 'thrown' ou nome da arma
+                const isRanged = traits.some(t => t.toLowerCase().includes('range')) 
+                                 || nameLower.includes('crossbow') 
+                                 || nameLower.includes('bow')
+                                 || nameLower.includes('gun')
+                                 || nameLower.includes('sling');
+                                 
+                const isFinesse = traits.some(t => t.toLowerCase().includes('finesse'));
+                const isPropulsive = traits.some(t => t.toLowerCase().includes('propulsive'));
+                const isThrown = traits.some(t => t.toLowerCase().includes('thrown'));
+
+                // 1. ATRIBUTO DE ATAQUE
                 let atkAttr = 'str';
-                // Armas à distância SEMPRE usam DEX
-                if (w.traits && w.traits.includes('Ranged')) {
-                    atkAttr = 'dex';
-                }
-                // Armas Finesse usam o maior entre STR e DEX
-                else if (w.traits && w.traits.includes('Finesse')) {
+                if (isRanged) {
+                    atkAttr = 'dex'; // Bestas e Arcos SEMPRE usam Dex no ataque
+                } else if (isFinesse) {
                     if (getAbilVal('dex') > getAbilVal('str')) atkAttr = 'dex';
                 }
 
-                // 2. Definição da Proficiência (Correção do +4 vs +7)
+                // 2. PROFICIÊNCIA
                 let profBonus = 0;
-                // Tenta achar a proficiência pelo nome (ex: "simple", "martial")
-                if (w.prof && build.proficiencies[w.prof] !== undefined) {
-                    profBonus = build.proficiencies[w.prof];
-                } else if (w.prof === "simple" && build.proficiencies.simple !== undefined) {
-                    profBonus = build.proficiencies.simple;
-                } else if (w.prof === "martial" && build.proficiencies.martial !== undefined) {
-                    profBonus = build.proficiencies.martial;
-                } else {
-                    // Fallback de segurança: Se não achar e for nível 1+, assume Treinado (2)
-                    // Isso evita que o ataque fique artificialmente baixo se o JSON estiver incompleto
-                    profBonus = 2; 
-                }
+                if (w.prof && build.proficiencies[w.prof]) profBonus = build.proficiencies[w.prof];
+                else profBonus = 2; // Fallback: Assume treinado (Nível 1+)
 
-                // 3. Cálculo Final do Ataque
-                const pot = safeNum(w.pot); // Runas +1, etc
+                // 3. CÁLCULO DE ATAQUE
+                const pot = safeNum(w.pot);
                 const atk = level + profBonus + getAbilMod(atkAttr) + pot;
 
-                // 4. Cálculo de Dano (Correção do Empowerment)
+                // 4. CÁLCULO DE DANO
                 let dmgBonus = 0;
                 
-                // Adiciona STR se for Melee (e não for Propulsive especial, simplificado aqui)
-                if (!w.traits || !w.traits.includes('Ranged')) {
+                // Força só entra em Melee, Propulsive ou Thrown
+                if (!isRanged) {
                     dmgBonus += getAbilMod('str');
-                } else if (w.traits && w.traits.includes('Propulsive')) {
-                    dmgBonus += Math.floor(getAbilMod('str') / 2);
+                } else {
+                    if (isPropulsive) dmgBonus += Math.floor(getAbilMod('str') / 2);
+                    if (isThrown) dmgBonus += getAbilMod('str');
                 }
 
-                // Weapon Specialization
-                if (profBonus >= 4) dmgBonus += 2; // Expert
-                if (profBonus >= 6) dmgBonus += 1; // Master
-                
-                // --- PATCH DO TAUMATURGO (EMPOWERMENT) ---
-                // Se a classe é Thaumaturge, adiciona +2 de dano
-                // (Assumindo que ele está segurando o implemento, que é o padrão de combate)
-                if (safeStr(build.class).toLowerCase() === "thaumaturge") {
-                     dmgBonus += 2;
+                // Weapon Spec
+                if (profBonus >= 4) dmgBonus += 2; 
+                if (profBonus >= 6) dmgBonus += 1;
+
+                // THAUMATURGE EMPOWERMENT (+2 Dano)
+                if (safeStr(build.class).toLowerCase().includes("thaumaturge")) {
+                    dmgBonus += 2;
                 }
-                
-                // Formatação do Dado de Dano
+
                 const die = w.die || "d4";
-                const diceCount = w.str ? 2 : 1; // Runa Striking
-                
-                // Formata extras
+                const diceCount = w.str ? 2 : 1; 
                 const traitsList = w.traits ? `(${w.traits.join(', ')})` : '';
                 const extraText = `${pot?`+${pot} `:''}${w.str?'Striking ':''}${traitsList}`;
 
@@ -276,7 +267,6 @@
                 });
             }
 
-            // Saves
             const calcSave = (k, ab) => { const p = safeNum(build.proficiencies[k]); return (p>0 ? p+level : 0) + getAbilMod(ab); };
 
             return {
@@ -290,7 +280,7 @@
             };
         }
 
-        // Handlers e Render (Mantidos iguais ao anterior, mas necessários para o script funcionar)
+        // Handlers e Render
         fileInput.addEventListener('change', (e) => { const f = e.target.files[0]; if(!f)return; const r = new FileReader(); r.onload=(ev)=>{try{importCharData(JSON.parse(ev.target.result));}catch(e){alert("Erro JSON");}}; r.readAsText(f); });
         btnImportText.addEventListener('click', () => { try{ importCharData(JSON.parse(textArea.value.trim())); }catch(e){alert("JSON inválido.");} });
         charsCollection.onSnapshot(snap => { listContainer.innerHTML=''; snap.forEach(doc => { const d = document.createElement('div'); d.className='char-item'; d.textContent=doc.data().nome; d.onclick=()=>renderSheet(doc.data()); listContainer.appendChild(d); }); });
