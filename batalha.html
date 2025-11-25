@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mestre de Batalha - Agência MIST</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="auth-check.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+
+    <style>
+        .battle-container { display: flex; gap: 20px; flex-wrap: wrap; }
+        .panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        
+        /* --- ESTILOS DA CALCULADORA --- */
+        .calc-panel { flex: 1; min-width: 300px; }
+        .xp-bar { height: 20px; background: #eee; border-radius: 10px; overflow: hidden; margin: 15px 0; position: relative; }
+        .xp-fill { height: 100%; background: #3498db; width: 0%; transition: width 0.3s; }
+        .difficulty-badge { 
+            display: inline-block; padding: 5px 10px; border-radius: 4px; color: white; font-weight: bold; 
+            text-transform: uppercase; font-size: 0.9em;
+        }
+        .diff-trivial { background: #27ae60; }
+        .diff-low { background: #2ecc71; }
+        .diff-moderate { background: #f1c40f; color: #333; }
+        .diff-severe { background: #e67e22; }
+        .diff-extreme { background: #c0392b; }
+        
+        .monster-list-item { display: flex; justify-content: space-between; padding: 5px; border-bottom: 1px solid #eee; font-size: 0.9em; }
+        .btn-remove { color: red; cursor: pointer; font-weight: bold; margin-left: 10px; }
+
+        /* --- ESTILOS DO TRACKER --- */
+        .tracker-panel { flex: 2; min-width: 400px; }
+        table.tracker-table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #333; color: white; }
+        
+        .hp-input { width: 60px; padding: 5px; text-align: center; font-weight: bold; }
+        .init-input { width: 50px; padding: 5px; text-align: center; }
+        
+        .row-pc { background-color: #e8f8f5; border-left: 4px solid #1abc9c; }
+        .row-enemy { background-color: #fdedec; border-left: 4px solid #c0392b; }
+        
+        .btn-action { padding: 5px 10px; cursor: pointer; border: none; border-radius: 4px; color: white; font-size: 0.9em; }
+        .btn-blue { background: #3498db; } .btn-green { background: #27ae60; } .btn-red { background: #e74c3c; }
+        
+        .controls { display: flex; gap: 10px; margin-bottom: 15px; align-items: center; background: #f9f9f9; padding: 10px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Painel do Mestre (PF2e)</h1>
+            <nav>
+                <a href="index.html" style="margin-right: 20px;">Página Inicial</a>
+                <a href="personagens.html" style="margin-right: 20px;">Fichas</a>
+                <a href="#" onclick="logout()">Sair</a>
+            </nav>
+        </header>
+
+        <div class="battle-container">
+            
+            <div class="panel calc-panel">
+                <h3>⚖️ Nivelamento de Encontro</h3>
+                
+                <div style="display:flex; gap:10px; margin-bottom:15px;">
+                    <div>
+                        <label style="font-size:0.8em; font-weight:bold;">Nível do Grupo</label><br>
+                        <input type="number" id="party-level" value="1" min="1" max="20" style="width:60px; padding:5px;">
+                    </div>
+                    <div>
+                        <label style="font-size:0.8em; font-weight:bold;">Jogadores</label><br>
+                        <input type="number" id="party-size" value="4" min="1" max="10" style="width:60px; padding:5px;">
+                    </div>
+                </div>
+
+                <div style="background:#f9f9f9; padding:10px; border-radius:5px; border:1px solid #ddd;">
+                    <label style="font-size:0.8em; font-weight:bold;">Adicionar Inimigo</label>
+                    <div style="display:flex; gap:5px; margin-top:5px;">
+                        <input type="text" id="monster-name" placeholder="Nome (ex: Goblin)" style="flex:1;">
+                        <input type="number" id="monster-level" placeholder="Nvl" style="width:50px;">
+                        <button class="btn-action btn-blue" onclick="addMonsterCalc()">+</button>
+                    </div>
+                </div>
+
+                <div id="monsters-list" style="margin: 15px 0;">
+                    </div>
+
+                <hr>
+                
+                <div style="text-align:center;">
+                    <div style="font-size: 0.9em; color:#666;">Total XP: <span id="total-xp">0</span></div>
+                    <div id="difficulty-display" class="difficulty-badge" style="background:#ccc;">Sem combate</div>
+                </div>
+                
+                <div class="xp-bar"><div id="xp-bar-fill" class="xp-fill"></div></div>
+                
+                <div style="font-size:0.75em; color:#777; display:flex; justify-content:space-between;">
+                    <span>Low: <span id="budget-low">60</span></span>
+                    <span>Mod: <span id="budget-mod">80</span></span>
+                    <span>Sev: <span id="budget-sev">120</span></span>
+                </div>
+            </div>
+
+            <div class="panel tracker-panel">
+                <h3>⚔️ Rastreador de Iniciativa</h3>
+                
+                <div class="controls">
+                    <button class="btn-action btn-green" onclick="importPartyFromDB()">Importar Grupo do Banco</button>
+                    <span style="color:#ccc;">|</span>
+                    <input type="text" id="add-name" placeholder="Nome" style="width:120px;">
+                    <input type="number" id="add-init" placeholder="Init" style="width:50px;">
+                    <input type="number" id="add-hp" placeholder="HP" style="width:50px;">
+                    <input type="number" id="add-ac" placeholder="CA" style="width:50px;">
+                    <button class="btn-action btn-blue" onclick="addCustomCombatant()">Adicionar NPC</button>
+                </div>
+
+                <table class="tracker-table">
+                    <thead>
+                        <tr>
+                            <th style="width:40px;">Init</th>
+                            <th>Nome</th>
+                            <th style="width:50px;">CA</th>
+                            <th style="width:80px;">HP Atual</th>
+                            <th style="width:40px;">Max</th>
+                            <th style="width:60px;">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tracker-body">
+                        </tbody>
+                </table>
+                <button class="btn-action btn-blue" style="margin-top:15px; width:100%;" onclick="sortInitiative()">🔄 Ordenar por Iniciativa</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- LOGICA DA CALCULADORA DE XP (PF2e Rules) ---
+        let calcMonsters = [];
+        
+        function getXPCost(partyLevel, monsterLevel) {
+            const diff = monsterLevel - partyLevel;
+            // Tabela oficial do PF2e
+            if (diff <= -4) return 10;
+            if (diff === -3) return 15;
+            if (diff === -2) return 20;
+            if (diff === -1) return 30;
+            if (diff === 0) return 40;
+            if (diff === 1) return 60;
+            if (diff === 2) return 80;
+            if (diff === 3) return 120;
+            if (diff >= 4) return 160;
+            return 40; // Fallback
+        }
+
+        function updateCalculator() {
+            const partyLevel = parseInt(document.getElementById('party-level').value);
+            const partySize = parseInt(document.getElementById('party-size').value);
+            const monsterListEl = document.getElementById('monsters-list');
+            const totalXpEl = document.getElementById('total-xp');
+            const diffDisplay = document.getElementById('difficulty-display');
+            
+            // Orçamentos ajustados por tamanho do grupo (Base + Ajuste por char extra/menos)
+            const charAdj = partySize - 4;
+            const budgets = {
+                trivial: 40 + (10 * charAdj),
+                low: 60 + (15 * charAdj),
+                moderate: 80 + (20 * charAdj),
+                severe: 120 + (30 * charAdj),
+                extreme: 160 + (40 * charAdj)
+            };
+
+            // Atualiza legendas
+            document.getElementById('budget-low').innerText = budgets.low;
+            document.getElementById('budget-mod').innerText = budgets.moderate;
+            document.getElementById('budget-sev').innerText = budgets.severe;
+
+            // Renderiza Monstros e Calcula Total
+            monsterListEl.innerHTML = '';
+            let totalXP = 0;
+
+            calcMonsters.forEach((m, index) => {
+                const xp = getXPCost(partyLevel, m.level);
+                totalXP += xp;
+                monsterListEl.innerHTML += `
+                    <div class="monster-list-item">
+                        <span>Lv ${m.level} ${m.name}</span>
+                        <span>${xp} XP <span class="btn-remove" onclick="removeMonsterCalc(${index})">×</span></span>
+                    </div>
+                `;
+            });
+
+            totalXpEl.innerText = totalXP;
+
+            // Define Dificuldade
+            let diffClass = "diff-trivial";
+            let diffText = "Trivial";
+
+            if (totalXP < budgets.low) { diffText = "Trivial"; diffClass = "diff-trivial"; }
+            else if (totalXP < budgets.moderate) { diffText = "Baixo (Low)"; diffClass = "diff-low"; }
+            else if (totalXP < budgets.severe) { diffText = "Moderado"; diffClass = "diff-moderate"; }
+            else if (totalXP < budgets.extreme) { diffText = "Severo"; diffClass = "diff-severe"; }
+            else { diffText = "Extremo!"; diffClass = "diff-extreme"; }
+
+            if(calcMonsters.length === 0) { diffText = "Sem Combate"; diffClass = "diff-trivial"; }
+
+            diffDisplay.className = `difficulty-badge ${diffClass}`;
+            diffDisplay.innerText = diffText;
+
+            // Barra de Progresso visual (Baseada no Extreme)
+            const pct = Math.min((totalXP / budgets.extreme) * 100, 100);
+            document.getElementById('xp-bar-fill').style.width = pct + '%';
+            
+            // Muda cor da barra conforme perigo
+            const bar = document.getElementById('xp-bar-fill');
+            if(pct < 50) bar.style.backgroundColor = "#2ecc71";
+            else if(pct < 75) bar.style.backgroundColor = "#f1c40f";
+            else bar.style.backgroundColor = "#e74c3c";
+        }
+
+        function addMonsterCalc() {
+            const name = document.getElementById('monster-name').value || "Inimigo";
+            const level = parseInt(document.getElementById('monster-level').value) || 0;
+            calcMonsters.push({ name, level });
+            updateCalculator();
+            document.getElementById('monster-name').value = '';
+        }
+
+        function removeMonsterCalc(index) {
+            calcMonsters.splice(index, 1);
+            updateCalculator();
+        }
+
+        // Listeners para recálculo automatico
+        document.getElementById('party-level').addEventListener('change', updateCalculator);
+        document.getElementById('party-size').addEventListener('change', updateCalculator);
+
+
+        // --- LOGICA DO RASTREADOR DE COMBATE ---
+        let combatants = [];
+
+        function renderTracker() {
+            const tbody = document.getElementById('tracker-body');
+            tbody.innerHTML = '';
+            
+            combatants.forEach((c, index) => {
+                const rowClass = c.isPC ? 'row-pc' : 'row-enemy';
+                const hpPercent = (c.currentHp / c.maxHp) * 100;
+                let hpColor = 'black';
+                if(hpPercent < 50) hpColor = 'orange';
+                if(hpPercent < 20) hpColor = 'red';
+                if(c.currentHp <= 0) hpColor = 'gray';
+
+                tbody.innerHTML += `
+                    <tr class="${rowClass}">
+                        <td><input type="number" class="init-input" value="${c.init}" onchange="updateCombatant(${index}, 'init', this.value)"></td>
+                        <td><strong>${c.name}</strong></td>
+                        <td>${c.ac}</td>
+                        <td>
+                            <input type="number" class="hp-input" style="color:${hpColor}" value="${c.currentHp}" onchange="updateCombatant(${index}, 'hp', this.value)">
+                        </td>
+                        <td style="color:#777;">/${c.maxHp}</td>
+                        <td><button class="btn-action btn-red" onclick="removeCombatant(${index})">X</button></td>
+                    </tr>
+                `;
+            });
+        }
+
+        function addCustomCombatant() {
+            const name = document.getElementById('add-name').value || "Inimigo";
+            const init = parseInt(document.getElementById('add-init').value) || 0;
+            const hp = parseInt(document.getElementById('add-hp').value) || 10;
+            const ac = parseInt(document.getElementById('add-ac').value) || 10;
+
+            combatants.push({
+                name: name,
+                init: init,
+                currentHp: hp,
+                maxHp: hp,
+                ac: ac,
+                isPC: false
+            });
+            renderTracker();
+            // Limpa inputs
+            document.getElementById('add-name').value = '';
+            document.getElementById('add-init').value = '';
+        }
+
+        function updateCombatant(index, field, value) {
+            if (field === 'init') combatants[index].init = Number(value);
+            if (field === 'hp') combatants[index].currentHp = Number(value);
+            // Renderiza de novo para atualizar cores de HP se necessário
+            // (Poderia ser otimizado, mas pra RPG de mesa está ótimo)
+            renderTracker(); 
+        }
+
+        function removeCombatant(index) {
+            if(confirm("Remover este combatente?")) {
+                combatants.splice(index, 1);
+                renderTracker();
+            }
+        }
+
+        function sortInitiative() {
+            combatants.sort((a, b) => b.init - a.init);
+            renderTracker();
+        }
+
+        // --- INTEGRAÇÃO COM FIREBASE (IMPORTAR PERSONAGENS) ---
+        async function importPartyFromDB() {
+            const db = firebase.firestore();
+            try {
+                const snapshot = await db.collection("personagens").get();
+                if (snapshot.empty) {
+                    alert("Nenhum personagem encontrado no banco de dados.");
+                    return;
+                }
+
+                snapshot.forEach(doc => {
+                    const char = doc.data();
+                    // Verifica se já não está na lista pra não duplicar
+                    if (!combatants.some(c => c.name === char.nome)) {
+                        combatants.push({
+                            name: char.nome,
+                            init: char.percepcao || 0, // Usa Percepção como base de iniciativa
+                            currentHp: char.hp || 10,
+                            maxHp: char.hp || 10,
+                            ac: char.ca || 10,
+                            isPC: true
+                        });
+                    }
+                });
+                renderTracker();
+                alert("Personagens importados! Iniciativa definida baseada na Percepção (ajuste conforme a rolagem).");
+            } catch (error) {
+                console.error("Erro ao importar: ", error);
+                alert("Erro ao conectar com o banco de dados.");
+            }
+        }
+
+        // Inicializa
+        updateCalculator();
+    </script>
+</body>
+</html>
