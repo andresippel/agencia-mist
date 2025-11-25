@@ -53,7 +53,6 @@
             .stat-grid { gap: 5px; }
             .stat-box { min-width: 45%; }
             .skills-grid { grid-template-columns: 1fr 1fr; }
-            .pet-row-stats { flex-wrap: wrap; }
         }
 
         /* Ficha Interna */
@@ -77,58 +76,20 @@
         .tactics-textarea { width: 100%; height: 200px; padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; }
         .btn-save-tactics { width: 100%; background: #27ae60; color: white; border: none; padding: 10px; margin-top: 5px; border-radius: 4px; font-weight: bold; }
 
-        /* --- PETS REFORMULADOS (ESTILO PATHBUILDER) --- */
-        .pet-block { 
-            background: #222; /* Fundo escuro como no print */
-            border: 1px solid #444; 
-            padding: 0; 
-            margin-top: 15px; 
-            border-radius: 6px; 
-            color: #eee;
-            overflow: hidden;
-        }
-        .pet-header { 
-            background: #d35400; /* Laranja Pathbuilder */
-            color: white; 
-            padding: 8px 15px;
-            font-weight: bold; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            font-size: 1rem;
-        }
+        /* Pets (COM PROTEÇÃO DE LAYOUT) */
+        .pet-block { background: #222; border: 1px solid #444; padding: 0; margin-top: 15px; border-radius: 6px; color: #eee; overflow: hidden; }
+        .pet-header { background: #d35400; color: white; padding: 8px 15px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; font-size: 1rem; }
         .btn-delete-pet { color: white; background: none; border: none; font-weight: bold; cursor: pointer; font-size: 1.2em; opacity: 0.8; }
-        .btn-delete-pet:hover { opacity: 1; text-shadow: 0 0 5px black; }
-
         .pet-body { padding: 15px; }
-
-        /* Linha de Status Principais (AC, HP, Speed) */
-        .pet-row-stats { 
-            display: flex; gap: 15px; margin-bottom: 15px; 
-            background: #333; padding: 10px; border-radius: 4px; border: 1px solid #555;
-        }
+        .pet-row-stats { display: flex; gap: 15px; margin-bottom: 15px; background: #333; padding: 10px; border-radius: 4px; border: 1px solid #555; }
         .pet-stat-group { display: flex; flex-direction: column; gap: 2px; flex: 1; }
         .pet-stat-label { font-size: 0.7em; text-transform: uppercase; color: #aaa; font-weight: bold; }
-        .pet-input { 
-            background: #444; border: 1px solid #666; color: white; 
-            padding: 5px; border-radius: 3px; font-weight: bold; text-align: center; width: 100%;
-        }
-        
-        /* Linha de Saves/Atributos */
-        .pet-grid-mini { 
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(60px, 1fr)); 
-            gap: 5px; margin-bottom: 15px; 
-        }
+        .pet-input { background: #444; border: 1px solid #666; color: white; padding: 5px; border-radius: 3px; font-weight: bold; text-align: center; width: 100%; }
+        .pet-grid-mini { display: grid; grid-template-columns: repeat(auto-fit, minmax(60px, 1fr)); gap: 5px; margin-bottom: 15px; }
         .pet-mini-box { text-align: center; background: #333; padding: 5px; border-radius: 3px; }
         .pet-mini-label { font-size: 0.65em; color: #bbb; font-weight: bold; }
         .pet-input-mini { width: 100%; background: transparent; border: none; color: white; text-align: center; font-weight: bold; font-size: 0.9em;}
-
-        /* Área de Texto (Ataques/Notas) */
-        .pet-notes { 
-            width: 100%; height: 100px; background: #333; color: #ddd; 
-            border: 1px solid #555; border-radius: 4px; padding: 8px; 
-            font-family: monospace; font-size: 0.85em; resize: vertical;
-        }
+        .pet-notes { width: 100%; height: 80px; background: #333; color: #ddd; border: 1px solid #555; border-radius: 4px; padding: 8px; font-family: monospace; font-size: 0.85em; resize: vertical; margin-top: 10px; }
 
         /* Outros */
         .skills-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 5px 10px; margin-top: 10px; }
@@ -258,15 +219,14 @@
             } catch (error) { alert("Erro ao salvar: " + error.message); }
         };
 
-        // --- GERENCIAMENTO DE PETS (ATUALIZADO) ---
+        // --- GERENCIAMENTO DE PETS (BLINDADO) ---
         window.updatePet = async (index, field, value) => {
             if (!currentCharData || !currentCharData.pets) return;
             
-            // Permite edição aninhada (ex: saves.fort) ou direta
             if (field.includes('.')) {
                 const parts = field.split('.');
                 if (!currentCharData.pets[index][parts[0]]) currentCharData.pets[index][parts[0]] = {};
-                currentCharData.pets[index][parts[0]][parts[1]] = value; // Mantém string se necessário, ou converte depois
+                currentCharData.pets[index][parts[0]][parts[1]] = value;
             } else {
                 currentCharData.pets[index][field] = value;
             }
@@ -301,13 +261,10 @@
         async function importCharData(jsonData) {
             if (!jsonData.build) throw new Error("Formato inválido.");
             const rawData = extractPathbuilderData(jsonData.build);
-            
-            // Preserva dados manuais dos pets se existirem
             try {
                 const existingDoc = await charsCollection.doc(rawData.nome).get();
                 if (existingDoc.exists) {
                     const existingData = existingDoc.data();
-                    // Se os nomes e tipos coincidirem, mantém os dados antigos (editados)
                     if (existingData.pets && existingData.pets.length > 0) {
                         rawData.pets = rawData.pets.map((newPet) => {
                             const oldPet = existingData.pets.find(p => p.nome === newPet.nome && p.tipo === newPet.tipo);
@@ -335,20 +292,19 @@
             let hp = safeNum(build.attributes.hp);
             if (hp === 0) { const conMod = getAbilMod('con'); hp = safeNum(build.attributes.ancestryhp) + ((safeNum(build.attributes.classhp) + conMod) * level) + safeNum(build.attributes.bonushp); }
 
-            // PETS: Estrutura inicial para edição manual
+            // PETS: ESTRUTURA PADRÃO ROBUSTA
             const petsList = [];
             const createPet = (p, tipo) => ({ 
                 nome: p.name||"Pet", 
                 tipo: tipo, 
                 hp: "", ac: "", speed: "",
-                saves: { fort: "", ref: "", will: "", perc: "" },
                 attributes: { str: "", dex: "", con: "", int: "", wis: "", cha: "" },
-                notes: "Cole aqui ataques e habilidades..."
+                saves: { fort: "", ref: "", will: "", perc: "" },
+                notes: ""
             });
             if(build.pets) build.pets.forEach(p=>petsList.push(createPet(p, "Animal Companion")));
             if(build.familiars) build.familiars.forEach(f=>petsList.push(createPet(f, "Familiar")));
 
-            // ... (Resto da extração igual: armas, spells, skills, etc) ...
             const weapons = (build.weapons || []).map(w => {
                 const nameLower = (w.display || w.name || "").toLowerCase();
                 const traits = (w.traits || []).map(t => String(t).toLowerCase());
@@ -432,10 +388,14 @@
             let statusGridHtml = `<div class="stat-grid"><div class="stat-box main-stat"><div class="label">Pontos de Vida</div><div class="value" style="color:#c0392b;">❤️ ${char.hp}</div></div><div class="stat-box main-stat"><div class="label">Classe de Armadura</div><div class="value" style="color:#2980b9;">🛡️ ${char.ca}</div></div><div class="stat-box"><div class="label">Iniciativa (Perc)</div><div class="value">👁️ +${char.percepcao}</div></div><div class="stat-box"><div class="label">Velocidade</div><div class="value">🦶 ${char.velocidade} ft</div></div><div class="stat-box"><div class="label">Class DC</div><div class="value">🎓 ${char.classDC.val}</div></div></div>`;
             let tacticsHtml = `<div class="tactics-box"><div class="tactics-header"><span class="tactics-title">🧠 Resumo Tático & Anotações</span><button id="btn-edit-tactics" class="btn-edit-tactics" onclick="toggleTacticsEdit()">✎ Editar Táticas</button></div><div id="tactics-content" class="tactics-content">${tacticsHtmlContent}</div><div id="tactics-editor" class="tactics-editor" style="display:none;"><textarea id="tactics-textarea" class="tactics-textarea"></textarea><button class="btn-save-tactics" onclick="saveTactics()">Salvar Alterações</button></div></div>`;
             
-            // RENDER DOS PETS (ESTILO DARK - EDITÁVEL)
+            // RENDER DOS PETS (COM PROTEÇÃO CONTRA DADOS ANTIGOS)
             let petsHtml = ""; 
             if (char.pets && char.pets.length > 0) { 
-                petsHtml = char.pets.map((p, idx) => `
+                petsHtml = char.pets.map((p, idx) => {
+                    // Fallbacks para garantir que não quebre com dados antigos
+                    const atts = p.attributes || { str: "", dex: "", con: "", int: "", wis: "", cha: "" };
+                    const savs = p.saves || { fort: "", ref: "", will: "", perc: "" };
+                    return `
                     <div class="pet-block">
                         <div class="pet-header">
                             <span>${p.nome} <span style="font-size:0.8em; opacity:0.8;">(${p.tipo})</span></span>
@@ -448,22 +408,23 @@
                                 <div class="pet-stat-group"><span class="pet-stat-label">Speed</span><input class="pet-input" value="${p.speed||''}" onchange="updatePet(${idx}, 'speed', this.value)"></div>
                             </div>
                             <div class="pet-grid-mini">
-                                <div class="pet-mini-box"><span class="pet-mini-label">STR</span><input class="pet-input-mini" value="${p.attributes.str||''}" onchange="updatePet(${idx}, 'attributes.str', this.value)"></div>
-                                <div class="pet-mini-box"><span class="pet-mini-label">DEX</span><input class="pet-input-mini" value="${p.attributes.dex||''}" onchange="updatePet(${idx}, 'attributes.dex', this.value)"></div>
-                                <div class="pet-mini-box"><span class="pet-mini-label">CON</span><input class="pet-input-mini" value="${p.attributes.con||''}" onchange="updatePet(${idx}, 'attributes.con', this.value)"></div>
-                                <div class="pet-mini-box"><span class="pet-mini-label">INT</span><input class="pet-input-mini" value="${p.attributes.int||''}" onchange="updatePet(${idx}, 'attributes.int', this.value)"></div>
-                                <div class="pet-mini-box"><span class="pet-mini-label">WIS</span><input class="pet-input-mini" value="${p.attributes.wis||''}" onchange="updatePet(${idx}, 'attributes.wis', this.value)"></div>
-                                <div class="pet-mini-box"><span class="pet-mini-label">CHA</span><input class="pet-input-mini" value="${p.attributes.cha||''}" onchange="updatePet(${idx}, 'attributes.cha', this.value)"></div>
+                                <div class="pet-mini-box"><span class="pet-mini-label">STR</span><input class="pet-input-mini" value="${atts.str||''}" onchange="updatePet(${idx}, 'attributes.str', this.value)"></div>
+                                <div class="pet-mini-box"><span class="pet-mini-label">DEX</span><input class="pet-input-mini" value="${atts.dex||''}" onchange="updatePet(${idx}, 'attributes.dex', this.value)"></div>
+                                <div class="pet-mini-box"><span class="pet-mini-label">CON</span><input class="pet-input-mini" value="${atts.con||''}" onchange="updatePet(${idx}, 'attributes.con', this.value)"></div>
+                                <div class="pet-mini-box"><span class="pet-mini-label">INT</span><input class="pet-input-mini" value="${atts.int||''}" onchange="updatePet(${idx}, 'attributes.int', this.value)"></div>
+                                <div class="pet-mini-box"><span class="pet-mini-label">WIS</span><input class="pet-input-mini" value="${atts.wis||''}" onchange="updatePet(${idx}, 'attributes.wis', this.value)"></div>
+                                <div class="pet-mini-box"><span class="pet-mini-label">CHA</span><input class="pet-input-mini" value="${atts.cha||''}" onchange="updatePet(${idx}, 'attributes.cha', this.value)"></div>
                             </div>
                             <div class="pet-grid-mini">
-                                <div class="pet-mini-box"><span class="pet-mini-label">FORT</span><input class="pet-input-mini" value="${p.saves?.fort||''}" onchange="updatePet(${idx}, 'saves.fort', this.value)"></div>
-                                <div class="pet-mini-box"><span class="pet-mini-label">REF</span><input class="pet-input-mini" value="${p.saves?.ref||''}" onchange="updatePet(${idx}, 'saves.ref', this.value)"></div>
-                                <div class="pet-mini-box"><span class="pet-mini-label">WILL</span><input class="pet-input-mini" value="${p.saves?.will||''}" onchange="updatePet(${idx}, 'saves.will', this.value)"></div>
-                                <div class="pet-mini-box"><span class="pet-mini-label">PERC</span><input class="pet-input-mini" value="${p.saves?.perc||''}" onchange="updatePet(${idx}, 'saves.perc', this.value)"></div>
+                                <div class="pet-mini-box"><span class="pet-mini-label">FORT</span><input class="pet-input-mini" value="${savs.fort||''}" onchange="updatePet(${idx}, 'saves.fort', this.value)"></div>
+                                <div class="pet-mini-box"><span class="pet-mini-label">REF</span><input class="pet-input-mini" value="${savs.ref||''}" onchange="updatePet(${idx}, 'saves.ref', this.value)"></div>
+                                <div class="pet-mini-box"><span class="pet-mini-label">WILL</span><input class="pet-input-mini" value="${savs.will||''}" onchange="updatePet(${idx}, 'saves.will', this.value)"></div>
+                                <div class="pet-mini-box"><span class="pet-mini-label">PERC</span><input class="pet-input-mini" value="${savs.perc||''}" onchange="updatePet(${idx}, 'saves.perc', this.value)"></div>
                             </div>
                             <textarea class="pet-notes" placeholder="Cole aqui: Ataques, Habilidades, Notas..." onchange="updatePet(${idx}, 'notes', this.value)">${p.notes||''}</textarea>
                         </div>
-                    </div>`).join(''); 
+                    </div>`;
+                }).join(''); 
             }
 
             const getBadge = (prof) => { let l="U", c="prof-u"; if(prof>=2){l="T";c="prof-t";} if(prof>=4){l="E";c="prof-e";} if(prof>=6){l="M";c="prof-m";} if(prof>=8){l="L";c="prof-l";} return `<div class="prof-badge ${c}">${l}</div>`; };
@@ -480,7 +441,8 @@
                 <div class="section-title">Defesas</div><div class="saves-row"><span>Fort: ${fmtSave(char.saves.fort)}</span><span>Ref: ${fmtSave(char.saves.ref)}</span><span>Vont: ${fmtSave(char.saves.vont)}</span></div>
                 <div class="section-title">Ofensiva</div><ul>${weaponsHtml}</ul>
                 <div class="section-title">Magias</div>${spellStatsHtml}${spellsHtml}
-                ${petsHtml} `;
+                ${petsHtml}
+            `;
         }
 
         window.openSpellModal = async (name, action) => { currentSpellName=name; mName.innerText=name; mAct.innerText=action||"?"; mDesc.innerHTML="Buscando..."; mLink.href=`https://2e.aonprd.com/Search.aspx?q=${name}`; spellModal.style.display='flex'; try{const doc=await spellsCollection.doc(name).get();if(doc.exists)mDesc.innerHTML=doc.data().desc.replace(/\n/g,'<br>');}catch(e){} };
