@@ -129,144 +129,169 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const db = firebase.firestore();
-            const charsCollection = db.collection("personagens");
-            
-            const fileInput = document.getElementById('json-file');
-            const textArea = document.getElementById('json-textarea');
-            const btnImportText = document.getElementById('btn-import-text');
-            
-            const listContainer = document.getElementById('list-container');
-            const sheetDisplay = document.getElementById('sheet-display');
+        const db = firebase.firestore();
+        const charsCollection = db.collection("personagens");
+        
+        const fileInput = document.getElementById('json-file');
+        const textArea = document.getElementById('json-textarea');
+        const btnImportText = document.getElementById('btn-import-text');
+        
+        const listContainer = document.getElementById('list-container');
+        const sheetDisplay = document.getElementById('sheet-display');
 
-            // --- FUNÇÃO CENTRAL DE IMPORTAÇÃO ---
-            async function importCharData(jsonData) {
-                try {
-                    // Verifica se é válido
-                    if (!jsonData.build) throw new Error("JSON inválido. Certifique-se de copiar o conteúdo inteiro do 'View JSON'.");
+        // --- FUNÇÃO CENTRAL DE IMPORTAÇÃO ---
+        async function importCharData(jsonData) {
+            try {
+                if (!jsonData.build) throw new Error("JSON inválido. Certifique-se de copiar o conteúdo inteiro.");
 
-                    const charData = extractPathbuilderData(jsonData.build);
-                    
-                    // Salva no Firestore usando o nome como ID
-                    await charsCollection.doc(charData.nome).set(charData);
-                    alert(`Personagem ${charData.nome} importado com sucesso!`);
-                    
-                    // Limpa os campos
-                    fileInput.value = '';
-                    textArea.value = '';
-                } catch (error) {
-                    console.error(error);
-                    alert("Erro ao importar: " + error.message);
-                }
+                const charData = extractPathbuilderData(jsonData.build);
+                
+                // Salva no Firestore
+                await charsCollection.doc(charData.nome).set(charData);
+                alert(`Personagem ${charData.nome} importado com sucesso!`);
+                
+                fileInput.value = '';
+                textArea.value = '';
+            } catch (error) {
+                console.error(error);
+                alert("Erro ao importar: " + error.message);
+            }
+        }
+
+        // --- EXTRAÇÃO DE DADOS BLINDADA ---
+        function extractPathbuilderData(build) {
+            // Função auxiliar para garantir que nunca retorne undefined
+            const safeNum = (val) => (val !== undefined && val !== null) ? Number(val) : 0;
+            const safeStr = (val) => (val !== undefined && val !== null) ? String(val) : "Desconhecido";
+
+            // Tenta achar o AC (Classe de Armadura) em diferentes lugares
+            let acValue = 10;
+            if (build.acTotal) {
+                if (typeof build.acTotal === 'object') acValue = build.acTotal.acTotal;
+                else acValue = build.acTotal;
             }
 
-            // --- OPÇÃO A: ARQUIVO ---
-            fileInput.addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    try {
-                        const json = JSON.parse(event.target.result);
-                        importCharData(json);
-                    } catch (err) { alert("Erro ao ler arquivo JSON."); }
-                };
-                reader.readAsText(file);
-            });
+            // Tenta achar o HP (se não tiver direto, soma ancestralidade + classe + con)
+            let hpValue = safeNum(build.attributes.hp);
+            if (hpValue === 0) {
+                 // Fallback: Tenta calcular se o total não vier pronto
+                 const ancHp = safeNum(build.attributes.ancestryhp);
+                 const classHp = safeNum(build.attributes.classhp);
+                 const bonusHp = safeNum(build.attributes.bonushp);
+                 const conBonus = safeNum(build.abilities.con) > 10 ? Math.floor((safeNum(build.abilities.con) - 10) / 2) * safeNum(build.level) : 0;
+                 hpValue = ancHp + classHp + bonusHp + conBonus;
+            }
 
-            // --- OPÇÃO B: TEXTO COLADO ---
-            btnImportText.addEventListener('click', () => {
-                const text = textArea.value.trim();
-                if (!text) {
-                    alert("Por favor, cole o código JSON primeiro.");
-                    return;
-                }
+            return {
+                nome: safeStr(build.name) || "Sem Nome",
+                nivel: safeNum(build.level) || 1,
+                classe: safeStr(build.class),
+                ancestralidade: safeStr(build.ancestry),
+                atributos: {
+                    for: safeNum(build.abilities.str),
+                    des: safeNum(build.abilities.dex),
+                    con: safeNum(build.abilities.con),
+                    int: safeNum(build.abilities.int),
+                    sab: safeNum(build.abilities.wis),
+                    car: safeNum(build.abilities.cha)
+                },
+                hp: hpValue, // Agora usa o valor calculado e seguro
+                ca: safeNum(acValue), 
+                percepcao: safeNum(build.proficiencies.perception) + safeNum(build.level) + safeNum(build.abilities.wis),
+                saves: {
+                    fort: safeNum(build.proficiencies.fortitude) + safeNum(build.level) + safeNum(build.abilities.con),
+                    ref: safeNum(build.proficiencies.reflex) + safeNum(build.level) + safeNum(build.abilities.dex),
+                    vont: safeNum(build.proficiencies.will) + safeNum(build.level) + safeNum(build.abilities.wis)
+                },
+                velocidade: safeNum(build.speed) || 25,
+                pericias: build.proficiencies ? Object.keys(build.proficiencies)
+                    .filter(k => !['fortitude','reflex','will','perception','classDC'].includes(k) && build.proficiencies[k] > 0)
+                    .slice(0, 10) : []
+            };
+        }
+
+        // --- OPÇÃO A: ARQUIVO ---
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
                 try {
-                    const json = JSON.parse(text);
+                    const json = JSON.parse(event.target.result);
                     importCharData(json);
-                } catch (err) {
-                    alert("O texto colado não é um JSON válido. Verifique se copiou tudo.");
-                }
-            });
+                } catch (err) { alert("Erro ao ler arquivo JSON."); }
+            };
+            reader.readAsText(file);
+        });
 
-            // --- EXTRAÇÃO DE DADOS (Mantida igual) ---
-            function extractPathbuilderData(build) {
-                return {
-                    nome: build.name || "Sem Nome",
-                    nivel: build.level || 1,
-                    classe: build.class || "Desconhecida",
-                    ancestralidade: build.ancestry || "Desconhecida",
-                    atributos: {
-                        for: build.abilities.str,
-                        des: build.abilities.dex,
-                        con: build.abilities.con,
-                        int: build.abilities.int,
-                        sab: build.abilities.wis,
-                        car: build.abilities.cha
-                    },
-                    hp: build.attributes.hp,
-                    ca: build.acTotal.acTotal || build.acTotal || 10, 
-                    percepcao: (build.proficiencies.perception || 0) + build.level + build.abilities.wis,
-                    saves: {
-                        fort: (build.proficiencies.fortitude || 0) + build.level + build.abilities.con,
-                        ref: (build.proficiencies.reflex || 0) + build.level + build.abilities.dex,
-                        vont: (build.proficiencies.will || 0) + build.level + build.abilities.wis
-                    },
-                    velocidade: build.speed || 25,
-                    pericias: build.proficiencies ? Object.keys(build.proficiencies)
-                        .filter(k => !['fortitude','reflex','will','perception','classDC'].includes(k) && build.proficiencies[k] > 0)
-                        .slice(0, 10) : []
-                };
+        // --- OPÇÃO B: TEXTO COLADO ---
+        btnImportText.addEventListener('click', () => {
+            const text = textArea.value.trim();
+            if (!text) {
+                alert("Por favor, cole o código JSON primeiro.");
+                return;
             }
-
-            // --- RENDERIZAÇÃO DA LISTA ---
-            charsCollection.onSnapshot(snapshot => {
-                listContainer.innerHTML = '';
-                snapshot.forEach(doc => {
-                    const char = doc.data();
-                    const div = document.createElement('div');
-                    div.className = 'char-item';
-                    div.textContent = char.nome;
-                    div.onclick = () => renderSheet(char);
-                    listContainer.appendChild(div);
-                });
-            });
-
-            // --- RENDERIZAÇÃO DA FICHA ---
-            function renderSheet(char) {
-                const mod = (val) => Math.floor((val - 10) / 2);
-                const fmt = (val) => (val >= 0 ? `+${val}` : val);
-
-                sheetDisplay.innerHTML = `
-                    <div class="statblock-header">
-                        <h1>${char.nome}</h1>
-                        <div class="sub">Nível ${char.nivel} ${char.ancestralidade} ${char.classe}</div>
-                    </div>
-                    <div class="stat-grid">
-                        <div class="stat-box"><div class="label">PV (HP)</div><div class="value">${char.hp}</div></div>
-                        <div class="stat-box"><div class="label">CA (AC)</div><div class="value">${char.ca}</div></div>
-                        <div class="stat-box"><div class="label">Velocidade</div><div class="value">${char.velocidade}ft</div></div>
-                        <div class="stat-box"><div class="label">Percepção</div><div class="value">+${char.percepcao}</div></div>
-                    </div>
-                    <div class="abilities-row">
-                        <div class="stat-box"><div class="label">FOR</div><div class="value">${char.atributos.for} (${fmt(mod(char.atributos.for))})</div></div>
-                        <div class="stat-box"><div class="label">DES</div><div class="value">${char.atributos.des} (${fmt(mod(char.atributos.des))})</div></div>
-                        <div class="stat-box"><div class="label">CON</div><div class="value">${char.atributos.con} (${fmt(mod(char.atributos.con))})</div></div>
-                        <div class="stat-box"><div class="label">INT</div><div class="value">${char.atributos.int} (${fmt(mod(char.atributos.int))})</div></div>
-                        <div class="stat-box"><div class="label">SAB</div><div class="value">${char.atributos.sab} (${fmt(mod(char.atributos.sab))})</div></div>
-                        <div class="stat-box"><div class="label">CAR</div><div class="value">${char.atributos.car} (${fmt(mod(char.atributos.car))})</div></div>
-                    </div>
-                    <div class="section-title">Salvamentos (Saves)</div>
-                    <div class="saves-row">
-                        <span>Fortitude: +${char.saves.fort}</span>
-                        <span>Reflexos: +${char.saves.ref}</span>
-                        <span>Vontade: +${char.saves.vont}</span>
-                    </div>
-                    <div class="section-title">Perícias Treinadas</div>
-                    <p style="text-transform: capitalize;">${char.pericias.join(', ').replace(/_/g, ' ')}</p>
-                `;
+            try {
+                const json = JSON.parse(text);
+                importCharData(json);
+            } catch (err) {
+                alert("O texto colado não é um JSON válido.");
             }
         });
+
+        // --- RENDERIZAÇÃO DA LISTA ---
+        charsCollection.onSnapshot(snapshot => {
+            listContainer.innerHTML = '';
+            snapshot.forEach(doc => {
+                const char = doc.data();
+                const div = document.createElement('div');
+                div.className = 'char-item';
+                div.textContent = char.nome;
+                div.onclick = () => renderSheet(char);
+                listContainer.appendChild(div);
+            });
+        });
+
+        // --- RENDERIZAÇÃO DA FICHA ---
+        function renderSheet(char) {
+            const mod = (val) => Math.floor((val - 10) / 2);
+            const fmt = (val) => (val >= 0 ? `+${val}` : val);
+
+            // Garante que arrays existam antes do join
+            const periciasTexto = (char.pericias && Array.isArray(char.pericias)) 
+                ? char.pericias.join(', ').replace(/_/g, ' ') 
+                : "Nenhuma";
+
+            sheetDisplay.innerHTML = `
+                <div class="statblock-header">
+                    <h1>${char.nome}</h1>
+                    <div class="sub">Nível ${char.nivel} ${char.ancestralidade} ${char.classe}</div>
+                </div>
+                <div class="stat-grid">
+                    <div class="stat-box"><div class="label">PV (HP)</div><div class="value">${char.hp}</div></div>
+                    <div class="stat-box"><div class="label">CA (AC)</div><div class="value">${char.ca}</div></div>
+                    <div class="stat-box"><div class="label">Velocidade</div><div class="value">${char.velocidade}ft</div></div>
+                    <div class="stat-box"><div class="label">Percepção</div><div class="value">+${char.percepcao}</div></div>
+                </div>
+                <div class="abilities-row">
+                    <div class="stat-box"><div class="label">FOR</div><div class="value">${char.atributos.for} (${fmt(mod(char.atributos.for))})</div></div>
+                    <div class="stat-box"><div class="label">DES</div><div class="value">${char.atributos.des} (${fmt(mod(char.atributos.des))})</div></div>
+                    <div class="stat-box"><div class="label">CON</div><div class="value">${char.atributos.con} (${fmt(mod(char.atributos.con))})</div></div>
+                    <div class="stat-box"><div class="label">INT</div><div class="value">${char.atributos.int} (${fmt(mod(char.atributos.int))})</div></div>
+                    <div class="stat-box"><div class="label">SAB</div><div class="value">${char.atributos.sab} (${fmt(mod(char.atributos.sab))})</div></div>
+                    <div class="stat-box"><div class="label">CAR</div><div class="value">${char.atributos.car} (${fmt(mod(char.atributos.car))})</div></div>
+                </div>
+                <div class="section-title">Salvamentos (Saves)</div>
+                <div class="saves-row">
+                    <span>Fortitude: +${char.saves.fort}</span>
+                    <span>Reflexos: +${char.saves.ref}</span>
+                    <span>Vontade: +${char.saves.vont}</span>
+                </div>
+                <div class="section-title">Perícias Treinadas</div>
+                <p style="text-transform: capitalize;">${periciasTexto}</p>
+            `;
+        }
+    });
     </script>
 </body>
 </html>
