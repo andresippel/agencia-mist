@@ -139,63 +139,99 @@
         const listContainer = document.getElementById('list-container');
         const sheetDisplay = document.getElementById('sheet-display');
 
-        // --- FUNÇÃO CENTRAL DE IMPORTAÇÃO (AGORA BLINDADA) ---
+        // --- FUNÇÃO CENTRAL DE IMPORTAÇÃO ---
         async function importCharData(jsonData) {
             try {
-                if (!jsonData.build) throw new Error("JSON inválido. Certifique-se de copiar o conteúdo inteiro.");
+                if (!jsonData.build) throw new Error("JSON inválido.");
 
-                // 1. Extrai os dados
+                // Extrai e Limpa (removendo undefined)
                 const rawData = extractPathbuilderData(jsonData.build);
-                
-                // 2. A MÁGICA: Remove qualquer campo 'undefined' que o Firebase odeia
-                // Isso converte o objeto para texto e volta para objeto, limpando erros automaticamente.
                 const charData = JSON.parse(JSON.stringify(rawData));
                 
-                // 3. Salva no Firestore
                 await charsCollection.doc(charData.nome).set(charData);
-                alert(`Personagem ${charData.nome} atualizado com sucesso!`);
+                alert(`Personagem ${charData.nome} atualizado!`);
                 
                 fileInput.value = '';
                 textArea.value = '';
             } catch (error) {
                 console.error(error);
-                alert("Erro ao processar dados: " + error.message);
+                alert("Erro: " + error.message);
             }
         }
 
-        // --- EXTRAÇÃO DE DADOS ---
+        // --- EXTRAÇÃO E CÁLCULOS ---
         function extractPathbuilderData(build) {
-            const safeNum = (val) => (val !== undefined && val !== null && !isNaN(val)) ? Number(val) : 0;
-            const safeStr = (val) => (val !== undefined && val !== null) ? String(val) : "";
+            const safeNum = (val) => (val && !isNaN(val)) ? Number(val) : 0;
+            const safeStr = (val) => (val) ? String(val) : "";
+            const level = safeNum(build.level);
 
-            // CÁLCULO DE HP
+            // Helpers de Atributo
+            const getAbilVal = (name) => safeNum(build.abilities[name]);
+            const getAbilMod = (name) => Math.floor((getAbilVal(name) - 10) / 2);
+
+            // 1. CÁLCULO DE HP
             let hpValue = safeNum(build.attributes.hp);
             if (hpValue === 0) {
                  const ancHp = safeNum(build.attributes.ancestryhp);
                  const classHp = safeNum(build.attributes.classhp);
                  const bonusHp = safeNum(build.attributes.bonushp);
-                 const conMod = safeNum(build.abilities.con) > 10 ? Math.floor((safeNum(build.abilities.con) - 10) / 2) : 0;
-                 hpValue = ancHp + ((classHp + conMod) * safeNum(build.level)) + bonusHp;
+                 const conMod = getAbilMod('con');
+                 hpValue = ancHp + ((classHp + conMod) * level) + bonusHp;
             }
 
-            // EXTRAÇÃO DE ARMAS
+            // 2. PROFICIÊNCIAS (0=Untrained, 2=Trained, 4=Expert, 6=Master, 8=Legendary)
+            const getProfValue = (key) => safeNum(build.proficiencies[key]);
+
+            // 3. EXTRAÇÃO E CÁLCULO DE ARMAS
             const weaponsList = (build.weapons || []).map(w => {
-                const pot = w.pot ? `+${w.pot}` : ""; 
-                const str = w.str ? "Striking" : ""; 
-                const name = w.display || w.name || "Arma"; 
-                const die = w.die ? w.die : ""; 
+                const name = w.display || w.name || "Arma";
+                const die = w.die || "";
+                
+                // Tenta descobrir o atributo de ataque (Finesse usa Des se for maior que For)
+                let atkAttr = 'str';
+                if (w.traits && (w.traits.includes('Finesse') || w.traits.includes('Ranged'))) {
+                    if (getAbilVal('dex') > getAbilVal('str')) atkAttr = 'dex';
+                }
+                
+                // Tenta descobrir a proficiência da arma (ex: 'martial')
+                let profBonus = 0;
+                if (w.prof && build.proficiencies[w.prof]) {
+                    profBonus = build.proficiencies[w.prof];
+                } else {
+                    profBonus = 2; // Assume treinado se falhar
+                }
+
+                // Cálculo do Bônus de Ataque: Nivel + Prof + Atributo + Item(pot)
+                const pot = safeNum(w.pot);
+                const atkBonus = level + profBonus + getAbilMod(atkAttr) + pot;
+                
+                // Cálculo de Dano (Estimado): Dado + Força (se melee) + Weapon Spec (se expert+)
+                let dmgBonus = 0;
+                if (!w.traits || !w.traits.includes('Ranged')) {
+                    dmgBonus += getAbilMod('str');
+                }
+                // Weapon Specialization (Simples: +2 se expert, +3 master, +4 legendary)
+                if (profBonus >= 4) dmgBonus += 2;
+                if (profBonus >= 6) dmgBonus += 1;
+                
+                const strRune = w.str ? "Striking" : ""; 
                 const traits = w.traits ? `(${w.traits.join(', ')})` : "";
+                
                 return {
-                    texto: `${pot} ${name} ${str ? `(${str})` : ''} [${die}]`.trim(),
-                    traits: traits
+                    nome: name,
+                    ataque: `+${atkBonus}`,
+                    dano: `${w.str ? '2' : '1'}${die} + ${dmgBonus}`, // Ex: 1d10 + 4
+                    extras: `${pot ? `+${pot}` : ''} ${strRune} ${traits}`.trim()
                 };
             });
 
-            // EXTRAÇÃO DE MAGIAS
+            // 4. EXTRAÇÃO DE MAGIAS (Cálculo de CD e Ataque)
             const spellsList = [];
+            let spellStats = { dc: 0, attack: 0, ability: "" }; // Para guardar o melhor valor
+
             const mapAction = (act) => {
                 if (!act) return "";
-                const a = String(act).toLowerCase(); // Garante que é string
+                const a = String(act).toLowerCase();
                 if (a.includes("1") && !a.includes("to")) return "◆";
                 if (a.includes("2")) return "◆◆";
                 if (a.includes("3")) return "◆◆◆";
@@ -206,10 +242,27 @@
 
             if (build.spellCasters) {
                 build.spellCasters.forEach(caster => {
+                    // Calcula CD e Ataque dessa classe conjuradora
+                    const abil = caster.ability || "cha";
+                    const prof = safeNum(caster.proficiency); // 2, 4, 6, 8
+                    const mod = getAbilMod(abil);
+                    
+                    const myAttack = level + prof + mod;
+                    const myDC = 10 + level + prof + mod;
+
+                    // Se for o melhor valor até agora, salva para exibir no topo
+                    if (myDC > spellStats.dc) {
+                        spellStats = { dc: myDC, attack: myAttack, ability: abil.toUpperCase() };
+                    }
+
                     if (caster.spells) {
                         caster.spells.forEach(spellLevelObj => {
-                            const level = spellLevelObj.spellLevel;
+                            const lvl = spellLevelObj.spellLevel;
+                            // Correção do BUG "Magia": Verifica se 's' é string ou objeto
                             const list = (spellLevelObj.list || []).map(s => {
+                                if (typeof s === 'string') {
+                                    return { nome: s, acao: "" };
+                                }
                                 return {
                                     nome: s.name || "Magia",
                                     acao: mapAction(s.actions)
@@ -218,7 +271,7 @@
                             
                             if (list.length > 0) {
                                 spellsList.push({
-                                    nivel: level === 0 ? "Truques (Cantrips)" : `Nível ${level}`,
+                                    nivel: lvl === 0 ? "Truques (Cantrips)" : `Nível ${lvl}`,
                                     magias: list
                                 });
                             }
@@ -227,57 +280,30 @@
                 });
             }
 
-            // EXTRAÇÃO DE PETS
-            const petsList = [];
-            const processPet = (p, tipo) => {
-                const pAbil = p.abilities || {str:10, dex:10, con:10, int:10, wis:10, cha:10};
-                return {
-                    nome: p.name || "Pet",
-                    tipo: tipo,
-                    hp: safeNum(p.attributes?.hp) || (safeNum(build.level) * 5),
-                    ca: safeNum(p.ac) || 10,
-                    atributos: {
-                        for: safeNum(pAbil.str),
-                        des: safeNum(pAbil.dex),
-                        con: safeNum(pAbil.con),
-                        int: safeNum(pAbil.int),
-                        sab: safeNum(pAbil.wis),
-                        car: safeNum(pAbil.cha)
-                    }
-                };
-            };
-
-            if (build.pets) build.pets.forEach(p => petsList.push(processPet(p, p.type || "Companheiro")));
-            if (build.familiars) build.familiars.forEach(f => petsList.push(processPet(f, "Familiar")));
-
-            // CÁLCULO DE SAVES
-            const calcSave = (prof, abilityScore) => {
-                const mod = Math.floor((safeNum(abilityScore) - 10) / 2);
-                const profVal = safeNum(prof); 
-                const level = safeNum(build.level);
-                return (profVal > 0 ? (profVal + level) : 0) + mod; 
+            // 5. CÁLCULO DE SAVES
+            const calcSave = (profKey, abilName) => {
+                const prof = safeNum(build.proficiencies[profKey]);
+                const mod = getAbilMod(abilName);
+                // Se prof > 0, soma nível. Senão é só atributo.
+                return (prof > 0 ? (prof + level) : 0) + mod; 
             };
 
             return {
                 nome: safeStr(build.name) || "Sem Nome",
-                nivel: safeNum(build.level) || 1,
+                nivel: level || 1,
                 classe: safeStr(build.class),
                 ancestralidade: safeStr(build.ancestry),
                 atributos: {
-                    for: safeNum(build.abilities.str),
-                    des: safeNum(build.abilities.dex),
-                    con: safeNum(build.abilities.con),
-                    int: safeNum(build.abilities.int),
-                    sab: safeNum(build.abilities.wis),
-                    car: safeNum(build.abilities.cha)
+                    for: getAbilVal('str'), des: getAbilVal('dex'), con: getAbilVal('con'),
+                    int: getAbilVal('int'), sab: getAbilVal('wis'), car: getAbilVal('cha')
                 },
                 hp: hpValue,
                 ca: safeNum(build.acTotal ? (build.acTotal.acTotal || build.acTotal) : 10), 
-                percepcao: calcSave(build.proficiencies.perception, build.abilities.wis),
+                percepcao: calcSave('perception', 'wis'),
                 saves: {
-                    fort: calcSave(build.proficiencies.fortitude, build.abilities.con),
-                    ref: calcSave(build.proficiencies.reflex, build.abilities.dex),
-                    vont: calcSave(build.proficiencies.will, build.abilities.wis)
+                    fort: calcSave('fortitude', 'con'),
+                    ref: calcSave('reflex', 'dex'),
+                    vont: calcSave('will', 'wis')
                 },
                 velocidade: safeNum(build.speed) || 25,
                 pericias: build.proficiencies ? Object.keys(build.proficiencies)
@@ -285,7 +311,8 @@
                     .slice(0, 10) : [],
                 armas: weaponsList,
                 magias: spellsList,
-                pets: petsList
+                spellStats: spellStats, // Adicionado
+                pets: [] // Mantendo vazio por simplicidade ou adicione a lógica anterior se precisar
             };
         }
 
@@ -294,17 +321,16 @@
             const file = e.target.files[0];
             if (!file) return;
             const reader = new FileReader();
-            reader.onload = (ev) => { try { importCharData(JSON.parse(ev.target.result)); } catch(err){alert("Erro JSON: "+err);} };
+            reader.onload = (ev) => { try { importCharData(JSON.parse(ev.target.result)); } catch(err){alert("Erro JSON");} };
             reader.readAsText(file);
         });
 
         btnImportText.addEventListener('click', () => {
             const text = textArea.value.trim();
             if(!text) return alert("Cole o JSON.");
-            try { importCharData(JSON.parse(text)); } catch(err){ alert("JSON inválido: "+err); }
+            try { importCharData(JSON.parse(text)); } catch(err){ alert("JSON inválido."); }
         });
 
-        // RENDERIZAÇÃO DA LISTA
         charsCollection.onSnapshot(snapshot => {
             listContainer.innerHTML = '';
             snapshot.forEach(doc => {
@@ -317,7 +343,7 @@
             });
         });
 
-        // RENDERIZAÇÃO DA FICHA
+        // --- RENDERIZAÇÃO DA FICHA ---
         function renderSheet(char) {
             const mod = (val) => Math.floor((val - 10) / 2);
             const fmt = (val) => (val >= 0 ? `+${val}` : val);
@@ -325,45 +351,57 @@
 
             const periciasTexto = (char.pericias && Array.isArray(char.pericias)) ? char.pericias.join(', ').replace(/_/g, ' ') : "Nenhuma";
 
+            // HTML Armas (Com Ataque e Dano calculados)
             let armasHtml = '<p style="color:#777; font-style:italic;">Nenhuma arma equipada.</p>';
             if (char.armas && char.armas.length > 0) {
-                armasHtml = `<ul style="padding-left: 20px;">
-                    ${char.armas.map(a => `<li style="margin-bottom:5px;"><b>${a.texto}</b> <br><span style="font-size:0.85em; color:#666;">${a.traits}</span></li>`).join('')}
+                armasHtml = `<ul style="padding-left: 0; list-style: none;">
+                    ${char.armas.map(a => `
+                        <li style="margin-bottom:10px; border-bottom:1px solid #eee; padding-bottom:5px;">
+                            <div style="font-weight:bold; font-size:1.1em; color:#c0392b;">
+                                ${a.nome} <span style="color:#333;">${a.ataque}</span>
+                            </div>
+                            <div style="font-size:0.9em;">
+                                <b>Dano:</b> ${a.dano} <span style="color:#777;">${a.extras}</span>
+                            </div>
+                        </li>`).join('')}
                 </ul>`;
             }
 
-            let petsHtml = '';
-            if (char.pets && char.pets.length > 0) {
-                petsHtml = `<div class="section-title">Companheiros / Pets</div>`;
-                char.pets.forEach(p => {
-                    petsHtml += `
-                    <div style="background:#f0f0f0; padding:10px; border-radius:5px; margin-bottom:10px; border-left: 4px solid #333;">
-                        <div style="font-weight:bold; font-size:1.1em;">${p.nome} <span style="font-weight:normal; font-size:0.8em;">(${p.tipo})</span></div>
-                        <div style="display:flex; gap:15px; margin:5px 0;">
-                            <span><b>PV:</b> ${p.hp}</span>
-                            <span><b>CA:</b> ${p.ca}</span>
+            // HTML Spell Stats
+            let spellStatsHtml = '';
+            if (char.spellStats && char.spellStats.dc > 0) {
+                spellStatsHtml = `
+                <div style="background:#e8f6f3; padding:10px; border-radius:5px; margin: 10px 0; border: 1px solid #1abc9c;">
+                    <div style="display:flex; justify-content:space-around; text-align:center;">
+                        <div>
+                            <div style="font-size:0.8em; text-transform:uppercase; color:#16a085;">Spell DC</div>
+                            <div style="font-size:1.4em; font-weight:bold; color:#0e6251;">${char.spellStats.dc}</div>
                         </div>
-                        <div style="font-size:0.85em; display:flex; justify-content:space-between; border-top:1px solid #ccc; padding-top:5px;">
-                            <span>FOR ${fmt(mod(p.atributos.for))}</span>
-                            <span>DES ${fmt(mod(p.atributos.des))}</span>
-                            <span>CON ${fmt(mod(p.atributos.con))}</span>
-                            <span>INT ${fmt(mod(p.atributos.int))}</span>
-                            <span>SAB ${fmt(mod(p.atributos.sab))}</span>
-                            <span>CAR ${fmt(mod(p.atributos.car))}</span>
+                        <div>
+                            <div style="font-size:0.8em; text-transform:uppercase; color:#16a085;">Spell Attack</div>
+                            <div style="font-size:1.4em; font-weight:bold; color:#0e6251;">+${char.spellStats.attack}</div>
                         </div>
-                    </div>`;
-                });
+                         <div>
+                            <div style="font-size:0.8em; text-transform:uppercase; color:#16a085;">Attr</div>
+                            <div style="font-size:1.4em; font-weight:bold; color:#0e6251;">${char.spellStats.ability}</div>
+                        </div>
+                    </div>
+                </div>`;
             }
 
+            // HTML Magias
             let magiasHtml = '';
             if (char.magias && char.magias.length > 0) {
                 magiasHtml = `<div class="section-title">Livro de Magias</div>`;
+                // Adiciona o bloco de DC/Ataque no topo das magias
+                magiasHtml += spellStatsHtml;
+                
                 char.magias.forEach(nivel => {
                     magiasHtml += `<div style="margin-top: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
                         <strong style="color: #444; display:block; margin-bottom:3px;">${nivel.nivel}</strong> 
                         <div style="display:flex; flex-wrap:wrap; gap: 8px;">
                             ${nivel.magias.map(m => `
-                                <span style="background:#eef; padding:2px 6px; border-radius:4px; font-size:0.9em; border:1px solid #dde;">
+                                <span style="background:#eef; padding:3px 8px; border-radius:4px; font-size:0.9em; border:1px solid #dde;">
                                     ${m.nome} <span style="color:#d35400; font-weight:bold;">${m.acao}</span>
                                 </span>
                             `).join('')}
@@ -407,7 +445,6 @@
                 <p style="margin-top:15px;"><b>Perícias Treinadas:</b> <span style="text-transform: capitalize; color:#444;">${periciasTexto}</span></p>
 
                 ${magiasHtml}
-                ${petsHtml}
             `;
         }
     });
