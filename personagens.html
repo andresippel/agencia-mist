@@ -44,13 +44,18 @@
         .abilities-row { display: flex; justify-content: space-between; margin: 10px 0; border-top: 1px solid #ddd; padding-top: 10px;}
         .import-section { display: flex; gap: 20px; margin-bottom: 20px; }
         .import-box { flex: 1; padding: 15px; background: #e8f4fd; border: 1px dashed #3498db; border-radius: 8px; }
-        textarea { width: 100%; height: 60px; margin-top: 5px; font-family: monospace; font-size: 11px; }
+        textarea.json-in { width: 100%; height: 60px; margin-top: 5px; font-family: monospace; font-size: 11px; }
 
-        /* MAGIAS */
+        /* MAGIAS & MODAL */
         .spell-tag { background: #eef; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; border: 1px solid #dde; cursor: pointer; display: inline-flex; gap: 5px; margin: 2px;}
+        .spell-tag:hover { background: #dce; border-color: #3498db; }
         .spell-modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2000; justify-content: center; align-items: center; }
-        .spell-card { background: white; width: 500px; max-width: 90%; border-radius: 5px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.5); font-family: sans-serif; }
-        .spell-body { padding: 15px; max-height: 60vh; overflow-y: auto; }
+        .spell-card { background: white; width: 500px; max-width: 90%; border-radius: 5px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.5); font-family: sans-serif; display: flex; flex-direction: column; max-height: 80vh; }
+        .spell-body { padding: 15px; overflow-y: auto; flex: 1; }
+        .spell-editor { display: none; margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px; }
+        .spell-desc-content { white-space: pre-wrap; line-height: 1.5; color: #333; }
+        .nethys-link { color: #3498db; font-size: 0.9em; text-decoration: none; margin-right: 15px;}
+        .edit-btn { background: none; border: none; color: #7f8c8d; cursor: pointer; font-size: 0.8em; text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -70,7 +75,7 @@
             </div>
             <div class="import-box">
                 <label><b>Opção B: Colar JSON</b></label>
-                <textarea id="json-textarea" placeholder='Cole o código do Pathbuilder aqui...'></textarea>
+                <textarea id="json-textarea" class="json-in" placeholder='Cole o código do Pathbuilder aqui...'></textarea>
                 <button id="btn-import-text" style="margin-top:5px; cursor:pointer;">Importar</button>
             </div>
         </div>
@@ -88,8 +93,27 @@
 
     <div id="spell-modal" class="spell-modal-overlay">
         <div class="spell-card">
-            <div style="background:#191919; color:white; padding:15px;"><h2 id="modal-spell-name" style="margin:0;"></h2></div>
-            <div class="spell-body"><div id="modal-spell-desc"></div><button onclick="document.getElementById('spell-modal').style.display='none'" style="margin-top:15px; width:100%; padding:10px;">Fechar</button></div>
+            <div style="background:#191919; color:white; padding:15px; display:flex; justify-content:space-between; align-items:center;">
+                <h2 id="modal-spell-name" style="margin:0;">Magia</h2>
+                <span id="modal-spell-action" style="background:#333; padding:2px 8px; border-radius:4px; font-size:0.8em;"></span>
+            </div>
+            
+            <div class="spell-body">
+                <div id="modal-spell-desc" class="spell-desc-content">Carregando...</div>
+                
+                <div style="margin-top:15px; font-size:0.9em; border-top:1px solid #eee; padding-top:10px;">
+                     <a href="#" id="modal-nethys-link" target="_blank" class="nethys-link">🔍 Buscar no Nethys</a>
+                     <button onclick="toggleEdit()" class="edit-btn">✎ Editar/Corrigir Descrição</button>
+                </div>
+
+                <div id="spell-editor" class="spell-editor">
+                    <label style="font-weight:bold; font-size:0.8em;">Cole a descrição aqui (Salve para usar sempre):</label>
+                    <textarea id="editor-text" style="width:100%; height:150px; margin-top:5px; font-family:inherit;"></textarea>
+                    <button onclick="saveSpellDesc()" style="background:#27ae60; color:white; border:none; padding:8px; width:100%; margin-top:5px; cursor:pointer; font-weight:bold;">Salvar na Biblioteca</button>
+                </div>
+            </div>
+            
+            <button onclick="document.getElementById('spell-modal').style.display='none'" style="width:100%; padding:15px; border:none; background:#eee; cursor:pointer; font-weight:bold; color:#333;">Fechar</button>
         </div>
     </div>
 
@@ -97,12 +121,84 @@
     document.addEventListener('DOMContentLoaded', () => {
         const db = firebase.firestore();
         const charsCollection = db.collection("personagens");
+        const spellsCollection = db.collection("biblioteca_magias"); // NOVA COLEÇÃO
         
         const fileInput = document.getElementById('json-file');
         const textArea = document.getElementById('json-textarea');
         const btnImportText = document.getElementById('btn-import-text');
         const listContainer = document.getElementById('list-container');
         const sheetDisplay = document.getElementById('sheet-display');
+        
+        // Elementos do Modal
+        const spellModal = document.getElementById('spell-modal');
+        const mName = document.getElementById('modal-spell-name');
+        const mAct = document.getElementById('modal-spell-action');
+        const mDesc = document.getElementById('modal-spell-desc');
+        const mEditor = document.getElementById('spell-editor');
+        const mEditText = document.getElementById('editor-text');
+        const mLink = document.getElementById('modal-nethys-link');
+        
+        let currentSpellName = "";
+
+        // --- SISTEMA DE MAGIA INTELIGENTE ---
+        window.openSpellModal = async (name, action) => {
+            currentSpellName = name;
+            mName.innerText = name;
+            mAct.innerText = action || "?";
+            mDesc.innerHTML = "<i>Buscando descrição...</i>";
+            mEditor.style.display = 'none';
+            mEditText.value = "";
+            
+            // Link do Nethys
+            mLink.href = `https://2e.aonprd.com/Search.aspx?q=${name.replace(/\s+/g, '+')}`;
+            
+            spellModal.style.display = 'flex';
+
+            try {
+                // Tenta buscar no banco de dados
+                const doc = await spellsCollection.doc(name).get();
+                if (doc.exists && doc.data().desc) {
+                    mDesc.innerHTML = doc.data().desc.replace(/\n/g, '<br>');
+                } else {
+                    mDesc.innerHTML = "<em>Descrição não encontrada na biblioteca.</em><br>Clique em <b>'Buscar no Nethys'</b>, copie o texto e clique em <b>'Editar'</b> para salvar aqui para sempre.";
+                }
+            } catch (e) {
+                console.error(e);
+                mDesc.innerText = "Erro ao buscar magia.";
+            }
+        };
+
+        window.toggleEdit = () => {
+            mEditor.style.display = mEditor.style.display === 'none' ? 'block' : 'none';
+            // Se o editor abriu e o texto estava vazio, tenta preencher com o atual (sem HTML)
+            if (mEditor.style.display === 'block') {
+                 mEditText.value = mDesc.innerText.includes("Descrição não encontrada") ? "" : mDesc.innerText;
+                 mEditText.focus();
+            }
+        };
+
+        window.saveSpellDesc = async () => {
+            const text = mEditText.value;
+            if (!text) return;
+            
+            try {
+                // Salva na coleção separada para não poluir a ficha do personagem
+                await spellsCollection.doc(currentSpellName).set({
+                    name: currentSpellName,
+                    desc: text,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+                
+                mDesc.innerHTML = text.replace(/\n/g, '<br>');
+                mEditor.style.display = 'none';
+                alert("Magia salva na biblioteca do grupo!");
+            } catch (e) {
+                alert("Erro ao salvar: " + e.message);
+            }
+        };
+
+        // ... [RESTANTE DO CÓDIGO DE IMPORTAÇÃO IGUAL AO ANTERIOR] ...
+        // (Vou repetir aqui para garantir que você tenha o arquivo completo funcionando)
         
         const standardSkills = [
             { id: 'acrobatics', name: 'Acrobatics', attr: 'dex' }, { id: 'arcana', name: 'Arcana', attr: 'int' },
@@ -114,11 +210,6 @@
             { id: 'society', name: 'Society', attr: 'int' }, { id: 'stealth', name: 'Stealth', attr: 'dex' },
             { id: 'survival', name: 'Survival', attr: 'wis' }, { id: 'thievery', name: 'Thievery', attr: 'dex' }
         ];
-
-        const spellLibrary = {
-            "Ignition": { action: "◆◆", desc: "A spell attack dealing fire damage." },
-            "Shield": { action: "◆", desc: "Raise a magical shield (+1 AC)." }
-        };
 
         async function importCharData(jsonData) {
             try {
@@ -135,22 +226,15 @@
             const safeNum = (v) => (v && !isNaN(v)) ? Number(v) : 0;
             const safeStr = (v) => (v) ? String(v) : "";
             const level = safeNum(build.level);
-            
-            // ATRIBUTOS (Segurança para maiúsculas/minúsculas)
-            const getAbilVal = (n) => {
-                const val = build.abilities[n] || build.abilities[n.charAt(0).toUpperCase() + n.slice(1)];
-                return safeNum(val);
-            };
+            const getAbilVal = (n) => { const val = build.abilities[n] || build.abilities[n.charAt(0).toUpperCase() + n.slice(1)]; return safeNum(val); };
             const getAbilMod = (n) => Math.floor((getAbilVal(n) - 10) / 2);
 
-            // HP
             let hp = safeNum(build.attributes.hp);
             if (hp === 0) {
                  const conMod = getAbilMod('con');
                  hp = safeNum(build.attributes.ancestryhp) + ((safeNum(build.attributes.classhp) + conMod) * level) + safeNum(build.attributes.bonushp);
             }
 
-            // PERÍCIAS
             const processedSkills = [];
             const profs = build.proficiencies || {};
             standardSkills.forEach(skill => {
@@ -169,88 +253,41 @@
             });
             processedSkills.sort((a, b) => a.name.localeCompare(b.name));
 
-            // CLASS DC
             let classDC = { val: 0 };
             if (build.proficiencies.classDC) {
                 const mods = [getAbilMod('str'), getAbilMod('dex'), getAbilMod('int'), getAbilMod('wis'), getAbilMod('cha')];
                 classDC.val = 10 + level + safeNum(build.proficiencies.classDC) + Math.max(...mods);
             }
 
-            // --- ARMAS (CORREÇÃO DA RAPIEIRA/FINESSE) ---
             const weapons = (build.weapons || []).map(w => {
                 const nameLower = (w.display || w.name || "").toLowerCase();
-                const traits = (w.traits || []).map(t => String(t).toLowerCase()); // Garante minúsculas
-                
-                // DETECÇÃO DE TIPO
-                const isRanged = traits.some(t => t.includes('range')) 
-                                 || nameLower.includes('crossbow') 
-                                 || nameLower.includes('bow')
-                                 || nameLower.includes('gun')
-                                 || nameLower.includes('sling');
-                
-                // Lista manual de armas Finesse comuns para garantir, além do Trait
+                const traits = (w.traits || []).map(t => String(t).toLowerCase());
+                const isRanged = traits.some(t => t.includes('range')) || nameLower.includes('crossbow') || nameLower.includes('bow') || nameLower.includes('gun') || nameLower.includes('sling');
                 const finesseNames = ['rapier', 'dagger', 'shortsword', 'whip', 'elven curve blade', 'aldori dueling sword'];
-                
                 const isFinesse = traits.includes('finesse') || finesseNames.some(n => nameLower.includes(n));
-                const isPropulsive = traits.includes('propulsive');
-                const isThrown = traits.includes('thrown');
+                const isPropulsive = traits.includes('propulsive'); const isThrown = traits.includes('thrown');
 
-                // 1. ATRIBUTO DE ATAQUE
                 let atkAttr = 'str';
-                
-                if (isRanged) {
-                    atkAttr = 'dex'; 
-                } else if (isFinesse) {
-                    // SE FOR FINESSE, SEMPRE PEGA O MAIOR ENTRE DES E FOR
-                    const dexScore = getAbilVal('dex');
-                    const strScore = getAbilVal('str');
-                    if (dexScore >= strScore) {
-                        atkAttr = 'dex';
-                    }
-                }
+                if (isRanged) { atkAttr = 'dex'; } 
+                else if (isFinesse) { if (getAbilVal('dex') > getAbilVal('str')) atkAttr = 'dex'; }
 
-                // 2. PROFICIÊNCIA
-                let profBonus = 0;
-                if (w.prof && build.proficiencies[w.prof]) profBonus = build.proficiencies[w.prof];
-                else profBonus = 2; // Fallback para Treinado
-
-                // 3. CÁLCULO DE ATAQUE
+                let profBonus = 0; if (w.prof && build.proficiencies[w.prof]) profBonus = build.proficiencies[w.prof]; else profBonus = 2;
                 const pot = safeNum(w.pot);
                 const atk = level + profBonus + getAbilMod(atkAttr) + pot;
 
-                // 4. CÁLCULO DE DANO
                 let dmgBonus = 0;
-                
-                if (!isRanged || isThrown) {
-                    dmgBonus += getAbilMod('str');
-                } else if (isPropulsive) {
-                    dmgBonus += Math.floor(getAbilMod('str') / 2);
-                }
+                if (!isRanged || isThrown) { dmgBonus += getAbilMod('str'); } 
+                else if (isPropulsive) { dmgBonus += Math.floor(getAbilMod('str') / 2); }
+                if (profBonus >= 4) dmgBonus += 2; if (profBonus >= 6) dmgBonus += 1;
+                if (safeStr(build.class).toLowerCase().includes("thaumaturge")) { dmgBonus += 2; }
 
-                // Weapon Spec
-                if (profBonus >= 4) dmgBonus += 2; 
-                if (profBonus >= 6) dmgBonus += 1;
-
-                // THAUMATURGE EMPOWERMENT (+2 Dano)
-                if (safeStr(build.class).toLowerCase().includes("thaumaturge")) {
-                    dmgBonus += 2;
-                }
-
-                const die = w.die || "d4";
-                const diceCount = w.str ? 2 : 1; 
-                // Formatação bonita dos Traits
+                const die = w.die || "d4"; const diceCount = w.str ? 2 : 1; 
                 const traitsFormatted = w.traits ? `(${w.traits.join(', ')})` : '';
                 const extraText = `${pot?`+${pot} `:''}${w.str?'Striking ':''}${traitsFormatted}`;
 
-                return { 
-                    nome: w.display || w.name, 
-                    ataque: `+${atk}`, 
-                    dano: `${diceCount}${die} + ${dmgBonus}`, 
-                    extras: extraText 
-                };
+                return { nome: w.display || w.name, ataque: `+${atk}`, dano: `${diceCount}${die} + ${dmgBonus}`, extras: extraText };
             });
 
-            // Magias
             const spells = [];
             const mapAction = (act) => {
                 if(!act) return "?"; const a=String(act).toLowerCase();
@@ -259,18 +296,16 @@
             let sStats = { dc: 0, attack: 0, ability: "" };
             if (build.spellCasters) {
                 build.spellCasters.forEach(caster => {
-                    const abil = caster.ability || "cha";
-                    const prof = safeNum(caster.proficiency);
-                    const mod = getAbilMod(abil);
-                    const dc = 10 + level + prof + mod;
-                    const atk = level + prof + mod;
+                    const abil = caster.ability || "cha"; const prof = safeNum(caster.proficiency); const mod = getAbilMod(abil);
+                    const dc = 10 + level + prof + mod; const atk = level + prof + mod;
                     if (dc > sStats.dc) sStats = { dc: dc, attack: atk, ability: abil.toUpperCase() };
 
                     if (caster.spells) {
                         caster.spells.forEach(obj => {
                             const list = (obj.list || []).map(s => {
                                 let sName = (typeof s === 'string') ? s : (s.name || "Magia");
-                                let sAct = (typeof s === 'object' && s.actions) ? mapAction(s.actions) : (spellLibrary[sName]?.action || "?");
+                                // AQUI: Removemos a dependência do glossário fixo. Usamos o nome e ação, a descrição vem do Firebase depois.
+                                let sAct = (typeof s === 'object' && s.actions) ? mapAction(s.actions) : "?";
                                 return { nome: sName, acao: sAct };
                             });
                             if (list.length > 0) spells.push({ nivel: obj.spellLevel===0?"Cantrips":`Nível ${obj.spellLevel}`, magias: list });
@@ -292,11 +327,10 @@
             };
         }
 
-        // Handlers e Render
+        // --- RENDER ---
         fileInput.addEventListener('change', (e) => { const f = e.target.files[0]; if(!f)return; const r = new FileReader(); r.onload=(ev)=>{try{importCharData(JSON.parse(ev.target.result));}catch(e){alert("Erro JSON");}}; r.readAsText(f); });
         btnImportText.addEventListener('click', () => { try{ importCharData(JSON.parse(textArea.value.trim())); }catch(e){alert("JSON inválido.");} });
         charsCollection.onSnapshot(snap => { listContainer.innerHTML=''; snap.forEach(doc => { const d = document.createElement('div'); d.className='char-item'; d.textContent=doc.data().nome; d.onclick=()=>renderSheet(doc.data()); listContainer.appendChild(d); }); });
-        window.openSpellModal = (n) => { document.getElementById('modal-spell-name').innerText=n; document.getElementById('modal-spell-desc').innerText = spellLibrary[n]?.desc || "Ver no livro."; document.getElementById('spell-modal').style.display='flex'; };
 
         function renderSheet(char) {
             const mod = (v) => Math.floor((v-10)/2); const fmt = (v) => v>=0?`+${v}`:v; const fmtSave = (v) => `CD ${10+v} (${fmt(v)})`;
@@ -312,7 +346,7 @@
                 </div>`;
             }
 
-            const spellsHtml = (char.magias||[]).map(n => `<div><strong>${n.nivel}</strong>: ${n.magias.map(m=>`<span class="spell-tag" onclick="openSpellModal('${m.nome}')">${m.nome} ${m.acao}</span>`).join('')}</div>`).join('');
+            const spellsHtml = (char.magias||[]).map(n => `<div><strong>${n.nivel}</strong>: ${n.magias.map(m=>`<span class="spell-tag" onclick="openSpellModal('${m.nome}', '${m.acao}')">${m.nome} ${m.acao}</span>`).join('')}</div>`).join('');
             const weaponsHtml = (char.armas||[]).map(a => `<li style="border-bottom:1px solid #eee; margin-bottom:5px;"><b>${a.nome}</b> ${a.ataque} (${a.dano}) <br><small>${a.extras}</small></li>`).join('');
 
             sheetDisplay.innerHTML = `
