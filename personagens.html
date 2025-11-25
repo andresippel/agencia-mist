@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Personagens - Agência MIST</title>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -15,95 +15,214 @@
     <link rel="stylesheet" href="style.css">
 
     <style>
-        /* --- ESTILOS GERAIS --- */
-        .content-wrapper { display: flex; gap: 20px; margin-top: 20px; }
-        .char-list { flex: 1; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 250px; }
-        .char-item { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; transition: background 0.2s; }
-        .char-item:hover { background-color: #f0f0f0; }
-        .char-sheet { flex: 3; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        /* --- RESET BÁSICO E TIPOGRAFIA --- */
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; font-family: sans-serif; background-color: #f4f6f7; }
+        
+        /* Container Principal */
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 15px; 
+        }
 
-        /* HEADER */
-        .statblock-header { border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px; }
-        .statblock-header h1 { margin: 0; font-size: 24px; color: #2c3e50; }
+        /* --- HEADER RESPONSIVO --- */
+        header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 20px; 
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            flex-wrap: wrap; /* Permite quebrar linha no celular */
+            gap: 10px;
+        }
+        header h1 { 
+            margin: 0; 
+            font-size: 1.5rem; 
+            color: #2c3e50; 
+        }
+        header nav {
+            display: flex;
+            gap: 15px;
+        }
+        header nav a {
+            text-decoration: none;
+            color: #3498db;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
 
-        /* GRID DE STATUS */
+        /* --- IMPORT SECTION RESPONSIVA --- */
+        .import-section { 
+            display: flex; 
+            gap: 15px; 
+            margin-bottom: 20px; 
+            flex-wrap: wrap; /* Quebra linha no celular */
+        }
+        .import-box { 
+            flex: 1; 
+            min-width: 280px; /* Tamanho mínimo antes de quebrar */
+            padding: 15px; 
+            background: #e8f4fd; 
+            border: 1px dashed #3498db; 
+            border-radius: 8px; 
+        }
+        .import-box label { display: block; margin-bottom: 8px; font-weight: bold; color: #2c3e50; }
+        input[type="file"], input[type="text"], textarea { width: 100%; margin-bottom: 8px; }
+        textarea.json-in { height: 60px; font-family: monospace; font-size: 11px; padding: 5px; border: 1px solid #ccc; border-radius: 4px;}
+        button#btn-import-text { width: 100%; padding: 8px; background-color: #3498db; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+
+        /* --- LAYOUT PRINCIPAL (LISTA E FICHA) --- */
+        .content-wrapper { 
+            display: flex; 
+            gap: 20px; 
+            align-items: flex-start;
+        }
+        
+        /* Lista de Personagens */
+        .char-list { 
+            flex: 1; 
+            background: #fff; 
+            padding: 15px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+            min-width: 200px; 
+            max-width: 250px;
+        }
+        .char-list h3 { margin-top: 0; color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px;}
+        .char-item { 
+            padding: 12px; 
+            border-bottom: 1px solid #eee; 
+            cursor: pointer; 
+            transition: background 0.2s; 
+            font-weight: 500;
+            color: #333;
+        }
+        .char-item:hover { background-color: #f0f0f0; border-radius: 4px;}
+
+        /* Ficha do Personagem */
+        .char-sheet { 
+            flex: 3; 
+            background: #fff; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+            width: 100%; /* Garante que ocupe espaço no mobile */
+        }
+
+        /* --- MOBILE MEDIA QUERY (A MÁGICA ACONTECE AQUI) --- */
+        @media (max-width: 768px) {
+            .container { padding: 10px; }
+            
+            /* Header empilhado */
+            header { flex-direction: column; text-align: center; }
+            header nav { width: 100%; justify-content: center; margin-top: 10px; }
+            
+            /* Layout Vertical */
+            .content-wrapper { flex-direction: column; }
+            
+            /* Lista de Personagens Horizontal (Estilo Stories/App) */
+            .char-list { 
+                max-width: 100%; 
+                width: 100%; 
+                overflow-x: auto; /* Scroll horizontal */
+                display: flex; 
+                gap: 10px; 
+                padding: 10px;
+                align-items: center;
+                white-space: nowrap;
+            }
+            .char-list h3 { display: none; /* Esconde título "Personagens" no mobile para economizar espaço */ }
+            .char-item { 
+                flex: 0 0 auto; /* Não encolhe */
+                background: #f8f9fa; 
+                border: 1px solid #ddd; 
+                border-radius: 20px; 
+                padding: 8px 15px; 
+                font-size: 0.9rem;
+            }
+            .char-item:active { background-color: #3498db; color: white; }
+
+            .stat-grid { padding: 10px; gap: 5px; }
+            .stat-box { min-width: 45%; /* 2 por linha no mobile */ }
+            
+            .skills-grid { grid-template-columns: 1fr 1fr; /* 2 colunas de perícia */ }
+            
+            .saves-row { flex-direction: column; align-items: center; gap: 5px; }
+        }
+
+        /* --- ESTILOS INTERNOS DA FICHA --- */
+        .statblock-header { border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px; text-align: center; }
+        .statblock-header h1 { margin: 0; font-size: 1.8rem; color: #2c3e50; }
+        .statblock-header .sub { color: #7f8c8d; font-style: italic; }
+
         .stat-grid { 
             display: flex; justify-content: space-around; align-items: center;
             background: #f4f6f7; padding: 15px; border-radius: 8px; margin-bottom: 20px; 
-            border: 1px solid #e0e0e0; flex-wrap: wrap; gap: 10px;
+            border: 1px solid #e0e0e0; flex-wrap: wrap; gap: 15px;
         }
-        .stat-box { text-align: center; min-width: 80px; }
-        .stat-box .label { font-size: 11px; font-weight: bold; text-transform: uppercase; color: #7f8c8d; letter-spacing: 1px; margin-bottom: 2px;}
-        .stat-box .value { font-size: 16px; font-weight: bold; color: #2c3e50; }
-        .stat-box.main-stat .value { font-size: 26px; display: flex; align-items: center; justify-content: center; gap: 5px; }
-        .stat-box.main-stat .label { font-size: 12px; color: #333; }
+        .stat-box { text-align: center; flex: 1; min-width: 80px; }
+        .stat-box .label { font-size: 0.7rem; font-weight: bold; text-transform: uppercase; color: #7f8c8d; margin-bottom: 2px;}
+        .stat-box .value { font-size: 1.2rem; font-weight: bold; color: #2c3e50; }
+        .stat-box.main-stat .value { font-size: 1.8rem; display: flex; align-items: center; justify-content: center; gap: 5px; }
 
-        /* TÁTICAS */
-        .tactics-box { background-color: #eaf2f8; border-left: 5px solid #3498db; padding: 15px; margin-bottom: 20px; border-radius: 0 5px 5px 0; font-size: 0.95em; line-height: 1.6; position: relative; }
-        .tactics-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #cbdceb; padding-bottom: 5px; }
+        .tactics-box { background-color: #eaf2f8; border-left: 5px solid #3498db; padding: 15px; margin-bottom: 20px; border-radius: 4px; font-size: 0.95em; line-height: 1.6; }
+        .tactics-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #cbdceb; padding-bottom: 5px; flex-wrap: wrap; gap: 5px;}
         .tactics-title { font-weight: bold; color: #2980b9; text-transform: uppercase; font-size: 0.85em; }
         .btn-edit-tactics { background: none; border: none; color: #7f8c8d; cursor: pointer; font-size: 0.8em; text-decoration: underline; }
-        
-        .tactics-content { color: #2c3e50; }
-        .tactics-content strong { color: #2980b9; font-weight: 700; }
-        .tactics-content ul { padding-left: 25px; margin: 10px 0; }
-        .tactics-content li { margin-bottom: 5px; }
-        
-        .tactics-editor { display: none; margin-top: 10px; }
-        .tactics-textarea { width: 100%; height: 200px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; font-size: 0.9em; resize: vertical; }
-        .btn-save-tactics { background-color: #27ae60; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 5px; }
+        .tactics-textarea { width: 100%; height: 150px; padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; }
+        .btn-save-tactics { width: 100%; background: #27ae60; color: white; border: none; padding: 10px; margin-top: 5px; border-radius: 4px; font-weight: bold; }
 
-        /* PETS & GRIDS */
+        /* Detalhes (Atributos, Perícias, etc) */
+        .abilities-row { display: flex; justify-content: space-between; margin: 10px 0; border-top: 1px solid #ddd; padding-top: 10px; flex-wrap: wrap; gap: 10px; }
+        .skills-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 5px 10px; margin-top: 10px; }
+        .skill-row { display: flex; align-items: center; font-size: 0.9em; border-bottom: 1px solid #f9f9f9; padding: 3px 0; }
+        .skill-name { flex: 1; margin-left: 8px; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .skill-bonus { font-weight: bold; width: 30px; text-align: right; }
+        .prof-badge { width: 18px; height: 18px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 9px; font-weight: bold; color: white; margin-right: 5px; flex-shrink: 0; }
+        .prof-u { background-color: #95a5a6; } .prof-t { background-color: #34495e; } .prof-e { background-color: #27ae60; } .prof-m { background-color: #f39c12; } .prof-l { background-color: #8e44ad; }
+        
+        .section-title { background-color: #333; color: #fff; padding: 5px 10px; font-weight: bold; margin-top: 20px; border-radius: 3px; font-size: 0.9rem; }
+        .saves-row { display: flex; gap: 10px; margin: 10px 0; font-weight: bold; justify-content: space-around; flex-wrap: wrap; }
+
+        /* Pets */
         .pet-block { background: #fdfefe; border: 1px solid #ddd; border-left: 4px solid #27ae60; padding: 10px; margin-top: 10px; border-radius: 4px; }
         .pet-header { font-weight: bold; color: #27ae60; display: flex; justify-content: space-between; }
-        .pet-stats { display: flex; gap: 15px; font-size: 0.9em; margin-top: 5px; color: #555; }
-        .skills-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 5px 15px; margin-top: 10px; }
-        .skill-row { display: flex; align-items: center; font-size: 0.9em; border-bottom: 1px solid #f9f9f9; padding: 3px 0; }
-        .skill-name { flex: 1; margin-left: 8px; color: #333; }
-        .skill-bonus { font-weight: bold; width: 30px; text-align: right; }
-        .prof-badge { width: 18px; height: 18px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 9px; font-weight: bold; color: white; margin-right: 5px; }
-        .prof-u { background-color: #95a5a6; } .prof-t { background-color: #34495e; } .prof-e { background-color: #27ae60; } .prof-m { background-color: #f39c12; } .prof-l { background-color: #8e44ad; }
-        .section-title { background-color: #333; color: #fff; padding: 5px 10px; font-weight: bold; margin-top: 20px; border-radius: 3px; }
-        .saves-row { display: flex; gap: 20px; margin: 10px 0; font-weight: bold; justify-content: space-around; }
-        .abilities-row { display: flex; justify-content: space-between; margin: 10px 0; border-top: 1px solid #ddd; padding-top: 10px;}
         
-        /* IMPORT */
-        .import-section { display: flex; gap: 20px; margin-bottom: 20px; }
-        .import-box { flex: 1; padding: 15px; background: #e8f4fd; border: 1px dashed #3498db; border-radius: 8px; }
-        textarea.json-in { width: 100%; height: 60px; margin-top: 5px; font-family: monospace; font-size: 11px; }
-
-        /* MAGIAS & MODAL */
-        .spell-tag { background: #eef; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; border: 1px solid #dde; cursor: pointer; display: inline-flex; gap: 5px; margin: 2px;}
-        .spell-tag:hover { background: #dce; border-color: #3498db; }
-        .spell-modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2000; justify-content: center; align-items: center; }
-        .spell-card { background: white; width: 500px; max-width: 90%; border-radius: 5px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.5); font-family: sans-serif; display: flex; flex-direction: column; max-height: 80vh; }
+        /* Modais */
+        .spell-tag { background: #eef; padding: 4px 8px; border-radius: 4px; font-size: 0.85em; border: 1px solid #dde; cursor: pointer; display: inline-block; margin: 2px; }
+        .spell-modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; justify-content: center; align-items: center; }
+        .spell-card { background: white; width: 90%; max-width: 500px; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; max-height: 80vh; }
         .spell-body { padding: 15px; overflow-y: auto; flex: 1; }
-        .spell-editor { display: none; margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px; }
-        .spell-desc-content { white-space: pre-wrap; line-height: 1.5; color: #333; }
-        .nethys-link { color: #3498db; font-size: 0.9em; text-decoration: none; margin-right: 15px;}
-        .edit-btn { background: none; border: none; color: #7f8c8d; cursor: pointer; font-size: 0.8em; text-decoration: underline; }
+        
+        /* Link Dourado */
+        .pb-link { display:block; text-align:center; background:#d4af37; color:white; padding:12px; border-radius:5px; text-decoration:none; font-weight:bold; margin-bottom:15px; box-shadow:0 2px 5px rgba(0,0,0,0.2); transition: transform 0.1s; }
+        .pb-link:active { transform: scale(0.98); }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>Fichas dos Personagens (PF2e)</h1>
+            <h1>Agência MIST</h1>
             <nav>
-                <a href="index.html" style="margin-right: 20px;">Página Inicial</a>
+                <a href="index.html">Início</a>
                 <a href="#" onclick="logout()">Sair</a>
             </nav>
         </header>
 
         <div class="import-section">
             <div class="import-box">
-                <label><b>Opção A: Upload de Arquivo</b></label>
-                <input type="file" id="json-file" accept=".json" style="margin-top:5px;">
+                <label>📂 Arquivo JSON</label>
+                <input type="file" id="json-file" accept=".json">
             </div>
             <div class="import-box">
-                <label><b>Opção B: Colar JSON</b></label>
-                <input type="text" id="pathbuilder-id-input" placeholder="Link do Pathbuilder (ou cole apenas aqui para atualizar)" style="width:100%; margin-bottom:5px; padding:5px;">
-                <textarea id="json-textarea" class="json-in" placeholder='Cole o JSON aqui para importar a ficha completa...'></textarea>
-                <button id="btn-import-text" style="margin-top:5px; cursor:pointer; width:100%; padding:5px; background-color:#3498db; color:white; border:none; border-radius:4px; font-weight:bold;">Importar / Atualizar</button>
+                <label>📝 Colar Código</label>
+                <input type="text" id="pathbuilder-id-input" placeholder="Link do Pathbuilder (Opcional)">
+                <textarea id="json-textarea" class="json-in" placeholder='Cole o JSON aqui...'></textarea>
+                <button id="btn-import-text">IMPORTAR / ATUALIZAR</button>
             </div>
         </div>
 
@@ -112,31 +231,34 @@
                 <h3>Personagens</h3>
                 <div id="list-container">Carregando...</div>
             </aside>
+            
             <main class="char-sheet" id="sheet-display">
-                <p style="text-align: center; color: #777; margin-top: 50px;">Selecione um personagem.</p>
+                <div style="text-align: center; padding: 40px; color: #7f8c8d;">
+                    <div style="font-size: 3rem; margin-bottom: 10px;">🧙‍♂️</div>
+                    <p>Selecione um personagem acima (ou à esquerda) para ver a ficha.</p>
+                </div>
             </main>
         </div>
     </div>
 
     <div id="spell-modal" class="spell-modal-overlay">
         <div class="spell-card">
-            <div style="background:#191919; color:white; padding:15px; display:flex; justify-content:space-between; align-items:center;">
-                <h2 id="modal-spell-name" style="margin:0;">Magia</h2>
-                <span id="modal-spell-action" style="background:#333; padding:2px 8px; border-radius:4px; font-size:0.8em;"></span>
+            <div style="background:#2c3e50; color:white; padding:15px; display:flex; justify-content:space-between; align-items:center;">
+                <h3 id="modal-spell-name" style="margin:0; font-size:1.1rem;">Magia</h3>
+                <span id="modal-spell-action" style="background:rgba(255,255,255,0.2); padding:2px 8px; border-radius:4px; font-size:0.8em;"></span>
             </div>
             <div class="spell-body">
-                <div id="modal-spell-desc" class="spell-desc-content"></div>
-                <div style="margin-top:15px; font-size:0.9em; border-top:1px solid #eee; padding-top:10px;">
-                     <a href="#" id="modal-nethys-link" target="_blank" class="nethys-link">🔍 Buscar no Nethys</a>
+                <div id="modal-spell-desc" style="line-height:1.5; color:#333;"></div>
+                <div style="margin-top:20px; border-top:1px solid #eee; padding-top:15px; display:flex; flex-direction:column; gap:10px;">
+                     <a href="#" id="modal-nethys-link" target="_blank" style="color:#3498db; text-decoration:none; font-weight:bold;">🔍 Ver no Archives of Nethys</a>
                      <button onclick="toggleEdit()" class="edit-btn">✎ Editar Descrição</button>
                 </div>
-                <div id="spell-editor" class="spell-editor">
-                    <label style="font-weight:bold; font-size:0.8em;">Descrição Personalizada:</label>
-                    <textarea id="editor-text" style="width:100%; height:150px; margin-top:5px; font-family:inherit;"></textarea>
-                    <button onclick="saveSpellDesc()" style="background:#27ae60; color:white; border:none; padding:8px; width:100%; margin-top:5px; cursor:pointer; font-weight:bold;">Salvar</button>
+                <div id="spell-editor" style="display:none; margin-top:10px;">
+                    <textarea id="editor-text" style="width:100%; height:120px; padding:8px; border:1px solid #ccc; border-radius:4px;"></textarea>
+                    <button onclick="saveSpellDesc()" style="width:100%; background:#27ae60; color:white; border:none; padding:10px; margin-top:5px; border-radius:4px; font-weight:bold;">Salvar</button>
                 </div>
             </div>
-            <button onclick="document.getElementById('spell-modal').style.display='none'" style="width:100%; padding:15px; border:none; background:#eee; cursor:pointer; font-weight:bold; color:#333;">Fechar</button>
+            <button onclick="document.getElementById('spell-modal').style.display='none'" style="width:100%; padding:15px; border:none; background:#f1f1f1; color:#333; font-weight:bold;">FECHAR</button>
         </div>
     </div>
 
@@ -165,46 +287,7 @@
         let currentCharName = "";
         let currentRawTactics = ""; 
 
-        // --- LOGICA DO BOTÃO IMPORTAR/ATUALIZAR (NOVO!) ---
-        btnImportText.addEventListener('click', async () => {
-            const jsonText = textArea.value.trim();
-            const linkText = pathInput.value.trim();
-
-            // CASO 1: Apenas Link (Sem JSON) - Atualiza o Personagem SELECIONADO
-            if (!jsonText && linkText) {
-                if (!currentCharName) {
-                    alert("⚠️ Para atualizar apenas o Link:\n1. Selecione um personagem na lista à esquerda.\n2. Cole o link.\n3. Clique em Importar.");
-                    return;
-                }
-                
-                let pbId = linkText;
-                if (pbId.includes("build=")) pbId = pbId.split("build=")[1]; // Limpa o link, deixa só o ID
-                
-                try {
-                    await charsCollection.doc(currentCharName).update({ pathbuilderId: pbId });
-                    alert(`✅ Link do Pathbuilder atualizado para ${currentCharName}!`);
-                    pathInput.value = '';
-                } catch (e) {
-                    console.error(e);
-                    alert("Erro ao salvar link: " + e.message);
-                }
-                return; // Para por aqui
-            }
-
-            // CASO 2: Importação Completa (Com JSON)
-            if (jsonText) {
-                try {
-                    const json = JSON.parse(jsonText);
-                    await importCharData(json); // Chama a função completa
-                } catch(e) {
-                    alert("Erro no JSON: " + e.message);
-                }
-            } else {
-                alert("Cole o JSON para criar/atualizar a ficha, ou selecione um personagem e cole o Link para atualizar apenas o botão.");
-            }
-        });
-
-        // --- TÁTICA MANUAL ---
+        // --- FUNÇÕES DE INTERFACE ---
         window.toggleTacticsEdit = () => {
             const editor = document.getElementById('tactics-editor');
             const display = document.getElementById('tactics-content');
@@ -213,7 +296,7 @@
             
             if (editor.style.display === 'none' || editor.style.display === '') {
                 editor.style.display = 'block'; display.style.display = 'none';
-                btn.innerText = "Cancelar Edição"; txtArea.value = currentRawTactics || "";
+                btn.innerText = "Cancelar"; txtArea.value = currentRawTactics || "";
             } else {
                 editor.style.display = 'none'; display.style.display = 'block';
                 btn.innerText = "✎ Editar Táticas";
@@ -226,30 +309,54 @@
             try {
                 await charsCollection.doc(currentCharName).update({ tacticsText: newText });
                 currentRawTactics = newText;
-                display.innerHTML = newText ? marked.parse(newText) : "<i>Nenhuma anotação tática. Clique em editar para adicionar.</i>";
+                display.innerHTML = newText ? marked.parse(newText) : "<i>Nenhuma anotação. Clique em editar.</i>";
                 window.toggleTacticsEdit(); 
-            } catch (error) { console.error(error); alert("Erro ao salvar: " + error.message); }
+            } catch (error) { alert("Erro ao salvar: " + error.message); }
         };
 
-        // --- IMPORTAÇÃO COMPLETA ---
-        async function importCharData(jsonData) {
-            try {
-                if (!jsonData.build) throw new Error("JSON inválido.");
-                const rawData = extractPathbuilderData(jsonData.build);
-                const charData = JSON.parse(JSON.stringify(rawData));
-                
-                // Pega o link também se estiver preenchido durante a importação do JSON
-                let pbLink = pathInput.value.trim();
-                if (pbLink.includes("build=")) pbLink = pbLink.split("build=")[1];
-                if (pbLink) charData.pathbuilderId = pbLink;
+        // --- LÓGICA DE IMPORTAÇÃO (ATUALIZADA) ---
+        btnImportText.addEventListener('click', async () => {
+            const jsonText = textArea.value.trim();
+            const linkText = pathInput.value.trim();
 
-                await charsCollection.doc(charData.nome).set(charData, { merge: true });
-                alert(`Personagem ${charData.nome} atualizado com sucesso!`);
-                fileInput.value = ''; textArea.value = ''; pathInput.value = '';
-            } catch (error) { console.error(error); alert("Erro: " + error.message); }
+            // MODO 1: Apenas Link (Atualiza char selecionado)
+            if (!jsonText && linkText) {
+                if (!currentCharName) { return alert("⚠️ Selecione um personagem na lista primeiro para atualizar o link."); }
+                let pbId = linkText;
+                if (pbId.includes("build=")) pbId = pbId.split("build=")[1];
+                try {
+                    await charsCollection.doc(currentCharName).update({ pathbuilderId: pbId });
+                    alert(`✅ Link atualizado para ${currentCharName}!`);
+                    pathInput.value = ''; renderSheet(await (await charsCollection.doc(currentCharName).get()).data());
+                } catch (e) { alert("Erro: " + e.message); }
+                return;
+            }
+
+            // MODO 2: Importação Completa
+            if (jsonText) {
+                try {
+                    await importCharData(JSON.parse(jsonText));
+                } catch(e) { alert("JSON Inválido: " + e.message); }
+            } else {
+                alert("Cole o JSON ou selecione um personagem e cole o Link.");
+            }
+        });
+
+        async function importCharData(jsonData) {
+            if (!jsonData.build) throw new Error("Formato inválido.");
+            const rawData = extractPathbuilderData(jsonData.build);
+            const charData = JSON.parse(JSON.stringify(rawData));
+            
+            let pbLink = pathInput.value.trim();
+            if (pbLink.includes("build=")) pbLink = pbLink.split("build=")[1];
+            if (pbLink) charData.pathbuilderId = pbLink;
+
+            await charsCollection.doc(charData.nome).set(charData, { merge: true });
+            alert(`✅ ${charData.nome} importado com sucesso!`);
+            fileInput.value = ''; textArea.value = ''; pathInput.value = '';
         }
 
-        // --- EXTRAÇÃO ---
+        // --- EXTRAÇÃO (Lógica Mantida e Robusta) ---
         function extractPathbuilderData(build) {
             const safeNum = (v) => (v && !isNaN(v)) ? Number(v) : 0;
             const safeStr = (v) => (v) ? String(v) : "";
@@ -284,7 +391,7 @@
                 return { nome: w.display || w.name, ataque: `+${atk}`, dano: `${diceCount}${die} + ${dmgBonus}`, extras: `${pot?`+${pot} `:''}${w.str?'Striking ':''}${traitsFormatted}` };
             });
 
-            // MAX SPELL DC
+            // MAX SPELL DC CHECK
             let maxSpellDC = 0;
             const spells = [];
             const mapAction = (act) => { if(!act) return "?"; const a=String(act).toLowerCase(); if(a.includes("reaction")) return "↶"; if(a.includes("3")) return "◆◆◆"; if(a.includes("2")) return "◆◆"; if(a.includes("1")) return "◆"; return "?"; };
@@ -294,8 +401,7 @@
                     const abil = caster.ability || "cha"; const prof = safeNum(caster.proficiency); const mod = getAbilMod(abil);
                     const dc = 10 + level + prof + mod; const atk = level + prof + mod; 
                     if (dc > sStats.dc) sStats = { dc: dc, attack: atk, ability: abil.toUpperCase() };
-                    if (dc > maxSpellDC) maxSpellDC = dc; 
-
+                    if (dc > maxSpellDC) maxSpellDC = dc;
                     if (caster.spells) caster.spells.forEach(obj => { const list = (obj.list || []).map(s => ({ nome: typeof s === 'string' ? s : s.name, acao: typeof s === 'object' ? mapAction(s.actions) : "?" })); if(list.length>0) spells.push({ nivel: obj.spellLevel===0?"Cantrips":`Nível ${obj.spellLevel}`, magias: list }); });
                 });
             }
@@ -308,7 +414,6 @@
             processedSkills.sort((a, b) => a.name.localeCompare(b.name));
             const calcSave = (k, ab) => { const p = safeNum(build.proficiencies[k]); return (p>0 ? p+level : 0) + getAbilMod(ab); };
 
-            // Class DC Fix
             let finalClassDC = safeNum(build.attributes.classDC);
             if (finalClassDC === 0 && build.proficiencies.classDC) {
                 const mods = [getAbilMod('str'), getAbilMod('dex'), getAbilMod('int'), getAbilMod('wis'), getAbilMod('cha')];
@@ -321,8 +426,7 @@
                 nome: safeStr(build.name)||"Sem Nome", nivel: level||1, classe: safeStr(build.class), ancestralidade: safeStr(build.ancestry),
                 atributos: { for: getAbilVal('str'), des: getAbilVal('dex'), con: getAbilVal('con'), int: getAbilVal('int'), sab: getAbilVal('wis'), car: getAbilVal('cha') },
                 hp: hp, ca: safeNum(build.acTotal?.acTotal || build.acTotal)||10, 
-                percepcao: calcSave('perception','wis'), 
-                classDC: { val: finalClassDC }, 
+                percepcao: calcSave('perception','wis'), classDC: { val: finalClassDC }, 
                 saves: { fort: calcSave('fortitude','con'), ref: calcSave('reflex','dex'), vont: calcSave('will','wis') },
                 velocidade: safeNum(build.speed)||25, skills: processedSkills, armas: weapons, magias: spells, spellStats: sStats, pets: petsList
             };
@@ -335,7 +439,7 @@
             const tacticsHtmlContent = currentRawTactics ? marked.parse(currentRawTactics) : "<i>Nenhuma anotação tática. Clique em editar para adicionar.</i>";
 
             const mod = (v) => Math.floor((v-10)/2); const fmt = (v) => v>=0?`+${v}`:v; const fmtSave = (v) => `CD ${10+v} (${fmt(v)})`;
-            let pbLinkHtml = ""; if (char.pathbuilderId) { pbLinkHtml = `<a href="https://pathbuilder2e.com/launch.html?build=${char.pathbuilderId}" target="_blank" style="display:block; text-align:center; background:#d4af37; color:white; padding:10px; border-radius:5px; text-decoration:none; font-weight:bold; margin-bottom:15px; box-shadow:0 2px 5px rgba(0,0,0,0.2);">📜 Abrir Ficha Original no Pathbuilder</a>`; }
+            let pbLinkHtml = ""; if (char.pathbuilderId) { pbLinkHtml = `<a href="https://pathbuilder2e.com/launch.html?build=${char.pathbuilderId}" target="_blank" class="pb-link">📜 Abrir Ficha Original no Pathbuilder</a>`; }
 
             let statusGridHtml = `
                 <div class="stat-grid">
@@ -369,7 +473,7 @@
             const spellsHtml = (char.magias||[]).map(n => `<div><strong>${n.nivel}</strong>: ${n.magias.map(m=>`<span class="spell-tag" onclick="openSpellModal('${m.nome}', '${m.acao}')">${m.nome} ${m.acao}</span>`).join('')}</div>`).join('');
             const weaponsHtml = (char.armas||[]).map(a => `<li style="border-bottom:1px solid #eee; margin-bottom:5px;"><b>${a.nome}</b> ${a.ataque} (${a.dano}) <br><small>${a.extras}</small></li>`).join('');
             let spellStatsHtml = "";
-            if (char.spellStats && char.spellStats.dc > 0) spellStatsHtml = `<div style="background:#e8f6f3; padding:10px; border-radius:5px; margin: 10px 0; border: 1px solid #1abc9c; display:flex; justify-content:space-around; text-align:center;"><div><div style="font-size:0.8em; text-transform:uppercase; color:#16a085;">DC</div><div style="font-size:1.4em; font-weight:bold; color:#0e6251;">${char.spellStats.dc}</div></div><div><div style="font-size:0.8em; text-transform:uppercase; color:#16a085;">Atk</div><div style="font-size:1.4em; font-weight:bold; color:#0e6251;">+${char.spellStats.attack}</div></div><div><div style="font-size:0.8em; text-transform:uppercase; color:#16a085;">Attr</div><div style="font-size:1.4em; font-weight:bold; color:#0e6251;">${char.spellStats.ability}</div></div></div>`;
+            if (char.spellStats && char.spellStats.dc > 0) spellStatsHtml = `<div style="background:#e8f6f3; padding:10px; border-radius:5px; margin: 10px 0; border: 1px solid #1abc9c; display:flex; justify-content:space-around; text-align:center; font-size:0.9em;"><div><div style="text-transform:uppercase; color:#16a085;">DC</div><div style="font-size:1.4em; font-weight:bold; color:#0e6251;">${char.spellStats.dc}</div></div><div><div style="text-transform:uppercase; color:#16a085;">Atk</div><div style="font-size:1.4em; font-weight:bold; color:#0e6251;">+${char.spellStats.attack}</div></div><div><div style="text-transform:uppercase; color:#16a085;">Attr</div><div style="font-size:1.4em; font-weight:bold; color:#0e6251;">${char.spellStats.ability}</div></div></div>`;
 
             sheetDisplay.innerHTML = `
                 <div class="statblock-header"><h1>${char.nome}</h1><div class="sub">Nível ${char.nivel} ${char.ancestralidade} ${char.classe}</div></div>
