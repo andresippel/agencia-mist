@@ -192,6 +192,7 @@
             const display = document.getElementById('tactics-content');
             const btn = document.getElementById('btn-edit-tactics');
             const txtArea = document.getElementById('tactics-textarea');
+            
             if (editor.classList.contains('is-visible')) {
                 editor.classList.remove('is-visible'); display.style.display = 'block'; btn.innerText = "✎ Editar Táticas";
             } else {
@@ -233,7 +234,7 @@
             fileInput.value = ''; textArea.value = ''; pathInput.value = '';
         }
 
-        // --- EXTRAÇÃO E CÁLCULOS (CORRIGIDO) ---
+        // --- EXTRAÇÃO E CÁLCULOS (CORRIGIDO PARA O BART) ---
         function extractPathbuilderData(build) {
             const safeNum = (v) => (v && !isNaN(v)) ? Number(v) : 0;
             const safeStr = (v) => (v) ? String(v) : "";
@@ -249,35 +250,41 @@
             if(build.pets) build.pets.forEach(p=>petsList.push(processPet(p, p.type||"Comp.")));
             if(build.familiars) build.familiars.forEach(f=>petsList.push(processPet(f, "Fam.")));
 
+            // ARMAS: AQUI ESTÁ O FIX DO BART (+8 -> +10)
             const weapons = (build.weapons || []).map(w => {
                 const nameLower = (w.display || w.name || "").toLowerCase();
                 const traits = (w.traits || []).map(t => String(t).toLowerCase());
-                const isRanged = traits.some(t => t.includes('range')) || nameLower.includes('crossbow') || nameLower.includes('bow') || nameLower.includes('gun') || nameLower.includes('sling');
+                const isRanged = traits.some(t => t.includes('range')) || nameLower.includes('crossbow') || nameLower.includes('bow');
                 const finesseNames = ['rapier', 'dagger', 'shortsword', 'whip', 'elven curve blade', 'aldori dueling sword'];
                 const isFinesse = traits.includes('finesse') || finesseNames.some(n => nameLower.includes(n));
                 const isPropulsive = traits.includes('propulsive'); const isThrown = traits.includes('thrown');
                 let atkAttr = 'str'; if (isRanged) { atkAttr = 'dex'; } else if (isFinesse) { if (getAbilVal('dex') > getAbilVal('str')) atkAttr = 'dex'; }
                 
-                // CORREÇÃO: PROFICIÊNCIA DESARMADA (UNARMED)
+                // Correção de Proficiência Unarmed (Bart)
                 let profKey = w.prof;
-                if (!profKey && traits.includes("unarmed")) profKey = "unarmed"; // Se não tiver key, mas for unarmed, usa 'unarmed'
+                if (!profKey && traits.includes("unarmed")) profKey = "unarmed";
                 
-                let profBonus = 0; 
-                if (profKey && build.proficiencies[profKey]) profBonus = build.proficiencies[profKey]; 
-                else profBonus = 2; // Fallback Trained
-
-                // CORREÇÃO: BÔNUS DE ATAQUE EXTRA (ex: +1 Handwraps)
-                // Pathbuilder soma 'pot' (Runa) E 'attackBonus' (Item/Buff)
+                let profBonus = 0; if (profKey && build.proficiencies[profKey]) profBonus = build.proficiencies[profKey]; else profBonus = 2;
+                
                 const pot = safeNum(w.pot); 
                 const extraBonus = safeNum(w.attackBonus);
-                const atk = level + profBonus + getAbilMod(atkAttr) + pot + extraBonus;
+                
+                // Cálculo Base
+                let calculatedAtk = level + profBonus + getAbilMod(atkAttr) + pot + extraBonus;
+                
+                // FIX: Se o JSON já trouxe o valor pronto (w.attack), use-o!
+                // O Pathbuilder calcula isso melhor que a gente.
+                if (w.attack && w.attack > 0) {
+                    calculatedAtk = w.attack;
+                }
 
                 let dmgBonus = 0;
                 if (!isRanged || isThrown) { dmgBonus += getAbilMod('str'); } else if (isPropulsive) { dmgBonus += Math.floor(getAbilMod('str') / 2); }
                 if (profBonus >= 4) dmgBonus += 2; if (profBonus >= 6) dmgBonus += 1;
                 if (safeStr(build.class).toLowerCase().includes("thaumaturge")) { dmgBonus += 2; }
                 const die = w.die || "d4"; const diceCount = w.str ? 2 : 1; const traitsFormatted = w.traits ? `(${w.traits.join(', ')})` : '';
-                return { nome: w.display || w.name, ataque: `+${atk}`, dano: `${diceCount}${die} + ${dmgBonus}`, extras: `${pot?`+${pot} `:''}${w.str?'Striking ':''}${traitsFormatted}` };
+                
+                return { nome: w.display || w.name, ataque: `+${calculatedAtk}`, dano: `${diceCount}${die} + ${dmgBonus}`, extras: `${pot?`+${pot} `:''}${w.str?'Striking ':''}${traitsFormatted}` };
             });
 
             let maxSpellDC = 0;
@@ -298,22 +305,43 @@
             const standardSkills = [
                 {id:'acrobatics',name:'Acrobatics',attr:'dex'},{id:'arcana',name:'Arcana',attr:'int'},{id:'athletics',name:'Athletics',attr:'str'},{id:'crafting',name:'Crafting',attr:'int'},{id:'deception',name:'Deception',attr:'cha'},{id:'diplomacy',name:'Diplomacy',attr:'cha'},{id:'intimidation',name:'Intimidation',attr:'cha'},{id:'medicine',name:'Medicine',attr:'wis'},{id:'nature',name:'Nature',attr:'wis'},{id:'occultism',name:'Occultism',attr:'int'},{id:'performance',name:'Performance',attr:'cha'},{id:'religion',name:'Religion',attr:'wis'},{id:'society',name:'Society',attr:'int'},{id:'stealth',name:'Stealth',attr:'dex'},{id:'survival',name:'Survival',attr:'wis'},{id:'thievery',name:'Thievery',attr:'dex'}
             ];
-            const processedSkills = []; const profs = build.proficiencies || {};
-            standardSkills.forEach(skill => { const profValue = safeNum(profs[skill.id]); const total = (profValue > 0 ? (profValue + level) : 0) + getAbilMod(skill.attr); processedSkills.push({ name: skill.name, total: total, prof: profValue }); });
+            const processedSkills = []; 
+            const profs = build.proficiencies || {};
             
-            // BLOCKLIST RIGOROSA
-            const excludedKeys = ['fortitude', 'reflex', 'will', 'perception', 'classDC', ...standardSkills.map(s => s.id)];
+            // 1. Adiciona Padrões
+            standardSkills.forEach(skill => { 
+                const profValue = safeNum(profs[skill.id]); 
+                const total = (profValue > 0 ? (profValue + level) : 0) + getAbilMod(skill.attr); 
+                processedSkills.push({ name: skill.name, total: total, prof: profValue }); 
+            });
+
+            // 2. Filtra Lores (Exclusão Rigorosa)
+            const excludedExactKeys = ['fortitude', 'reflex', 'will', 'perception', 'classDC', ...standardSkills.map(s => s.id)];
             const forbidden = ['weapon', 'armor', 'shield', 'unarmored', 'simple', 'martial', 'advanced', 'unarmed', 'casting', 'spell', 'light', 'medium', 'heavy'];
 
             Object.keys(profs).forEach(key => { 
-                if (excludedKeys.includes(key)) return;
-                if (forbidden.some(bad => key.toLowerCase().includes(bad))) return; // Filtro forte
-
+                if (excludedExactKeys.includes(key)) return;
+                if (forbidden.some(bad => key.toLowerCase().includes(bad))) return;
                 const profValue = safeNum(profs[key]); const total = (profValue > 0 ? (profValue + level) : 0) + getAbilMod('int'); 
                 let name = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1').trim(); 
                 if (!name.includes("Lore")) name = `Lore: ${name}`;
                 processedSkills.push({ name: name, total: total, prof: profValue }); 
             });
+
+            // 3. Adiciona Lores do Array 'build.lores' (Bart: Pilotagem)
+            if (build.lores && Array.isArray(build.lores)) {
+                build.lores.forEach(loreArr => {
+                    // Lore vem como ["Name", ProfValue]
+                    const loreName = loreArr[0];
+                    const loreProf = loreArr[1];
+                    // Evita duplicatas se já estiver em 'profs'
+                    if (!processedSkills.some(s => s.name.includes(loreName))) {
+                        const total = (loreProf > 0 ? (loreProf + level) : 0) + getAbilMod('int');
+                        processedSkills.push({ name: `Lore: ${loreName}`, total: total, prof: loreProf });
+                    }
+                });
+            }
+
             processedSkills.sort((a, b) => a.name.localeCompare(b.name));
 
             const calcSave = (k, ab) => { const p = safeNum(build.proficiencies[k]); return (p>0 ? p+level : 0) + getAbilMod(ab); };
