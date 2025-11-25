@@ -13,70 +13,44 @@
     <link rel="stylesheet" href="style.css">
 
     <style>
-        /* Estilos Gerais */
+        /* --- ESTILOS GERAIS --- */
         .content-wrapper { display: flex; gap: 20px; margin-top: 20px; }
         .char-list { flex: 1; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 250px; }
         .char-item { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; transition: background 0.2s; }
         .char-item:hover { background-color: #f0f0f0; }
         .char-sheet { flex: 3; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
 
-        /* Statblock Header */
+        /* HEADER & GRID PRINCIPAL */
         .statblock-header { border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px; }
         .statblock-header h1 { margin: 0; font-size: 24px; color: #2c3e50; }
-
-        /* Grid de Stats Principais */
         .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 10px; margin-bottom: 20px; background: #f9f9f9; padding: 10px; border-radius: 5px; }
         .stat-box { text-align: center; }
         .stat-box .label { font-size: 11px; font-weight: bold; text-transform: uppercase; color: #555; }
         .stat-box .value { font-size: 18px; font-weight: bold; color: #000; }
         
-        /* Grid de Perícias (NOVO) */
-        .skills-grid { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); 
-            gap: 8px 20px; 
-            margin-top: 10px; 
-        }
-        .skill-row { 
-            display: flex; 
-            align-items: center; 
-            font-size: 0.95em; 
-            border-bottom: 1px solid #f0f0f0; 
-            padding: 4px 0; 
-        }
+        /* GRID DE PERÍCIAS */
+        .skills-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 5px 15px; margin-top: 10px; }
+        .skill-row { display: flex; align-items: center; font-size: 0.9em; border-bottom: 1px solid #f9f9f9; padding: 3px 0; }
         .skill-name { flex: 1; margin-left: 8px; color: #333; }
         .skill-bonus { font-weight: bold; width: 30px; text-align: right; }
         
-        /* Badges de Proficiência (U, T, E, M, L) */
-        .prof-badge {
-            width: 20px; height: 20px; 
-            border-radius: 50%; 
-            display: flex; justify-content: center; align-items: center;
-            font-size: 10px; font-weight: bold; color: white;
-            margin-right: 5px;
-        }
-        .prof-u { background-color: #95a5a6; } /* Cinza */
-        .prof-t { background-color: #34495e; } /* Azul Escuro (Trained) */
-        .prof-e { background-color: #27ae60; } /* Verde (Expert) */
-        .prof-m { background-color: #f39c12; } /* Laranja (Master) */
-        .prof-l { background-color: #8e44ad; } /* Roxo (Legendary) */
+        /* BADGES (U, T, E, M, L) */
+        .prof-badge { width: 18px; height: 18px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 9px; font-weight: bold; color: white; margin-right: 5px; }
+        .prof-u { background-color: #95a5a6; } .prof-t { background-color: #34495e; } .prof-e { background-color: #27ae60; } .prof-m { background-color: #f39c12; } .prof-l { background-color: #8e44ad; }
 
-        /* Seções e Outros */
+        /* OUTROS */
         .section-title { background-color: #333; color: #fff; padding: 5px 10px; font-weight: bold; margin-top: 20px; border-radius: 3px; }
         .saves-row { display: flex; gap: 20px; margin: 10px 0; font-weight: bold; justify-content: space-around; }
         .abilities-row { display: flex; justify-content: space-between; margin: 10px 0; border-top: 1px solid #ddd; padding-top: 10px;}
-        
-        /* Import Area */
         .import-section { display: flex; gap: 20px; margin-bottom: 20px; }
         .import-box { flex: 1; padding: 15px; background: #e8f4fd; border: 1px dashed #3498db; border-radius: 8px; }
         textarea { width: 100%; height: 60px; margin-top: 5px; font-family: monospace; font-size: 11px; }
 
-        /* Magia / Modal Styles (Mantidos) */
-        .spell-tag { background: #eef; padding: 4px 8px; border-radius: 4px; font-size: 0.9em; border: 1px solid #dde; cursor: pointer; display: inline-flex; gap: 5px; margin: 2px;}
+        /* MAGIAS */
+        .spell-tag { background: #eef; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; border: 1px solid #dde; cursor: pointer; display: inline-flex; gap: 5px; margin: 2px;}
         .spell-modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2000; justify-content: center; align-items: center; }
         .spell-card { background: white; width: 500px; max-width: 90%; border-radius: 5px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.5); font-family: sans-serif; }
         .spell-body { padding: 15px; max-height: 60vh; overflow-y: auto; }
-        .trait { background: #5e0000; color: white; padding: 2px 8px; font-size: 0.8em; text-transform: uppercase; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -130,27 +104,18 @@
         const listContainer = document.getElementById('list-container');
         const sheetDisplay = document.getElementById('sheet-display');
         
-        // --- MAPA DE PERÍCIAS PADRÃO ---
         const standardSkills = [
-            { id: 'acrobatics', name: 'Acrobatics', attr: 'dex' },
-            { id: 'arcana', name: 'Arcana', attr: 'int' },
-            { id: 'athletics', name: 'Athletics', attr: 'str' },
-            { id: 'crafting', name: 'Crafting', attr: 'int' },
-            { id: 'deception', name: 'Deception', attr: 'cha' },
-            { id: 'diplomacy', name: 'Diplomacy', attr: 'cha' },
-            { id: 'intimidation', name: 'Intimidation', attr: 'cha' },
-            { id: 'medicine', name: 'Medicine', attr: 'wis' },
-            { id: 'nature', name: 'Nature', attr: 'wis' },
-            { id: 'occultism', name: 'Occultism', attr: 'int' },
-            { id: 'performance', name: 'Performance', attr: 'cha' },
-            { id: 'religion', name: 'Religion', attr: 'wis' },
-            { id: 'society', name: 'Society', attr: 'int' },
-            { id: 'stealth', name: 'Stealth', attr: 'dex' },
-            { id: 'survival', name: 'Survival', attr: 'wis' },
-            { id: 'thievery', name: 'Thievery', attr: 'dex' }
+            { id: 'acrobatics', name: 'Acrobatics', attr: 'dex' }, { id: 'arcana', name: 'Arcana', attr: 'int' },
+            { id: 'athletics', name: 'Athletics', attr: 'str' }, { id: 'crafting', name: 'Crafting', attr: 'int' },
+            { id: 'deception', name: 'Deception', attr: 'cha' }, { id: 'diplomacy', name: 'Diplomacy', attr: 'cha' },
+            { id: 'intimidation', name: 'Intimidation', attr: 'cha' }, { id: 'medicine', name: 'Medicine', attr: 'wis' },
+            { id: 'nature', name: 'Nature', attr: 'wis' }, { id: 'occultism', name: 'Occultism', attr: 'int' },
+            { id: 'performance', name: 'Performance', attr: 'cha' }, { id: 'religion', name: 'Religion', attr: 'wis' },
+            { id: 'society', name: 'Society', attr: 'int' }, { id: 'stealth', name: 'Stealth', attr: 'dex' },
+            { id: 'survival', name: 'Survival', attr: 'wis' }, { id: 'thievery', name: 'Thievery', attr: 'dex' }
         ];
 
-        // --- GLOSSÁRIO DE MAGIAS (Exemplo) ---
+        // Glossário Exemplo
         const spellLibrary = {
             "Ignition": { action: "◆◆", desc: "A spell attack dealing fire damage." },
             "Shield": { action: "◆", desc: "Raise a magical shield (+1 AC)." }
@@ -183,84 +148,56 @@
                  hp = safeNum(build.attributes.ancestryhp) + ((safeNum(build.attributes.classhp) + conMod) * level) + safeNum(build.attributes.bonushp);
             }
 
-            // --- PROCESSAMENTO DE PERÍCIAS ---
+            // PERÍCIAS
             const processedSkills = [];
             const profs = build.proficiencies || {};
-
-            // 1. Processa as 16 perícias padrão
             standardSkills.forEach(skill => {
-                const profValue = safeNum(profs[skill.id]); // 0, 2, 4, 6, 8
-                const attrMod = getAbilMod(skill.attr);
-                // Bônus = (Se treinado: Nível + Prof) + Atributo + Item(não temos item fácil no JSON, infelizmente)
-                const total = (profValue > 0 ? (profValue + level) : 0) + attrMod;
-                
-                processedSkills.push({
-                    name: skill.name,
-                    total: total,
-                    prof: profValue,
-                    attr: skill.attr.toUpperCase()
-                });
+                const profValue = safeNum(profs[skill.id]); 
+                const total = (profValue > 0 ? (profValue + level) : 0) + getAbilMod(skill.attr);
+                processedSkills.push({ name: skill.name, total: total, prof: profValue });
             });
-
-            // 2. Processa Lores (Saber)
-            // Lores são chaves dinâmicas que não estão na lista padrão e não são saves
+            // Lores
             const excludedKeys = ['fortitude', 'reflex', 'will', 'perception', 'classDC', ...standardSkills.map(s => s.id)];
             Object.keys(profs).forEach(key => {
                 if (!excludedKeys.includes(key)) {
-                    // Assume que é Lore (Int based)
                     const profValue = safeNum(profs[key]);
-                    const attrMod = getAbilMod('int');
-                    const total = (profValue > 0 ? (profValue + level) : 0) + attrMod;
-                    
-                    // Formata o nome (ex: "Lore: Academia")
+                    const total = (profValue > 0 ? (profValue + level) : 0) + getAbilMod('int');
                     const name = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1').trim();
-                    
-                    processedSkills.push({
-                        name: name.includes("Lore") ? name : `Lore: ${name}`,
-                        total: total,
-                        prof: profValue,
-                        attr: "INT"
-                    });
+                    processedSkills.push({ name: name.includes("Lore") ? name : `Lore: ${name}`, total: total, prof: profValue });
                 }
             });
-            
-            // Ordena alfabeticamente
             processedSkills.sort((a, b) => a.name.localeCompare(b.name));
 
-            // --- CLASS DC ---
-            let classDC = { val: 0, label: "Class DC" };
+            // CLASS DC
+            let classDC = { val: 0 };
             if (build.proficiencies.classDC) {
-                const prof = safeNum(build.proficiencies.classDC);
-                // Class DC geralmente usa Key Ability, mas Pathbuilder JSON não diz explicitamente qual é a Key Ability da classe aqui.
-                // Vamos tentar adivinhar pelo maior atributo ou usar INT/STR com base na classe comum. 
-                // Simplificação: Pegamos o maior atributo entre INT, STR, DEX, CHA, WIS.
                 const mods = [getAbilMod('str'), getAbilMod('dex'), getAbilMod('int'), getAbilMod('wis'), getAbilMod('cha')];
-                const maxMod = Math.max(...mods); 
-                classDC.val = 10 + level + prof + maxMod;
+                classDC.val = 10 + level + safeNum(build.proficiencies.classDC) + Math.max(...mods);
             }
 
-            // Armas (Mantido)
-            const weapons = (build.weapons || []).map(w => {
-                let atkAttr = 'str';
-                if (w.traits && (w.traits.includes('Finesse') || w.traits.includes('Ranged'))) {
-                    if (getAbilVal('dex') > getAbilVal('str')) atkAttr = 'dex';
-                }
-                let prof = 2; if (w.prof && build.proficiencies[w.prof]) prof = build.proficiencies[w.prof];
-                const pot = safeNum(w.pot);
-                const atk = level + prof + getAbilMod(atkAttr) + pot;
-                let dmg = 0; if (!w.traits || !w.traits.includes('Ranged')) dmg += getAbilMod('str');
-                if (prof >= 4) dmg += 2; if (prof >= 6) dmg += 1;
-                return { nome: w.display||w.name, ataque: `+${atk}`, dano: `${w.str?'2':'1'}${w.die} + ${dmg}`, extras: w.traits?`(${w.traits.join(', ')})`:'' };
-            });
-
-            // Magias (Mantido)
+            // MAGIAS (COM CALCULO DE STATS)
             const spells = [];
+            let sStats = { dc: 0, attack: 0, ability: "" }; // RESETOU AQUI
+            
             const mapAction = (act) => {
                 if(!act) return "?"; const a=String(act).toLowerCase();
                 if(a.includes("reaction")) return "↶"; if(a.includes("3")) return "◆◆◆"; if(a.includes("2")) return "◆◆"; if(a.includes("1")) return "◆"; return "?";
             };
+
             if (build.spellCasters) {
                 build.spellCasters.forEach(caster => {
+                    // CÁLCULO DE DC E ATAQUE
+                    const abil = caster.ability || "cha";
+                    const prof = safeNum(caster.proficiency);
+                    const mod = getAbilMod(abil);
+                    const dc = 10 + level + prof + mod;
+                    const atk = level + prof + mod;
+
+                    // Pega o melhor valor entre todas as classes conjuradoras
+                    if (dc > sStats.dc) {
+                        sStats = { dc: dc, attack: atk, ability: abil.toUpperCase() };
+                    }
+
                     if (caster.spells) {
                         caster.spells.forEach(obj => {
                             const list = (obj.list || []).map(s => {
@@ -274,63 +211,69 @@
                 });
             }
 
-            // Saves
+            // Saves & Weapons
+            const weapons = (build.weapons || []).map(w => {
+                let atkAttr = 'str';
+                if (w.traits && (w.traits.includes('Finesse') || w.traits.includes('Ranged'))) { if (getAbilVal('dex') > getAbilVal('str')) atkAttr = 'dex'; }
+                let prof = 2; if (w.prof && build.proficiencies[w.prof]) prof = build.proficiencies[w.prof];
+                const pot = safeNum(w.pot);
+                const atk = level + prof + getAbilMod(atkAttr) + pot;
+                let dmg = 0; if (!w.traits || !w.traits.includes('Ranged')) dmg += getAbilMod('str');
+                if (prof >= 4) dmg += 2; if (prof >= 6) dmg += 1;
+                return { nome: w.display||w.name, ataque: `+${atk}`, dano: `${w.str?'2':'1'}${w.die} + ${dmg}`, extras: w.traits?`(${w.traits.join(', ')})`:'' };
+            });
             const calcSave = (k, ab) => { const p = safeNum(build.proficiencies[k]); return (p>0 ? p+level : 0) + getAbilMod(ab); };
 
             return {
                 nome: safeStr(build.name)||"Sem Nome", nivel: level||1, classe: safeStr(build.class), ancestralidade: safeStr(build.ancestry),
                 atributos: { for: getAbilVal('str'), des: getAbilVal('dex'), con: getAbilVal('con'), int: getAbilVal('int'), sab: getAbilVal('wis'), car: getAbilVal('cha') },
                 hp: hp, ca: safeNum(build.acTotal?.acTotal || build.acTotal)||10,
-                percepcao: calcSave('perception','wis'),
-                classDC: classDC,
+                percepcao: calcSave('perception','wis'), classDC: classDC,
                 saves: { fort: calcSave('fortitude','con'), ref: calcSave('reflex','dex'), vont: calcSave('will','wis') },
-                velocidade: safeNum(build.speed)||25,
-                skills: processedSkills, // NOVA LISTA COMPLETA
-                armas: weapons, magias: spells, pets: []
+                velocidade: safeNum(build.speed)||25, skills: processedSkills,
+                armas: weapons, magias: spells, spellStats: sStats, pets: []
             };
         }
 
-        // Handlers
+        // --- RENDER ---
         fileInput.addEventListener('change', (e) => { const f = e.target.files[0]; if(!f)return; const r = new FileReader(); r.onload=(ev)=>{try{importCharData(JSON.parse(ev.target.result));}catch(e){alert("Erro JSON");}}; r.readAsText(f); });
         btnImportText.addEventListener('click', () => { try{ importCharData(JSON.parse(textArea.value.trim())); }catch(e){alert("JSON inválido.");} });
         charsCollection.onSnapshot(snap => { listContainer.innerHTML=''; snap.forEach(doc => { const d = document.createElement('div'); d.className='char-item'; d.textContent=doc.data().nome; d.onclick=()=>renderSheet(doc.data()); listContainer.appendChild(d); }); });
         window.openSpellModal = (n) => { document.getElementById('modal-spell-name').innerText=n; document.getElementById('modal-spell-desc').innerText = spellLibrary[n]?.desc || "Ver no livro."; document.getElementById('spell-modal').style.display='flex'; };
 
-        // --- RENDER ---
         function renderSheet(char) {
             const mod = (v) => Math.floor((v-10)/2); const fmt = (v) => v>=0?`+${v}`:v; const fmtSave = (v) => `CD ${10+v} (${fmt(v)})`;
 
-            // Helper para Badge de Perícia
             const getBadge = (prof) => {
-                let l = "U", c = "prof-u";
-                if(prof>=2) { l="T"; c="prof-t"; }
-                if(prof>=4) { l="E"; c="prof-e"; }
-                if(prof>=6) { l="M"; c="prof-m"; }
-                if(prof>=8) { l="L"; c="prof-l"; }
+                let l="U", c="prof-u"; if(prof>=2){l="T";c="prof-t";} if(prof>=4){l="E";c="prof-e";} if(prof>=6){l="M";c="prof-m";} if(prof>=8){l="L";c="prof-l";}
                 return `<div class="prof-badge ${c}">${l}</div>`;
             };
-
-            const skillsHtml = char.skills.map(s => `
-                <div class="skill-row">
-                    ${getBadge(s.prof)}
-                    <div class="skill-bonus">${fmt(s.total)}</div>
-                    <div class="skill-name">${s.name}</div>
-                </div>
-            `).join('');
+            const skillsHtml = char.skills.map(s => `<div class="skill-row">${getBadge(s.prof)}<div class="skill-bonus">${fmt(s.total)}</div><div class="skill-name">${s.name}</div></div>`).join('');
+            
+            // RENDERIZAÇÃO DO SPELL STATS (RECUPERADO!)
+            let spellStatsHtml = '';
+            if (char.spellStats && char.spellStats.dc > 0) {
+                spellStatsHtml = `
+                <div style="background:#e8f6f3; padding:10px; border-radius:5px; margin: 10px 0; border: 1px solid #1abc9c;">
+                    <div style="display:flex; justify-content:space-around; text-align:center;">
+                        <div><div style="font-size:0.8em; text-transform:uppercase; color:#16a085;">Spell DC</div><div style="font-size:1.4em; font-weight:bold; color:#0e6251;">${char.spellStats.dc}</div></div>
+                        <div><div style="font-size:0.8em; text-transform:uppercase; color:#16a085;">Spell Attack</div><div style="font-size:1.4em; font-weight:bold; color:#0e6251;">+${char.spellStats.attack}</div></div>
+                         <div><div style="font-size:0.8em; text-transform:uppercase; color:#16a085;">Attr</div><div style="font-size:1.4em; font-weight:bold; color:#0e6251;">${char.spellStats.ability}</div></div>
+                    </div>
+                </div>`;
+            }
 
             const spellsHtml = (char.magias||[]).map(n => `<div><strong>${n.nivel}</strong>: ${n.magias.map(m=>`<span class="spell-tag" onclick="openSpellModal('${m.nome}')">${m.nome} ${m.acao}</span>`).join('')}</div>`).join('');
             const weaponsHtml = (char.armas||[]).map(a => `<li style="border-bottom:1px solid #eee; margin-bottom:5px;"><b>${a.nome}</b> ${a.ataque} (${a.dano}) <br><small>${a.extras}</small></li>`).join('');
 
             sheetDisplay.innerHTML = `
                 <div class="statblock-header"><h1>${char.nome}</h1><div class="sub">Nível ${char.nivel} ${char.ancestralidade} ${char.classe}</div></div>
-                
                 <div class="stat-grid">
                     <div class="stat-box"><div class="label">Class DC</div><div class="value" style="color:#d35400;">${char.classDC.val}</div></div>
                     <div class="stat-box"><div class="label">Percepção</div><div class="value">+${char.percepcao}</div></div>
                     <div class="stat-box"><div class="label">PV</div><div class="value" style="color:#c0392b;">${char.hp}</div></div>
                     <div class="stat-box"><div class="label">CA</div><div class="value" style="color:#2980b9;">${char.ca}</div></div>
                 </div>
-
                 <div class="abilities-row">
                     <div class="stat-box"><div class="label">FOR</div><div class="value">${char.atributos.for} (${fmt(mod(char.atributos.for))})</div></div>
                     <div class="stat-box"><div class="label">DES</div><div class="value">${char.atributos.des} (${fmt(mod(char.atributos.des))})</div></div>
@@ -339,21 +282,16 @@
                     <div class="stat-box"><div class="label">SAB</div><div class="value">${char.atributos.sab} (${fmt(mod(char.atributos.sab))})</div></div>
                     <div class="stat-box"><div class="label">CAR</div><div class="value">${char.atributos.car} (${fmt(mod(char.atributos.car))})</div></div>
                 </div>
-
+                
                 <div class="section-title">Perícias</div>
-                <div class="skills-grid">
-                    ${skillsHtml}
-                </div>
-
+                <div class="skills-grid">${skillsHtml}</div>
+                
                 <div class="section-title">Defesas</div>
-                <div class="saves-row">
-                    <span>Fortitude: ${fmtSave(char.saves.fort)}</span>
-                    <span>Reflexos: ${fmtSave(char.saves.ref)}</span>
-                    <span>Vontade: ${fmtSave(char.saves.vont)}</span>
-                </div>
-
+                <div class="saves-row"><span>Fort: ${fmtSave(char.saves.fort)}</span><span>Ref: ${fmtSave(char.saves.ref)}</span><span>Vont: ${fmtSave(char.saves.vont)}</span></div>
+                
                 <div class="section-title">Ofensiva</div><ul>${weaponsHtml}</ul>
-                <div class="section-title">Magias</div>${spellsHtml}
+                <div class="section-title">Magias</div>
+                ${spellStatsHtml} ${spellsHtml}
             `;
         }
     });
