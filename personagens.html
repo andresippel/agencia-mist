@@ -9,7 +9,6 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <script src="auth-check.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <link rel="stylesheet" href="style.css">
 
@@ -29,17 +28,22 @@
         .stat-box .label { font-size: 11px; font-weight: bold; text-transform: uppercase; color: #555; }
         .stat-box .value { font-size: 18px; font-weight: bold; color: #000; }
         
-        /* TÁTICAS IA */
+        /* TÁTICAS MANUAIS (EDITÁVEIS) */
         .tactics-box { background-color: #eaf2f8; border-left: 5px solid #3498db; padding: 15px; margin-bottom: 20px; border-radius: 0 5px 5px 0; font-size: 0.95em; line-height: 1.6; position: relative; }
-        .tactics-title { font-weight: bold; color: #2980b9; display: block; margin-bottom: 10px; text-transform: uppercase; font-size: 0.85em; border-bottom: 1px solid #cbdceb; padding-bottom: 5px; display:flex; justify-content:space-between; align-items:center;}
-        .ai-badge { background: linear-gradient(45deg, #4285f4, #9b72cb); color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.7em; }
-        .tactics-content ul { padding-left: 20px; margin: 0; }
-        .tactics-content li { margin-bottom: 8px; }
-        .tactics-content strong { color: #2c3e50; }
+        .tactics-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #cbdceb; padding-bottom: 5px; }
+        .tactics-title { font-weight: bold; color: #2980b9; text-transform: uppercase; font-size: 0.85em; }
+        .btn-edit-tactics { background: none; border: none; color: #7f8c8d; cursor: pointer; font-size: 0.8em; text-decoration: underline; }
+        .tactics-content { white-space: pre-wrap; } /* Mantém quebras de linha */
+        
+        /* Editor de Táticas */
+        .tactics-editor { display: none; margin-top: 10px; }
+        .tactics-textarea { width: 100%; height: 150px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; font-size: 0.9em; resize: vertical; }
+        .btn-save-tactics { background-color: #27ae60; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 5px; }
 
-        /* CONFIGURAÇÃO API */
-        .api-config { margin-bottom: 15px; padding: 10px; background: #fff3cd; border: 1px solid #ffeeba; border-radius: 5px; font-size: 0.9em; }
-        .api-input { width: 70%; padding: 5px; border: 1px solid #ccc; border-radius: 3px; }
+        /* PETS */
+        .pet-block { background: #fdfefe; border: 1px solid #ddd; border-left: 4px solid #27ae60; padding: 10px; margin-top: 10px; border-radius: 4px; }
+        .pet-header { font-weight: bold; color: #27ae60; display: flex; justify-content: space-between; }
+        .pet-stats { display: flex; gap: 15px; font-size: 0.9em; margin-top: 5px; color: #555; }
 
         /* GRIDS E OUTROS */
         .skills-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 5px 15px; margin-top: 10px; }
@@ -65,11 +69,6 @@
         .spell-desc-content { white-space: pre-wrap; line-height: 1.5; color: #333; }
         .nethys-link { color: #3498db; font-size: 0.9em; text-decoration: none; margin-right: 15px;}
         .edit-btn { background: none; border: none; color: #7f8c8d; cursor: pointer; font-size: 0.8em; text-decoration: underline; }
-        
-        /* Botão de Gerar AI */
-        .btn-ai-generate { background: linear-gradient(45deg, #4285f4, #8e44ad); color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.8em; }
-        .btn-ai-generate:hover { opacity: 0.9; }
-        .btn-ai-generate:disabled { background: #ccc; cursor: not-allowed; }
     </style>
 </head>
 <body>
@@ -81,14 +80,6 @@
                 <a href="#" onclick="logout()">Sair</a>
             </nav>
         </header>
-
-        <div class="api-config">
-            <label>🤖 <b>Gemini API Key:</b></label>
-            <input type="password" id="gemini-api-key" class="api-input" placeholder="Cole sua chave aqui (será salva no navegador)">
-            <button onclick="saveApiKey()" style="cursor:pointer; padding:5px;">Salvar Key</button>
-            <span id="api-status" style="font-size:0.8em; color:green; margin-left:10px; display:none;">Salva!</span>
-            <div style="font-size:0.75em; color:#666; margin-top:5px;">Necessário para gerar estratégias inteligentes. Obtenha em <a href="https://aistudio.google.com/" target="_blank">Google AI Studio</a>.</div>
-        </div>
 
         <div class="import-section">
             <div class="import-box">
@@ -142,9 +133,6 @@
         const charsCollection = db.collection("personagens");
         const spellsCollection = db.collection("biblioteca_magias");
         
-        // Elementos DOM
-        const apiKeyInput = document.getElementById('gemini-api-key');
-        const apiStatus = document.getElementById('api-status');
         const fileInput = document.getElementById('json-file');
         const textArea = document.getElementById('json-textarea');
         const pathInput = document.getElementById('pathbuilder-id-input');
@@ -152,115 +140,62 @@
         const listContainer = document.getElementById('list-container');
         const sheetDisplay = document.getElementById('sheet-display');
         
-        // Carregar API Key do LocalStorage
-        if(localStorage.getItem('gemini_key')) {
-            apiKeyInput.value = localStorage.getItem('gemini_key');
-        }
+        // Elementos Modal
+        const spellModal = document.getElementById('spell-modal');
+        const mName = document.getElementById('modal-spell-name');
+        const mAct = document.getElementById('modal-spell-action');
+        const mDesc = document.getElementById('modal-spell-desc');
+        const mEditor = document.getElementById('spell-editor');
+        const mEditText = document.getElementById('editor-text');
+        const mLink = document.getElementById('modal-nethys-link');
+        let currentSpellName = "";
+        let currentCharName = ""; // Para saber qual char estamos editando as táticas
 
-        window.saveApiKey = () => {
-            const key = apiKeyInput.value.trim();
-            if(key) {
-                localStorage.setItem('gemini_key', key);
-                apiStatus.style.display = 'inline';
-                setTimeout(() => apiStatus.style.display = 'none', 2000);
-            }
-        };
-
-        // --- INTELIGÊNCIA ARTIFICIAL (GEMINI) ---
-        // --- INTELIGÊNCIA ARTIFICIAL (GEMINI) - VERSÃO DEBUG ---
-        // --- INTELIGÊNCIA ARTIFICIAL (GEMINI) - VERSÃO CORRIGIDA ---
-        window.generateAiTactics = async (charName) => {
-            const apiKey = localStorage.getItem('gemini_key');
-            if (!apiKey) return alert("Por favor, configure a API Key do Gemini no topo da página.");
-
-            const btn = document.getElementById('btn-generate-ai');
-            const container = document.getElementById('ai-tactics-content');
+        // --- FUNÇÕES DE TÁTICA MANUAL ---
+        window.toggleTacticsEdit = () => {
+            const editor = document.getElementById('tactics-editor');
+            const display = document.getElementById('tactics-content');
+            const btn = document.getElementById('btn-edit-tactics');
             
-            btn.disabled = true;
-            btn.innerText = "Consultando o Oráculo...";
-            container.innerHTML = "<i>Analisando ficha e talentos...</i>";
-
-            try {
-                // Busca dados do personagem
-                const doc = await charsCollection.doc(charName).get();
-                if (!doc.exists) throw new Error("Personagem não encontrado no banco de dados.");
-                const charData = doc.data();
-
-                // Resumo para a IA
-                const summary = {
-                    name: charData.nome,
-                    class: charData.classe,
-                    level: charData.nivel,
-                    attributes: charData.atributos,
-                    weapons: charData.armas ? charData.armas.map(w => w.nome) : [],
-                    feats: charData.featsList || [], 
-                    spells: (charData.magias || []).map(l => l.magias.map(m => m.nome)).flat(),
-                    pets: charData.pets || []
-                };
-
-                const prompt = `
-                Atue como um especialista em Pathfinder 2e. Analise este personagem: ${JSON.stringify(summary)}.
-                Crie um resumo tático curto e direto em HTML (use tags <ul>, <li>, <b>).
-                1. Defina o Papel em Combate (Role).
-                2. Liste 3 ou 4 dicas fundamentais sobre rotação de habilidades, economia de ações e sinergia de talentos/magias.
-                3. Se tiver Pet, inclua como usá-lo.
-                Não use Markdown, use apenas HTML simples dentro da resposta. Seja conciso.
-                `;
-
-                // --- MUDANÇA AQUI: Trocamos 'gemini-1.5-flash' por 'gemini-pro' ---
-                // Linha CORRETA para substituir:
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    // Isso vai te mostrar o erro real na tela se acontecer de novo
-                    throw new Error(errorData.error?.message || `Erro HTTP: ${response.status}`);
-                }
-
-                const data = await response.json();
-                
-                if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
-                    throw new Error("A IA não retornou texto. (Bloqueio de segurança ou modelo instável)");
-                }
-
-                const aiText = data.candidates[0].content.parts[0].text;
-                
-                await charsCollection.doc(charName).update({ aiTactics: aiText });
-                container.innerHTML = aiText;
-                btn.innerText = "Regenerar Estratégia";
-
-            } catch (error) {
-                console.error("ERRO DETALHADO:", error);
-                container.innerHTML = `<div style="color:red; background:#fdd; padding:10px; border-radius:5px;">
-                    <b>Ocorreu um erro:</b><br>${error.message}
-                </div>`;
-                btn.innerText = "Tentar Novamente";
-            } finally {
-                btn.disabled = false;
+            if (editor.style.display === 'none' || editor.style.display === '') {
+                editor.style.display = 'block';
+                display.style.display = 'none';
+                btn.innerText = "Cancelar Edição";
+                // Preenche o textarea com o texto atual
+                document.getElementById('tactics-textarea').value = display.innerText === "Nenhuma anotação tática. Clique em editar para adicionar." ? "" : display.innerText;
+            } else {
+                editor.style.display = 'none';
+                display.style.display = 'block';
+                btn.innerText = "✎ Editar Táticas";
             }
         };
 
-        // --- IMPORTAÇÃO (ATUALIZADA PARA SALVAR LISTA DE TALENTOS) ---
+        window.saveTactics = async () => {
+            const newText = document.getElementById('tactics-textarea').value;
+            const display = document.getElementById('tactics-content');
+            
+            try {
+                await charsCollection.doc(currentCharName).update({
+                    tacticsText: newText
+                });
+                
+                // Atualiza a tela
+                display.innerText = newText || "Nenhuma anotação tática. Clique em editar para adicionar.";
+                window.toggleTacticsEdit(); // Fecha o editor
+                alert("Táticas salvas com sucesso!");
+            } catch (error) {
+                console.error(error);
+                alert("Erro ao salvar táticas: " + error.message);
+            }
+        };
+
+        // --- IMPORTAÇÃO ---
         async function importCharData(jsonData) {
             try {
                 if (!jsonData.build) throw new Error("JSON inválido.");
                 const rawData = extractPathbuilderData(jsonData.build);
                 const charData = JSON.parse(JSON.stringify(rawData));
                 
-                // Extrai lista de talentos para a IA usar
-                const feats = [];
-                if (jsonData.build.feats) {
-                    jsonData.build.feats.forEach(f => { if(f[0]) feats.push(f[0]); }); // Pathbuilder guarda como array [nome, ...]
-                }
-                if (jsonData.build.specials) {
-                    jsonData.build.specials.forEach(s => feats.push(s));
-                }
-                charData.featsList = feats;
-
                 // Link Pathbuilder
                 let pbLink = pathInput.value.trim();
                 if (pbLink.includes("build=")) pbLink = pbLink.split("build=")[1];
@@ -272,7 +207,6 @@
             } catch (error) { console.error(error); alert("Erro: " + error.message); }
         }
 
-        // --- EXTRAÇÃO (Mantida a lógica robusta anterior) ---
         function extractPathbuilderData(build) {
             const safeNum = (v) => (v && !isNaN(v)) ? Number(v) : 0;
             const safeStr = (v) => (v) ? String(v) : "";
@@ -294,7 +228,7 @@
             const weapons = (build.weapons || []).map(w => {
                 const nameLower = (w.display || w.name || "").toLowerCase();
                 const traits = (w.traits || []).map(t => String(t).toLowerCase());
-                const isRanged = traits.some(t => t.includes('range')) || nameLower.includes('crossbow') || nameLower.includes('bow');
+                const isRanged = traits.some(t => t.includes('range')) || nameLower.includes('crossbow') || nameLower.includes('bow') || nameLower.includes('gun') || nameLower.includes('sling');
                 const finesseNames = ['rapier', 'dagger', 'shortsword', 'whip'];
                 const isFinesse = traits.includes('finesse') || finesseNames.some(n => nameLower.includes(n));
                 const isPropulsive = traits.includes('propulsive'); const isThrown = traits.includes('thrown');
@@ -340,22 +274,27 @@
 
         // --- RENDERIZAÇÃO ---
         function renderSheet(char) {
+            currentCharName = char.nome; // Guarda o nome para salvar táticas depois
             const mod = (v) => Math.floor((v-10)/2); const fmt = (v) => v>=0?`+${v}`:v; const fmtSave = (v) => `CD ${10+v} (${fmt(v)})`;
             let pbLinkHtml = ""; if (char.pathbuilderId) { pbLinkHtml = `<a href="https://pathbuilder2e.com/launch.html?build=${char.pathbuilderId}" target="_blank" style="display:block; text-align:center; background:#d4af37; color:white; padding:10px; border-radius:5px; text-decoration:none; font-weight:bold; margin-bottom:15px; box-shadow:0 2px 5px rgba(0,0,0,0.2);">📜 Abrir Ficha Original no Pathbuilder</a>`; }
 
-            // LÓGICA DE EXIBIÇÃO DA TÁTICA (IA ou Estático)
+            // CAIXA DE TÁTICAS MANUAL
+            // Verifica se existe texto salvo, senão coloca placeholder
+            const tacticsText = char.tacticsText || "Nenhuma anotação tática. Clique em editar para adicionar.";
+            
             let tacticsHtml = `
             <div class="tactics-box">
-                <span class="tactics-title">
-                    <span>🧠 Estratégia de Combate</span>
-                    <span class="ai-badge">IA</span>
-                </span>
-                <div class="tactics-content" id="ai-tactics-content">
-                    ${char.aiTactics ? char.aiTactics : "Nenhuma estratégia gerada pela IA ainda."}
+                <div class="tactics-header">
+                    <span class="tactics-title">🧠 Resumo Tático & Anotações</span>
+                    <button id="btn-edit-tactics" class="btn-edit-tactics" onclick="toggleTacticsEdit()">✎ Editar Táticas</button>
                 </div>
-                <button id="btn-generate-ai" class="btn-ai-generate" style="margin-top:10px;" onclick="generateAiTactics('${char.nome}')">
-                    ${char.aiTactics ? "Regenerar com IA" : "✨ Gerar Estratégia com IA"}
-                </button>
+                
+                <div id="tactics-content" class="tactics-content">${tacticsText}</div>
+                
+                <div id="tactics-editor" class="tactics-editor">
+                    <textarea id="tactics-textarea" class="tactics-textarea"></textarea>
+                    <button class="btn-save-tactics" onclick="saveTactics()">Salvar Alterações</button>
+                </div>
             </div>`;
 
             let petsHtml = "";
