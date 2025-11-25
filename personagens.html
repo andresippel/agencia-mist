@@ -22,27 +22,40 @@
         .char-item:hover { background-color: #f0f0f0; }
         .char-sheet { flex: 3; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
 
-        /* HEADER & GRID */
+        /* HEADER */
         .statblock-header { border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px; }
         .statblock-header h1 { margin: 0; font-size: 24px; color: #2c3e50; }
-        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 10px; margin-bottom: 20px; background: #f9f9f9; padding: 10px; border-radius: 5px; }
-        .stat-box { text-align: center; }
-        .stat-box .label { font-size: 11px; font-weight: bold; text-transform: uppercase; color: #555; }
-        .stat-box .value { font-size: 18px; font-weight: bold; color: #000; }
+
+        /* GRID DE STATUS (ATUALIZADO) */
+        .stat-grid { 
+            display: flex; 
+            justify-content: space-around; 
+            align-items: center;
+            background: #f4f6f7; 
+            padding: 15px; 
+            border-radius: 8px; 
+            margin-bottom: 20px; 
+            border: 1px solid #e0e0e0;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .stat-box { text-align: center; min-width: 80px; }
+        .stat-box .label { font-size: 11px; font-weight: bold; text-transform: uppercase; color: #7f8c8d; letter-spacing: 1px; margin-bottom: 2px;}
+        .stat-box .value { font-size: 16px; font-weight: bold; color: #2c3e50; }
         
-        /* TÁTICAS MANUAIS (FORMATADAS) */
+        /* DESTAQUE PARA PV E CA */
+        .stat-box.main-stat .value { font-size: 26px; display: flex; align-items: center; justify-content: center; gap: 5px; }
+        .stat-box.main-stat .label { font-size: 12px; color: #333; }
+
+        /* TÁTICAS */
         .tactics-box { background-color: #eaf2f8; border-left: 5px solid #3498db; padding: 15px; margin-bottom: 20px; border-radius: 0 5px 5px 0; font-size: 0.95em; line-height: 1.6; position: relative; }
         .tactics-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #cbdceb; padding-bottom: 5px; }
         .tactics-title { font-weight: bold; color: #2980b9; text-transform: uppercase; font-size: 0.85em; }
         .btn-edit-tactics { background: none; border: none; color: #7f8c8d; cursor: pointer; font-size: 0.8em; text-decoration: underline; }
-        
-        /* Estilo do texto renderizado pelo Marked */
         .tactics-content { color: #2c3e50; }
         .tactics-content strong { color: #2980b9; }
         .tactics-content ul { padding-left: 25px; margin: 10px 0; }
         .tactics-content li { margin-bottom: 5px; }
-        
-        /* Editor de Táticas */
         .tactics-editor { display: none; margin-top: 10px; }
         .tactics-textarea { width: 100%; height: 200px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; font-size: 0.9em; resize: vertical; }
         .btn-save-tactics { background-color: #27ae60; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 5px; }
@@ -52,7 +65,7 @@
         .pet-header { font-weight: bold; color: #27ae60; display: flex; justify-content: space-between; }
         .pet-stats { display: flex; gap: 15px; font-size: 0.9em; margin-top: 5px; color: #555; }
 
-        /* GRIDS E OUTROS */
+        /* GRIDS, BADGES E OUTROS */
         .skills-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 5px 15px; margin-top: 10px; }
         .skill-row { display: flex; align-items: center; font-size: 0.9em; border-bottom: 1px solid #f9f9f9; padding: 3px 0; }
         .skill-name { flex: 1; margin-left: 8px; color: #333; }
@@ -62,6 +75,8 @@
         .section-title { background-color: #333; color: #fff; padding: 5px 10px; font-weight: bold; margin-top: 20px; border-radius: 3px; }
         .saves-row { display: flex; gap: 20px; margin: 10px 0; font-weight: bold; justify-content: space-around; }
         .abilities-row { display: flex; justify-content: space-between; margin: 10px 0; border-top: 1px solid #ddd; padding-top: 10px;}
+        
+        /* IMPORT SECTION */
         .import-section { display: flex; gap: 20px; margin-bottom: 20px; }
         .import-box { flex: 1; padding: 15px; background: #e8f4fd; border: 1px dashed #3498db; border-radius: 8px; }
         textarea.json-in { width: 100%; height: 60px; margin-top: 5px; font-family: monospace; font-size: 11px; }
@@ -159,7 +174,7 @@
         let currentCharName = "";
         let currentRawTactics = ""; 
 
-        // --- FUNÇÕES DE TÁTICA MANUAL (COM MARKDOWN) ---
+        // --- TÁTICA MANUAL ---
         window.toggleTacticsEdit = () => {
             const editor = document.getElementById('tactics-editor');
             const display = document.getElementById('tactics-content');
@@ -167,15 +182,10 @@
             const txtArea = document.getElementById('tactics-textarea');
             
             if (editor.style.display === 'none' || editor.style.display === '') {
-                // MODO EDIÇÃO
-                editor.style.display = 'block';
-                display.style.display = 'none';
-                btn.innerText = "Cancelar Edição";
-                txtArea.value = currentRawTactics || "";
+                editor.style.display = 'block'; display.style.display = 'none';
+                btn.innerText = "Cancelar Edição"; txtArea.value = currentRawTactics || "";
             } else {
-                // MODO VISUALIZAÇÃO
-                editor.style.display = 'none';
-                display.style.display = 'block';
+                editor.style.display = 'none'; display.style.display = 'block';
                 btn.innerText = "✎ Editar Táticas";
             }
         };
@@ -186,9 +196,7 @@
             try {
                 await charsCollection.doc(currentCharName).update({ tacticsText: newText });
                 currentRawTactics = newText;
-                // Renderiza o Markdown
-                const htmlContent = newText ? marked.parse(newText) : "<i>Nenhuma anotação tática. Clique em editar para adicionar.</i>";
-                display.innerHTML = htmlContent;
+                display.innerHTML = newText ? marked.parse(newText) : "<i>Nenhuma anotação tática. Clique em editar para adicionar.</i>";
                 window.toggleTacticsEdit(); 
             } catch (error) { console.error(error); alert("Erro ao salvar: " + error.message); }
         };
@@ -208,7 +216,6 @@
             } catch (error) { console.error(error); alert("Erro: " + error.message); }
         }
 
-        // --- EXTRAÇÃO (COM LÓGICA CORRIGIDA) ---
         function extractPathbuilderData(build) {
             const safeNum = (v) => (v && !isNaN(v)) ? Number(v) : 0;
             const safeStr = (v) => (v) ? String(v) : "";
@@ -231,12 +238,10 @@
                 const finesseNames = ['rapier', 'dagger', 'shortsword', 'whip', 'elven curve blade', 'aldori dueling sword'];
                 const isFinesse = traits.includes('finesse') || finesseNames.some(n => nameLower.includes(n));
                 const isPropulsive = traits.includes('propulsive'); const isThrown = traits.includes('thrown');
-                let atkAttr = 'str';
-                if (isRanged) { atkAttr = 'dex'; } else if (isFinesse) { if (getAbilVal('dex') > getAbilVal('str')) atkAttr = 'dex'; }
+                let atkAttr = 'str'; if (isRanged) { atkAttr = 'dex'; } else if (isFinesse) { if (getAbilVal('dex') > getAbilVal('str')) atkAttr = 'dex'; }
                 let profBonus = 0; if (w.prof && build.proficiencies[w.prof]) profBonus = build.proficiencies[w.prof]; else profBonus = 2;
                 const pot = safeNum(w.pot); const atk = level + profBonus + getAbilMod(atkAttr) + pot;
-                let dmgBonus = 0;
-                if (!isRanged || isThrown) { dmgBonus += getAbilMod('str'); } else if (isPropulsive) { dmgBonus += Math.floor(getAbilMod('str') / 2); }
+                let dmgBonus = 0; if (!isRanged || isThrown) { dmgBonus += getAbilMod('str'); } else if (isPropulsive) { dmgBonus += Math.floor(getAbilMod('str') / 2); }
                 if (profBonus >= 4) dmgBonus += 2; if (profBonus >= 6) dmgBonus += 1;
                 if (safeStr(build.class).toLowerCase().includes("thaumaturge")) { dmgBonus += 2; }
                 const die = w.die || "d4"; const diceCount = w.str ? 2 : 1; const traitsFormatted = w.traits ? `(${w.traits.join(', ')})` : '';
@@ -265,22 +270,46 @@
             return {
                 nome: safeStr(build.name)||"Sem Nome", nivel: level||1, classe: safeStr(build.class), ancestralidade: safeStr(build.ancestry),
                 atributos: { for: getAbilVal('str'), des: getAbilVal('dex'), con: getAbilVal('con'), int: getAbilVal('int'), sab: getAbilVal('wis'), car: getAbilVal('cha') },
-                hp: hp, ca: safeNum(build.acTotal?.acTotal || build.acTotal)||10, percepcao: calcSave('perception','wis'), classDC: {val:10+level}, // Simplificado
+                hp: hp, ca: safeNum(build.acTotal?.acTotal || build.acTotal)||10, percepcao: calcSave('perception','wis'), classDC: {val:10+level}, 
                 saves: { fort: calcSave('fortitude','con'), ref: calcSave('reflex','dex'), vont: calcSave('will','wis') },
                 velocidade: safeNum(build.speed)||25, skills: processedSkills, armas: weapons, magias: spells, spellStats: sStats, pets: petsList
             };
         }
 
-        // --- RENDERIZAÇÃO ---
+        // --- RENDERIZAÇÃO ATUALIZADA (ICONES E GRID) ---
         function renderSheet(char) {
             currentCharName = char.nome; 
             currentRawTactics = char.tacticsText || ""; 
-            
-            // RENDERIZA O MARKDOWN AQUI
             const tacticsHtmlContent = currentRawTactics ? marked.parse(currentRawTactics) : "<i>Nenhuma anotação tática. Clique em editar para adicionar.</i>";
 
             const mod = (v) => Math.floor((v-10)/2); const fmt = (v) => v>=0?`+${v}`:v; const fmtSave = (v) => `CD ${10+v} (${fmt(v)})`;
             let pbLinkHtml = ""; if (char.pathbuilderId) { pbLinkHtml = `<a href="https://pathbuilder2e.com/launch.html?build=${char.pathbuilderId}" target="_blank" style="display:block; text-align:center; background:#d4af37; color:white; padding:10px; border-radius:5px; text-decoration:none; font-weight:bold; margin-bottom:15px; box-shadow:0 2px 5px rgba(0,0,0,0.2);">📜 Abrir Ficha Original no Pathbuilder</a>`; }
+
+            // GRADE DE STATUS PRINCIPAL (Com Ícones e Destaque)
+            let statusGridHtml = `
+                <div class="stat-grid">
+                    <div class="stat-box main-stat">
+                        <div class="label">Pontos de Vida</div>
+                        <div class="value" style="color:#c0392b;">❤️ ${char.hp}</div>
+                    </div>
+                    <div class="stat-box main-stat">
+                        <div class="label">Classe de Armadura</div>
+                        <div class="value" style="color:#2980b9;">🛡️ ${char.ca}</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="label">Iniciativa</div>
+                        <div class="value">👁️ +${char.percepcao}</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="label">Velocidade</div>
+                        <div class="value">🦶 ${char.velocidade} ft</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="label">Class DC</div>
+                        <div class="value">🎓 ${char.classDC.val}</div>
+                    </div>
+                </div>
+            `;
 
             let tacticsHtml = `
             <div class="tactics-box">
@@ -310,7 +339,15 @@
             sheetDisplay.innerHTML = `
                 <div class="statblock-header"><h1>${char.nome}</h1><div class="sub">Nível ${char.nivel} ${char.ancestralidade} ${char.classe}</div></div>
                 ${pbLinkHtml} ${tacticsHtml}
-                <div class="stat-grid"><div class="stat-box"><div class="label">PV</div><div class="value" style="color:#c0392b;">${char.hp}</div></div><div class="stat-box"><div class="label">CA</div><div class="value" style="color:#2980b9;">${char.ca}</div></div></div>
+                
+                ${statusGridHtml} <div class="abilities-row">
+                    <div class="stat-box"><div class="label">FOR</div><div class="value">${char.atributos.for} (${fmt(mod(char.atributos.for))})</div></div>
+                    <div class="stat-box"><div class="label">DES</div><div class="value">${char.atributos.des} (${fmt(mod(char.atributos.des))})</div></div>
+                    <div class="stat-box"><div class="label">CON</div><div class="value">${char.atributos.con} (${fmt(mod(char.atributos.con))})</div></div>
+                    <div class="stat-box"><div class="label">INT</div><div class="value">${char.atributos.int} (${fmt(mod(char.atributos.int))})</div></div>
+                    <div class="stat-box"><div class="label">SAB</div><div class="value">${char.atributos.sab} (${fmt(mod(char.atributos.sab))})</div></div>
+                    <div class="stat-box"><div class="label">CAR</div><div class="value">${char.atributos.car} (${fmt(mod(char.atributos.car))})</div></div>
+                </div>
                 <div class="section-title">Perícias</div><div class="skills-grid">${skillsHtml}</div>
                 <div class="section-title">Defesas</div><div class="saves-row"><span>Fort: ${fmtSave(char.saves.fort)}</span><span>Ref: ${fmtSave(char.saves.ref)}</span><span>Vont: ${fmtSave(char.saves.vont)}</span></div>
                 <div class="section-title">Ofensiva</div><ul>${weaponsHtml}</ul>
