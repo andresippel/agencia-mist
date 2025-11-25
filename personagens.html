@@ -142,56 +142,77 @@
         // --- FUNÇÃO CENTRAL DE IMPORTAÇÃO ---
         async function importCharData(jsonData) {
             try {
-                if (!jsonData.build) throw new Error("JSON inválido. Certifique-se de copiar o conteúdo inteiro.");
+                // Validação básica
+                if (!jsonData.build) throw new Error("JSON inválido ou incompleto.");
 
                 const charData = extractPathbuilderData(jsonData.build);
                 
                 await charsCollection.doc(charData.nome).set(charData);
-                alert(`Personagem ${charData.nome} importado com sucesso!`);
+                alert(`Personagem ${charData.nome} atualizado com sucesso!`);
                 
                 fileInput.value = '';
                 textArea.value = '';
             } catch (error) {
                 console.error(error);
-                alert("Erro ao importar: " + error.message);
+                alert("Erro ao processar dados: " + error.message);
             }
         }
 
-        // --- EXTRAÇÃO DE DADOS AVANÇADA ---
+        // --- EXTRAÇÃO DE DADOS (MINERAÇÃO PROFUNDA) ---
         function extractPathbuilderData(build) {
-            const safeNum = (val) => (val !== undefined && val !== null) ? Number(val) : 0;
+            const safeNum = (val) => (val !== undefined && val !== null && !isNaN(val)) ? Number(val) : 0;
             const safeStr = (val) => (val !== undefined && val !== null) ? String(val) : "";
 
-            // --- CÁLCULO DE HP (Fórmula de segurança) ---
+            // 1. CÁLCULO DE HP (Blindagem)
             let hpValue = safeNum(build.attributes.hp);
             if (hpValue === 0) {
                  const ancHp = safeNum(build.attributes.ancestryhp);
                  const classHp = safeNum(build.attributes.classhp);
                  const bonusHp = safeNum(build.attributes.bonushp);
-                 const conBonus = safeNum(build.abilities.con) > 10 ? Math.floor((safeNum(build.abilities.con) - 10) / 2) * safeNum(build.level) : 0;
-                 hpValue = ancHp + classHp + bonusHp + conBonus;
+                 const conMod = safeNum(build.abilities.con) > 10 ? Math.floor((safeNum(build.abilities.con) - 10) / 2) : 0;
+                 // HP = Ancestralidade + (Classe + Con) * Nível + Bonus
+                 hpValue = ancHp + ((classHp + conMod) * safeNum(build.level)) + bonusHp;
             }
 
-            // --- EXTRAÇÃO DE ARMAS ---
-            // O Pathbuilder lista armas em 'weapons'. Vamos tentar formatar um texto simples.
+            // 2. EXTRAÇÃO DE ARMAS
             const weaponsList = (build.weapons || []).map(w => {
-                const pot = w.pot ? `+${w.pot}` : ""; // Runa de Potência (+1, +2...)
-                const str = w.str ? "Striking" : ""; // Runa Striking
-                const name = w.display || w.name; // Nome da arma
-                const die = w.die ? w.die : ""; // Dado de dano (d8, d6)
-                // Retorna algo como: "+1 Longsword (d8)"
-                return `${pot} ${name} ${str ? `(${str})` : ''} [${die}]`.trim();
+                const pot = w.pot ? `+${w.pot}` : ""; 
+                const str = w.str ? "Striking" : ""; 
+                const name = w.display || w.name; 
+                const die = w.die ? w.die : ""; 
+                const traits = w.traits ? `(${w.traits.join(', ')})` : "";
+                return {
+                    texto: `${pot} ${name} ${str ? `(${str})` : ''} [${die}]`.trim(),
+                    traits: traits
+                };
             });
 
-            // --- EXTRAÇÃO DE MAGIAS ---
-            // 'spellCasters' é um array (pode ter multiclasse). Dentro tem 'spells' por nível.
+            // 3. EXTRAÇÃO DE MAGIAS COM AÇÕES
             const spellsList = [];
+            
+            // Função para converter texto de ação em ícone
+            const mapAction = (act) => {
+                if (!act) return "";
+                if (act.includes("1") && !act.includes("to")) return "◆";
+                if (act.includes("2")) return "◆◆";
+                if (act.includes("3")) return "◆◆◆";
+                if (act.toLowerCase().includes("reaction")) return "↶";
+                if (act.toLowerCase().includes("free")) return "◇";
+                return act; // Retorna texto se não reconhecer (ex: "1 to 2")
+            };
+
             if (build.spellCasters) {
                 build.spellCasters.forEach(caster => {
                     if (caster.spells) {
                         caster.spells.forEach(spellLevelObj => {
                             const level = spellLevelObj.spellLevel;
-                            const list = spellLevelObj.list || [];
+                            const list = (spellLevelObj.list || []).map(s => {
+                                return {
+                                    nome: s.name,
+                                    acao: mapAction(s.actions)
+                                };
+                            });
+                            
                             if (list.length > 0) {
                                 spellsList.push({
                                     nivel: level === 0 ? "Truques (Cantrips)" : `Nível ${level}`,
@@ -203,14 +224,42 @@
                 });
             }
 
-            // --- EXTRAÇÃO DE PETS ---
+            // 4. EXTRAÇÃO DE PETS (COM STATS)
             const petsList = [];
-            if (build.pets) {
-                build.pets.forEach(p => petsList.push({ nome: p.name, tipo: p.type || "Companheiro" }));
-            }
-            if (build.familiars) {
-                build.familiars.forEach(f => petsList.push({ nome: f.name, tipo: "Familiar" }));
-            }
+            const processPet = (p, tipo) => {
+                const pAbil = p.abilities || {str:10, dex:10, con:10, int:10, wis:10, cha:10};
+                return {
+                    nome: p.name || "Sem Nome",
+                    tipo: tipo,
+                    hp: safeNum(p.attributes?.hp) || (safeNum(build.level) * 5), // Estimativa se faltar
+                    ca: safeNum(p.ac) || 10,
+                    atributos: {
+                        for: safeNum(pAbil.str),
+                        des: safeNum(pAbil.dex),
+                        con: safeNum(pAbil.con),
+                        int: safeNum(pAbil.int),
+                        sab: safeNum(pAbil.wis),
+                        car: safeNum(pAbil.cha)
+                    }
+                };
+            };
+
+            if (build.pets) build.pets.forEach(p => petsList.push(processPet(p, p.type || "Companheiro")));
+            if (build.familiars) build.familiars.forEach(f => petsList.push(processPet(f, "Familiar")));
+
+            // 5. DEFESAS / SAVES
+            // Pathbuilder dá o proficiencies (2,4,6,8). Precisamos calcular o total:
+            // Total = Proficiencia + Nivel + Mod Atributo + Item(se tiver, mas o JSON nem sempre dá item bonus direto aqui)
+            // Nota: Para simplificar e garantir precisão, usaremos a lógica: 
+            // Se o JSON der o valor 'bonus', usamos ele. Senão calculamos.
+            const calcSave = (prof, abilityScore) => {
+                const mod = Math.floor((safeNum(abilityScore) - 10) / 2);
+                const profVal = safeNum(prof); // 0=Untrained, 2=Trained...
+                const level = safeNum(build.level);
+                // Se for destreinado (0), não soma nível.
+                const total = (profVal > 0 ? (profVal + level) : 0) + mod; 
+                return total;
+            };
 
             return {
                 nome: safeStr(build.name) || "Sem Nome",
@@ -227,24 +276,24 @@
                 },
                 hp: hpValue,
                 ca: safeNum(build.acTotal ? (build.acTotal.acTotal || build.acTotal) : 10), 
-                percepcao: safeNum(build.proficiencies.perception) + safeNum(build.level) + safeNum(build.abilities.wis),
+                percepcao: calcSave(build.proficiencies.perception, build.abilities.wis),
                 saves: {
-                    fort: safeNum(build.proficiencies.fortitude) + safeNum(build.level) + safeNum(build.abilities.con),
-                    ref: safeNum(build.proficiencies.reflex) + safeNum(build.level) + safeNum(build.abilities.dex),
-                    vont: safeNum(build.proficiencies.will) + safeNum(build.level) + safeNum(build.abilities.wis)
+                    // Tenta pegar bonus direto ou calcula
+                    fort: calcSave(build.proficiencies.fortitude, build.abilities.con),
+                    ref: calcSave(build.proficiencies.reflex, build.abilities.dex),
+                    vont: calcSave(build.proficiencies.will, build.abilities.wis)
                 },
                 velocidade: safeNum(build.speed) || 25,
                 pericias: build.proficiencies ? Object.keys(build.proficiencies)
                     .filter(k => !['fortitude','reflex','will','perception','classDC'].includes(k) && build.proficiencies[k] > 0)
                     .slice(0, 10) : [],
-                // Novos campos adicionados
                 armas: weaponsList,
                 magias: spellsList,
                 pets: petsList
             };
         }
 
-        // --- HANDLERS DE IMPORTAÇÃO ---
+        // --- HANDLERS (Arquivo e Texto) ---
         fileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
@@ -272,38 +321,66 @@
             });
         });
 
-        // --- RENDERIZAÇÃO DA FICHA ATUALIZADA ---
+        // --- RENDERIZAÇÃO DA FICHA ---
         function renderSheet(char) {
             const mod = (val) => Math.floor((val - 10) / 2);
             const fmt = (val) => (val >= 0 ? `+${val}` : val);
+
+            // Helpers para Saves com formato "CD 18 (+8)"
+            const fmtSave = (total) => {
+                const dc = 10 + total;
+                return `CD ${dc} (${fmt(total)})`;
+            };
+
             const periciasTexto = (char.pericias && Array.isArray(char.pericias)) ? char.pericias.join(', ').replace(/_/g, ' ') : "Nenhuma";
 
-            // HTML para Armas
-            let armasHtml = '<p style="color:#777;">Nenhuma arma equipada.</p>';
+            // HTML Armas
+            let armasHtml = '<p style="color:#777; font-style:italic;">Nenhuma arma equipada.</p>';
             if (char.armas && char.armas.length > 0) {
-                armasHtml = `<ul style="padding-left: 20px;">${char.armas.map(a => `<li>${a}</li>`).join('')}</ul>`;
+                armasHtml = `<ul style="padding-left: 20px;">
+                    ${char.armas.map(a => `<li style="margin-bottom:5px;"><b>${a.texto}</b> <br><span style="font-size:0.85em; color:#666;">${a.traits}</span></li>`).join('')}
+                </ul>`;
             }
 
-            // HTML para Pets
+            // HTML Pets (Mini Ficha)
             let petsHtml = '';
             if (char.pets && char.pets.length > 0) {
-                petsHtml = `<div class="section-title">Companheiros / Pets</div>
-                            <ul style="padding-left: 20px;">
-                                ${char.pets.map(p => `<li><b>${p.nome}</b> (${p.tipo})</li>`).join('')}
-                            </ul>`;
+                petsHtml = `<div class="section-title">Companheiros / Pets</div>`;
+                char.pets.forEach(p => {
+                    petsHtml += `
+                    <div style="background:#f0f0f0; padding:10px; border-radius:5px; margin-bottom:10px; border-left: 4px solid #333;">
+                        <div style="font-weight:bold; font-size:1.1em;">${p.nome} <span style="font-weight:normal; font-size:0.8em;">(${p.tipo})</span></div>
+                        <div style="display:flex; gap:15px; margin:5px 0;">
+                            <span><b>PV:</b> ${p.hp}</span>
+                            <span><b>CA:</b> ${p.ca}</span>
+                        </div>
+                        <div style="font-size:0.85em; display:flex; justify-content:space-between; border-top:1px solid #ccc; padding-top:5px;">
+                            <span>FOR ${fmt(mod(p.atributos.for))}</span>
+                            <span>DES ${fmt(mod(p.atributos.des))}</span>
+                            <span>CON ${fmt(mod(p.atributos.con))}</span>
+                            <span>INT ${fmt(mod(p.atributos.int))}</span>
+                            <span>SAB ${fmt(mod(p.atributos.sab))}</span>
+                            <span>CAR ${fmt(mod(p.atributos.car))}</span>
+                        </div>
+                    </div>`;
+                });
             }
 
-            // HTML para Magias
+            // HTML Magias (Com ícones)
             let magiasHtml = '';
             if (char.magias && char.magias.length > 0) {
                 magiasHtml = `<div class="section-title">Livro de Magias</div>`;
                 char.magias.forEach(nivel => {
-                    magiasHtml += `
-                        <div style="margin-top: 10px;">
-                            <strong style="color: #444;">${nivel.nivel}:</strong> 
-                            <span style="font-size: 0.95em; color: #555;">${nivel.magias.join(', ')}</span>
+                    magiasHtml += `<div style="margin-top: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
+                        <strong style="color: #444; display:block; margin-bottom:3px;">${nivel.nivel}</strong> 
+                        <div style="display:flex; flex-wrap:wrap; gap: 8px;">
+                            ${nivel.magias.map(m => `
+                                <span style="background:#eef; padding:2px 6px; border-radius:4px; font-size:0.9em; border:1px solid #dde;">
+                                    ${m.nome} <span style="color:#d35400; font-weight:bold;">${m.acao}</span>
+                                </span>
+                            `).join('')}
                         </div>
-                    `;
+                    </div>`;
                 });
             }
 
@@ -312,12 +389,14 @@
                     <h1>${char.nome}</h1>
                     <div class="sub">Nível ${char.nivel} ${char.ancestralidade} ${char.classe}</div>
                 </div>
+                
                 <div class="stat-grid">
-                    <div class="stat-box"><div class="label">PV (HP)</div><div class="value">${char.hp}</div></div>
-                    <div class="stat-box"><div class="label">CA (AC)</div><div class="value">${char.ca}</div></div>
+                    <div class="stat-box"><div class="label">PV (HP)</div><div class="value" style="color:#c0392b;">${char.hp}</div></div>
+                    <div class="stat-box"><div class="label">CA (AC)</div><div class="value" style="color:#2980b9;">${char.ca}</div></div>
                     <div class="stat-box"><div class="label">Velocidade</div><div class="value">${char.velocidade}ft</div></div>
                     <div class="stat-box"><div class="label">Percepção</div><div class="value">+${char.percepcao}</div></div>
                 </div>
+
                 <div class="abilities-row">
                     <div class="stat-box"><div class="label">FOR</div><div class="value">${char.atributos.for} (${fmt(mod(char.atributos.for))})</div></div>
                     <div class="stat-box"><div class="label">DES</div><div class="value">${char.atributos.des} (${fmt(mod(char.atributos.des))})</div></div>
@@ -327,16 +406,17 @@
                     <div class="stat-box"><div class="label">CAR</div><div class="value">${char.atributos.car} (${fmt(mod(char.atributos.car))})</div></div>
                 </div>
                 
+                <div class="section-title">Defesas (CD & Bônus)</div>
+                <div class="saves-row" style="justify-content: space-around;">
+                    <div class="stat-box"><div class="label">Fortitude</div><div class="value">${fmtSave(char.saves.fort)}</div></div>
+                    <div class="stat-box"><div class="label">Reflexos</div><div class="value">${fmtSave(char.saves.ref)}</div></div>
+                    <div class="stat-box"><div class="label">Vontade</div><div class="value">${fmtSave(char.saves.vont)}</div></div>
+                </div>
+
                 <div class="section-title">Ofensiva</div>
                 ${armasHtml}
 
-                <div class="section-title">Defesa & Perícias</div>
-                <div class="saves-row">
-                    <span>Fortitude: +${char.saves.fort}</span>
-                    <span>Reflexos: +${char.saves.ref}</span>
-                    <span>Vontade: +${char.saves.vont}</span>
-                </div>
-                <p><b>Perícias:</b> <span style="text-transform: capitalize;">${periciasTexto}</span></p>
+                <p style="margin-top:15px;"><b>Perícias Treinadas:</b> <span style="text-transform: capitalize; color:#444;">${periciasTexto}</span></p>
 
                 ${magiasHtml}
                 ${petsHtml}
