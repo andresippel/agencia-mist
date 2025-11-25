@@ -146,7 +146,6 @@
 
                 const charData = extractPathbuilderData(jsonData.build);
                 
-                // Salva no Firestore
                 await charsCollection.doc(charData.nome).set(charData);
                 alert(`Personagem ${charData.nome} importado com sucesso!`);
                 
@@ -158,28 +157,59 @@
             }
         }
 
-        // --- EXTRAÇÃO DE DADOS BLINDADA ---
+        // --- EXTRAÇÃO DE DADOS AVANÇADA ---
         function extractPathbuilderData(build) {
-            // Função auxiliar para garantir que nunca retorne undefined
             const safeNum = (val) => (val !== undefined && val !== null) ? Number(val) : 0;
-            const safeStr = (val) => (val !== undefined && val !== null) ? String(val) : "Desconhecido";
+            const safeStr = (val) => (val !== undefined && val !== null) ? String(val) : "";
 
-            // Tenta achar o AC (Classe de Armadura) em diferentes lugares
-            let acValue = 10;
-            if (build.acTotal) {
-                if (typeof build.acTotal === 'object') acValue = build.acTotal.acTotal;
-                else acValue = build.acTotal;
-            }
-
-            // Tenta achar o HP (se não tiver direto, soma ancestralidade + classe + con)
+            // --- CÁLCULO DE HP (Fórmula de segurança) ---
             let hpValue = safeNum(build.attributes.hp);
             if (hpValue === 0) {
-                 // Fallback: Tenta calcular se o total não vier pronto
                  const ancHp = safeNum(build.attributes.ancestryhp);
                  const classHp = safeNum(build.attributes.classhp);
                  const bonusHp = safeNum(build.attributes.bonushp);
                  const conBonus = safeNum(build.abilities.con) > 10 ? Math.floor((safeNum(build.abilities.con) - 10) / 2) * safeNum(build.level) : 0;
                  hpValue = ancHp + classHp + bonusHp + conBonus;
+            }
+
+            // --- EXTRAÇÃO DE ARMAS ---
+            // O Pathbuilder lista armas em 'weapons'. Vamos tentar formatar um texto simples.
+            const weaponsList = (build.weapons || []).map(w => {
+                const pot = w.pot ? `+${w.pot}` : ""; // Runa de Potência (+1, +2...)
+                const str = w.str ? "Striking" : ""; // Runa Striking
+                const name = w.display || w.name; // Nome da arma
+                const die = w.die ? w.die : ""; // Dado de dano (d8, d6)
+                // Retorna algo como: "+1 Longsword (d8)"
+                return `${pot} ${name} ${str ? `(${str})` : ''} [${die}]`.trim();
+            });
+
+            // --- EXTRAÇÃO DE MAGIAS ---
+            // 'spellCasters' é um array (pode ter multiclasse). Dentro tem 'spells' por nível.
+            const spellsList = [];
+            if (build.spellCasters) {
+                build.spellCasters.forEach(caster => {
+                    if (caster.spells) {
+                        caster.spells.forEach(spellLevelObj => {
+                            const level = spellLevelObj.spellLevel;
+                            const list = spellLevelObj.list || [];
+                            if (list.length > 0) {
+                                spellsList.push({
+                                    nivel: level === 0 ? "Truques (Cantrips)" : `Nível ${level}`,
+                                    magias: list
+                                });
+                            }
+                        });
+                    }
+                });
+            }
+
+            // --- EXTRAÇÃO DE PETS ---
+            const petsList = [];
+            if (build.pets) {
+                build.pets.forEach(p => petsList.push({ nome: p.name, tipo: p.type || "Companheiro" }));
+            }
+            if (build.familiars) {
+                build.familiars.forEach(f => petsList.push({ nome: f.name, tipo: "Familiar" }));
             }
 
             return {
@@ -195,8 +225,8 @@
                     sab: safeNum(build.abilities.wis),
                     car: safeNum(build.abilities.cha)
                 },
-                hp: hpValue, // Agora usa o valor calculado e seguro
-                ca: safeNum(acValue), 
+                hp: hpValue,
+                ca: safeNum(build.acTotal ? (build.acTotal.acTotal || build.acTotal) : 10), 
                 percepcao: safeNum(build.proficiencies.perception) + safeNum(build.level) + safeNum(build.abilities.wis),
                 saves: {
                     fort: safeNum(build.proficiencies.fortitude) + safeNum(build.level) + safeNum(build.abilities.con),
@@ -206,37 +236,27 @@
                 velocidade: safeNum(build.speed) || 25,
                 pericias: build.proficiencies ? Object.keys(build.proficiencies)
                     .filter(k => !['fortitude','reflex','will','perception','classDC'].includes(k) && build.proficiencies[k] > 0)
-                    .slice(0, 10) : []
+                    .slice(0, 10) : [],
+                // Novos campos adicionados
+                armas: weaponsList,
+                magias: spellsList,
+                pets: petsList
             };
         }
 
-        // --- OPÇÃO A: ARQUIVO ---
+        // --- HANDLERS DE IMPORTAÇÃO ---
         fileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
             const reader = new FileReader();
-            reader.onload = (event) => {
-                try {
-                    const json = JSON.parse(event.target.result);
-                    importCharData(json);
-                } catch (err) { alert("Erro ao ler arquivo JSON."); }
-            };
+            reader.onload = (ev) => { try { importCharData(JSON.parse(ev.target.result)); } catch(err){alert("Erro JSON");} };
             reader.readAsText(file);
         });
 
-        // --- OPÇÃO B: TEXTO COLADO ---
         btnImportText.addEventListener('click', () => {
             const text = textArea.value.trim();
-            if (!text) {
-                alert("Por favor, cole o código JSON primeiro.");
-                return;
-            }
-            try {
-                const json = JSON.parse(text);
-                importCharData(json);
-            } catch (err) {
-                alert("O texto colado não é um JSON válido.");
-            }
+            if(!text) return alert("Cole o JSON.");
+            try { importCharData(JSON.parse(text)); } catch(err){ alert("JSON inválido."); }
         });
 
         // --- RENDERIZAÇÃO DA LISTA ---
@@ -252,15 +272,40 @@
             });
         });
 
-        // --- RENDERIZAÇÃO DA FICHA ---
+        // --- RENDERIZAÇÃO DA FICHA ATUALIZADA ---
         function renderSheet(char) {
             const mod = (val) => Math.floor((val - 10) / 2);
             const fmt = (val) => (val >= 0 ? `+${val}` : val);
+            const periciasTexto = (char.pericias && Array.isArray(char.pericias)) ? char.pericias.join(', ').replace(/_/g, ' ') : "Nenhuma";
 
-            // Garante que arrays existam antes do join
-            const periciasTexto = (char.pericias && Array.isArray(char.pericias)) 
-                ? char.pericias.join(', ').replace(/_/g, ' ') 
-                : "Nenhuma";
+            // HTML para Armas
+            let armasHtml = '<p style="color:#777;">Nenhuma arma equipada.</p>';
+            if (char.armas && char.armas.length > 0) {
+                armasHtml = `<ul style="padding-left: 20px;">${char.armas.map(a => `<li>${a}</li>`).join('')}</ul>`;
+            }
+
+            // HTML para Pets
+            let petsHtml = '';
+            if (char.pets && char.pets.length > 0) {
+                petsHtml = `<div class="section-title">Companheiros / Pets</div>
+                            <ul style="padding-left: 20px;">
+                                ${char.pets.map(p => `<li><b>${p.nome}</b> (${p.tipo})</li>`).join('')}
+                            </ul>`;
+            }
+
+            // HTML para Magias
+            let magiasHtml = '';
+            if (char.magias && char.magias.length > 0) {
+                magiasHtml = `<div class="section-title">Livro de Magias</div>`;
+                char.magias.forEach(nivel => {
+                    magiasHtml += `
+                        <div style="margin-top: 10px;">
+                            <strong style="color: #444;">${nivel.nivel}:</strong> 
+                            <span style="font-size: 0.95em; color: #555;">${nivel.magias.join(', ')}</span>
+                        </div>
+                    `;
+                });
+            }
 
             sheetDisplay.innerHTML = `
                 <div class="statblock-header">
@@ -281,14 +326,20 @@
                     <div class="stat-box"><div class="label">SAB</div><div class="value">${char.atributos.sab} (${fmt(mod(char.atributos.sab))})</div></div>
                     <div class="stat-box"><div class="label">CAR</div><div class="value">${char.atributos.car} (${fmt(mod(char.atributos.car))})</div></div>
                 </div>
-                <div class="section-title">Salvamentos (Saves)</div>
+                
+                <div class="section-title">Ofensiva</div>
+                ${armasHtml}
+
+                <div class="section-title">Defesa & Perícias</div>
                 <div class="saves-row">
                     <span>Fortitude: +${char.saves.fort}</span>
                     <span>Reflexos: +${char.saves.ref}</span>
                     <span>Vontade: +${char.saves.vont}</span>
                 </div>
-                <div class="section-title">Perícias Treinadas</div>
-                <p style="text-transform: capitalize;">${periciasTexto}</p>
+                <p><b>Perícias:</b> <span style="text-transform: capitalize;">${periciasTexto}</span></p>
+
+                ${magiasHtml}
+                ${petsHtml}
             `;
         }
     });
