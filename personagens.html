@@ -104,6 +104,7 @@
         const listContainer = document.getElementById('list-container');
         const sheetDisplay = document.getElementById('sheet-display');
         
+        // --- MAPA DE PERÍCIAS PADRÃO ---
         const standardSkills = [
             { id: 'acrobatics', name: 'Acrobatics', attr: 'dex' }, { id: 'arcana', name: 'Arcana', attr: 'int' },
             { id: 'athletics', name: 'Athletics', attr: 'str' }, { id: 'crafting', name: 'Crafting', attr: 'int' },
@@ -115,7 +116,7 @@
             { id: 'survival', name: 'Survival', attr: 'wis' }, { id: 'thievery', name: 'Thievery', attr: 'dex' }
         ];
 
-        // Glossário Exemplo
+        // Glossário de Magias
         const spellLibrary = {
             "Ignition": { action: "◆◆", desc: "A spell attack dealing fire damage." },
             "Shield": { action: "◆", desc: "Raise a magical shield (+1 AC)." }
@@ -133,11 +134,13 @@
             } catch (error) { console.error(error); alert("Erro: " + error.message); }
         }
 
-        // --- EXTRAÇÃO ---
+        // --- EXTRAÇÃO (LÓGICA CORRIGIDA) ---
         function extractPathbuilderData(build) {
             const safeNum = (v) => (v && !isNaN(v)) ? Number(v) : 0;
             const safeStr = (v) => (v) ? String(v) : "";
             const level = safeNum(build.level);
+            
+            // Helpers de Atributo
             const getAbilVal = (n) => safeNum(build.abilities[n]);
             const getAbilMod = (n) => Math.floor((getAbilVal(n) - 10) / 2);
 
@@ -156,10 +159,10 @@
                 const total = (profValue > 0 ? (profValue + level) : 0) + getAbilMod(skill.attr);
                 processedSkills.push({ name: skill.name, total: total, prof: profValue });
             });
-            // Lores
+            // Lores e Outros
             const excludedKeys = ['fortitude', 'reflex', 'will', 'perception', 'classDC', ...standardSkills.map(s => s.id)];
             Object.keys(profs).forEach(key => {
-                if (!excludedKeys.includes(key)) {
+                if (!excludedKeys.includes(key) && !key.includes("Weapon") && !key.includes("Armor")) {
                     const profValue = safeNum(profs[key]);
                     const total = (profValue > 0 ? (profValue + level) : 0) + getAbilMod('int');
                     const name = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1').trim();
@@ -175,28 +178,90 @@
                 classDC.val = 10 + level + safeNum(build.proficiencies.classDC) + Math.max(...mods);
             }
 
-            // MAGIAS (COM CALCULO DE STATS)
+            // --- ARMAS (CORREÇÃO DAEMIAN) ---
+            const weapons = (build.weapons || []).map(w => {
+                // 1. Definição do Atributo de Ataque
+                let atkAttr = 'str';
+                // Armas à distância SEMPRE usam DEX
+                if (w.traits && w.traits.includes('Ranged')) {
+                    atkAttr = 'dex';
+                }
+                // Armas Finesse usam o maior entre STR e DEX
+                else if (w.traits && w.traits.includes('Finesse')) {
+                    if (getAbilVal('dex') > getAbilVal('str')) atkAttr = 'dex';
+                }
+
+                // 2. Definição da Proficiência (Correção do +4 vs +7)
+                let profBonus = 0;
+                // Tenta achar a proficiência pelo nome (ex: "simple", "martial")
+                if (w.prof && build.proficiencies[w.prof] !== undefined) {
+                    profBonus = build.proficiencies[w.prof];
+                } else if (w.prof === "simple" && build.proficiencies.simple !== undefined) {
+                    profBonus = build.proficiencies.simple;
+                } else if (w.prof === "martial" && build.proficiencies.martial !== undefined) {
+                    profBonus = build.proficiencies.martial;
+                } else {
+                    // Fallback de segurança: Se não achar e for nível 1+, assume Treinado (2)
+                    // Isso evita que o ataque fique artificialmente baixo se o JSON estiver incompleto
+                    profBonus = 2; 
+                }
+
+                // 3. Cálculo Final do Ataque
+                const pot = safeNum(w.pot); // Runas +1, etc
+                const atk = level + profBonus + getAbilMod(atkAttr) + pot;
+
+                // 4. Cálculo de Dano (Correção do Empowerment)
+                let dmgBonus = 0;
+                
+                // Adiciona STR se for Melee (e não for Propulsive especial, simplificado aqui)
+                if (!w.traits || !w.traits.includes('Ranged')) {
+                    dmgBonus += getAbilMod('str');
+                } else if (w.traits && w.traits.includes('Propulsive')) {
+                    dmgBonus += Math.floor(getAbilMod('str') / 2);
+                }
+
+                // Weapon Specialization
+                if (profBonus >= 4) dmgBonus += 2; // Expert
+                if (profBonus >= 6) dmgBonus += 1; // Master
+                
+                // --- PATCH DO TAUMATURGO (EMPOWERMENT) ---
+                // Se a classe é Thaumaturge, adiciona +2 de dano
+                // (Assumindo que ele está segurando o implemento, que é o padrão de combate)
+                if (safeStr(build.class).toLowerCase() === "thaumaturge") {
+                     dmgBonus += 2;
+                }
+                
+                // Formatação do Dado de Dano
+                const die = w.die || "d4";
+                const diceCount = w.str ? 2 : 1; // Runa Striking
+                
+                // Formata extras
+                const traitsList = w.traits ? `(${w.traits.join(', ')})` : '';
+                const extraText = `${pot?`+${pot} `:''}${w.str?'Striking ':''}${traitsList}`;
+
+                return { 
+                    nome: w.display || w.name, 
+                    ataque: `+${atk}`, 
+                    dano: `${diceCount}${die} + ${dmgBonus}`, 
+                    extras: extraText 
+                };
+            });
+
+            // Magias
             const spells = [];
-            let sStats = { dc: 0, attack: 0, ability: "" }; // RESETOU AQUI
-            
             const mapAction = (act) => {
                 if(!act) return "?"; const a=String(act).toLowerCase();
                 if(a.includes("reaction")) return "↶"; if(a.includes("3")) return "◆◆◆"; if(a.includes("2")) return "◆◆"; if(a.includes("1")) return "◆"; return "?";
             };
-
+            let sStats = { dc: 0, attack: 0, ability: "" };
             if (build.spellCasters) {
                 build.spellCasters.forEach(caster => {
-                    // CÁLCULO DE DC E ATAQUE
                     const abil = caster.ability || "cha";
                     const prof = safeNum(caster.proficiency);
                     const mod = getAbilMod(abil);
                     const dc = 10 + level + prof + mod;
                     const atk = level + prof + mod;
-
-                    // Pega o melhor valor entre todas as classes conjuradoras
-                    if (dc > sStats.dc) {
-                        sStats = { dc: dc, attack: atk, ability: abil.toUpperCase() };
-                    }
+                    if (dc > sStats.dc) sStats = { dc: dc, attack: atk, ability: abil.toUpperCase() };
 
                     if (caster.spells) {
                         caster.spells.forEach(obj => {
@@ -211,17 +276,7 @@
                 });
             }
 
-            // Saves & Weapons
-            const weapons = (build.weapons || []).map(w => {
-                let atkAttr = 'str';
-                if (w.traits && (w.traits.includes('Finesse') || w.traits.includes('Ranged'))) { if (getAbilVal('dex') > getAbilVal('str')) atkAttr = 'dex'; }
-                let prof = 2; if (w.prof && build.proficiencies[w.prof]) prof = build.proficiencies[w.prof];
-                const pot = safeNum(w.pot);
-                const atk = level + prof + getAbilMod(atkAttr) + pot;
-                let dmg = 0; if (!w.traits || !w.traits.includes('Ranged')) dmg += getAbilMod('str');
-                if (prof >= 4) dmg += 2; if (prof >= 6) dmg += 1;
-                return { nome: w.display||w.name, ataque: `+${atk}`, dano: `${w.str?'2':'1'}${w.die} + ${dmg}`, extras: w.traits?`(${w.traits.join(', ')})`:'' };
-            });
+            // Saves
             const calcSave = (k, ab) => { const p = safeNum(build.proficiencies[k]); return (p>0 ? p+level : 0) + getAbilMod(ab); };
 
             return {
@@ -235,7 +290,7 @@
             };
         }
 
-        // --- RENDER ---
+        // Handlers e Render (Mantidos iguais ao anterior, mas necessários para o script funcionar)
         fileInput.addEventListener('change', (e) => { const f = e.target.files[0]; if(!f)return; const r = new FileReader(); r.onload=(ev)=>{try{importCharData(JSON.parse(ev.target.result));}catch(e){alert("Erro JSON");}}; r.readAsText(f); });
         btnImportText.addEventListener('click', () => { try{ importCharData(JSON.parse(textArea.value.trim())); }catch(e){alert("JSON inválido.");} });
         charsCollection.onSnapshot(snap => { listContainer.innerHTML=''; snap.forEach(doc => { const d = document.createElement('div'); d.className='char-item'; d.textContent=doc.data().nome; d.onclick=()=>renderSheet(doc.data()); listContainer.appendChild(d); }); });
@@ -243,23 +298,15 @@
 
         function renderSheet(char) {
             const mod = (v) => Math.floor((v-10)/2); const fmt = (v) => v>=0?`+${v}`:v; const fmtSave = (v) => `CD ${10+v} (${fmt(v)})`;
-
-            const getBadge = (prof) => {
-                let l="U", c="prof-u"; if(prof>=2){l="T";c="prof-t";} if(prof>=4){l="E";c="prof-e";} if(prof>=6){l="M";c="prof-m";} if(prof>=8){l="L";c="prof-l";}
-                return `<div class="prof-badge ${c}">${l}</div>`;
-            };
+            const getBadge = (prof) => { let l="U", c="prof-u"; if(prof>=2){l="T";c="prof-t";} if(prof>=4){l="E";c="prof-e";} if(prof>=6){l="M";c="prof-m";} if(prof>=8){l="L";c="prof-l";} return `<div class="prof-badge ${c}">${l}</div>`; };
             const skillsHtml = char.skills.map(s => `<div class="skill-row">${getBadge(s.prof)}<div class="skill-bonus">${fmt(s.total)}</div><div class="skill-name">${s.name}</div></div>`).join('');
             
-            // RENDERIZAÇÃO DO SPELL STATS (RECUPERADO!)
             let spellStatsHtml = '';
             if (char.spellStats && char.spellStats.dc > 0) {
-                spellStatsHtml = `
-                <div style="background:#e8f6f3; padding:10px; border-radius:5px; margin: 10px 0; border: 1px solid #1abc9c;">
-                    <div style="display:flex; justify-content:space-around; text-align:center;">
-                        <div><div style="font-size:0.8em; text-transform:uppercase; color:#16a085;">Spell DC</div><div style="font-size:1.4em; font-weight:bold; color:#0e6251;">${char.spellStats.dc}</div></div>
-                        <div><div style="font-size:0.8em; text-transform:uppercase; color:#16a085;">Spell Attack</div><div style="font-size:1.4em; font-weight:bold; color:#0e6251;">+${char.spellStats.attack}</div></div>
-                         <div><div style="font-size:0.8em; text-transform:uppercase; color:#16a085;">Attr</div><div style="font-size:1.4em; font-weight:bold; color:#0e6251;">${char.spellStats.ability}</div></div>
-                    </div>
+                spellStatsHtml = `<div style="background:#e8f6f3; padding:10px; border-radius:5px; margin: 10px 0; border: 1px solid #1abc9c; display:flex; justify-content:space-around; text-align:center;">
+                    <div><div style="font-size:0.8em; text-transform:uppercase; color:#16a085;">Spell DC</div><div style="font-size:1.4em; font-weight:bold; color:#0e6251;">${char.spellStats.dc}</div></div>
+                    <div><div style="font-size:0.8em; text-transform:uppercase; color:#16a085;">Atk</div><div style="font-size:1.4em; font-weight:bold; color:#0e6251;">+${char.spellStats.attack}</div></div>
+                    <div><div style="font-size:0.8em; text-transform:uppercase; color:#16a085;">Attr</div><div style="font-size:1.4em; font-weight:bold; color:#0e6251;">${char.spellStats.ability}</div></div>
                 </div>`;
             }
 
@@ -282,16 +329,10 @@
                     <div class="stat-box"><div class="label">SAB</div><div class="value">${char.atributos.sab} (${fmt(mod(char.atributos.sab))})</div></div>
                     <div class="stat-box"><div class="label">CAR</div><div class="value">${char.atributos.car} (${fmt(mod(char.atributos.car))})</div></div>
                 </div>
-                
-                <div class="section-title">Perícias</div>
-                <div class="skills-grid">${skillsHtml}</div>
-                
-                <div class="section-title">Defesas</div>
-                <div class="saves-row"><span>Fort: ${fmtSave(char.saves.fort)}</span><span>Ref: ${fmtSave(char.saves.ref)}</span><span>Vont: ${fmtSave(char.saves.vont)}</span></div>
-                
+                <div class="section-title">Perícias</div><div class="skills-grid">${skillsHtml}</div>
+                <div class="section-title">Defesas</div><div class="saves-row"><span>Fort: ${fmtSave(char.saves.fort)}</span><span>Ref: ${fmtSave(char.saves.ref)}</span><span>Vont: ${fmtSave(char.saves.vont)}</span></div>
                 <div class="section-title">Ofensiva</div><ul>${weaponsHtml}</ul>
-                <div class="section-title">Magias</div>
-                ${spellStatsHtml} ${spellsHtml}
+                <div class="section-title">Magias</div>${spellStatsHtml}${spellsHtml}
             `;
         }
     });
