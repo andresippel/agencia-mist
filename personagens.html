@@ -43,24 +43,18 @@
         .tactics-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #cbdceb; padding-bottom: 5px; }
         .tactics-title { font-weight: bold; color: #2980b9; text-transform: uppercase; font-size: 0.85em; }
         .btn-edit-tactics { background: none; border: none; color: #7f8c8d; cursor: pointer; font-size: 0.8em; text-decoration: underline; }
-        
         .tactics-content { color: #2c3e50; }
         .tactics-content strong { color: #2980b9; font-weight: 700; }
-        .tactics-content em { color: #555; }
-        .tactics-content ul, .tactics-content ol { padding-left: 25px; margin: 8px 0; }
-        .tactics-content li { margin-bottom: 4px; }
-        .tactics-content p { margin-bottom: 8px; margin-top: 0; }
-
+        .tactics-content ul { padding-left: 25px; margin: 10px 0; }
+        .tactics-content li { margin-bottom: 5px; }
         .tactics-editor { display: none; margin-top: 10px; }
         .tactics-textarea { width: 100%; height: 200px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; font-size: 0.9em; resize: vertical; }
         .btn-save-tactics { background-color: #27ae60; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 5px; }
 
-        /* PETS */
+        /* PETS & GRIDS */
         .pet-block { background: #fdfefe; border: 1px solid #ddd; border-left: 4px solid #27ae60; padding: 10px; margin-top: 10px; border-radius: 4px; }
         .pet-header { font-weight: bold; color: #27ae60; display: flex; justify-content: space-between; }
         .pet-stats { display: flex; gap: 15px; font-size: 0.9em; margin-top: 5px; color: #555; }
-
-        /* GRIDS E OUTROS */
         .skills-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 5px 15px; margin-top: 10px; }
         .skill-row { display: flex; align-items: center; font-size: 0.9em; border-bottom: 1px solid #f9f9f9; padding: 3px 0; }
         .skill-name { flex: 1; margin-left: 8px; color: #333; }
@@ -70,8 +64,6 @@
         .section-title { background-color: #333; color: #fff; padding: 5px 10px; font-weight: bold; margin-top: 20px; border-radius: 3px; }
         .saves-row { display: flex; gap: 20px; margin: 10px 0; font-weight: bold; justify-content: space-around; }
         .abilities-row { display: flex; justify-content: space-between; margin: 10px 0; border-top: 1px solid #ddd; padding-top: 10px;}
-        
-        /* IMPORT */
         .import-section { display: flex; gap: 20px; margin-bottom: 20px; }
         .import-box { flex: 1; padding: 15px; background: #e8f4fd; border: 1px dashed #3498db; border-radius: 8px; }
         textarea.json-in { width: 100%; height: 60px; margin-top: 5px; font-family: monospace; font-size: 11px; }
@@ -246,13 +238,18 @@
                 return { nome: w.display || w.name, ataque: `+${atk}`, dano: `${diceCount}${die} + ${dmgBonus}`, extras: `${pot?`+${pot} `:''}${w.str?'Striking ':''}${traitsFormatted}` };
             });
 
+            // CALCULA MAX SPELL DC
+            let maxSpellDC = 0;
             const spells = [];
             const mapAction = (act) => { if(!act) return "?"; const a=String(act).toLowerCase(); if(a.includes("reaction")) return "↶"; if(a.includes("3")) return "◆◆◆"; if(a.includes("2")) return "◆◆"; if(a.includes("1")) return "◆"; return "?"; };
             let sStats = { dc: 0, attack: 0, ability: "" };
             if (build.spellCasters) {
                 build.spellCasters.forEach(caster => {
                     const abil = caster.ability || "cha"; const prof = safeNum(caster.proficiency); const mod = getAbilMod(abil);
-                    const dc = 10 + level + prof + mod; const atk = level + prof + mod; if (dc > sStats.dc) sStats = { dc: dc, attack: atk, ability: abil.toUpperCase() };
+                    const dc = 10 + level + prof + mod; const atk = level + prof + mod; 
+                    if (dc > sStats.dc) sStats = { dc: dc, attack: atk, ability: abil.toUpperCase() };
+                    if (dc > maxSpellDC) maxSpellDC = dc; // Guarda o maior Spell DC para comparar com Class DC
+
                     if (caster.spells) caster.spells.forEach(obj => { const list = (obj.list || []).map(s => ({ nome: typeof s === 'string' ? s : s.name, acao: typeof s === 'object' ? mapAction(s.actions) : "?" })); if(list.length>0) spells.push({ nivel: obj.spellLevel===0?"Cantrips":`Nível ${obj.spellLevel}`, magias: list }); });
                 });
             }
@@ -265,23 +262,30 @@
             processedSkills.sort((a, b) => a.name.localeCompare(b.name));
             const calcSave = (k, ab) => { const p = safeNum(build.proficiencies[k]); return (p>0 ? p+level : 0) + getAbilMod(ab); };
 
-            // --- CORREÇÃO DO CLASS DC (18 vs 12) ---
-            // 1. Tenta pegar o valor pronto
-            let classDCValue = safeNum(build.attributes.classDC);
-            // 2. Se não tiver, calcula: 10 + Nível + Prof + Maior Mod
-            if (classDCValue === 0 && build.proficiencies.classDC) {
+            // --- CORREÇÃO DO CLASS DC (FINAL) ---
+            // 1. Tenta pegar o valor pronto do pathbuilder
+            let finalClassDC = safeNum(build.attributes.classDC);
+            
+            // 2. Se for 0, calcula a Class DC padrão
+            if (finalClassDC === 0 && build.proficiencies.classDC) {
                 const mods = [getAbilMod('str'), getAbilMod('dex'), getAbilMod('int'), getAbilMod('wis'), getAbilMod('cha')];
-                classDCValue = 10 + level + safeNum(build.proficiencies.classDC) + Math.max(...mods);
+                finalClassDC = 10 + level + safeNum(build.proficiencies.classDC) + Math.max(...mods);
             }
-            // 3. Se ainda for 0, fallback simples (10+Nivel)
-            if (classDCValue === 0) classDCValue = 10 + level;
+
+            // 3. TRUQUE MAGUS: Se o Spell DC for maior que o Class DC encontrado/calculado, usa ele.
+            if (maxSpellDC > finalClassDC) {
+                finalClassDC = maxSpellDC;
+            }
+
+            // 4. Fallback final (evita 0)
+            if (finalClassDC === 0) finalClassDC = 10 + level;
 
             return {
                 nome: safeStr(build.name)||"Sem Nome", nivel: level||1, classe: safeStr(build.class), ancestralidade: safeStr(build.ancestry),
                 atributos: { for: getAbilVal('str'), des: getAbilVal('dex'), con: getAbilVal('con'), int: getAbilVal('int'), sab: getAbilVal('wis'), car: getAbilVal('cha') },
                 hp: hp, ca: safeNum(build.acTotal?.acTotal || build.acTotal)||10, 
                 percepcao: calcSave('perception','wis'), 
-                classDC: { val: classDCValue }, // <--- VALOR CORRIGIDO AQUI
+                classDC: { val: finalClassDC }, // USANDO O VALOR CORRIGIDO
                 saves: { fort: calcSave('fortitude','con'), ref: calcSave('reflex','dex'), vont: calcSave('will','wis') },
                 velocidade: safeNum(build.speed)||25, skills: processedSkills, armas: weapons, magias: spells, spellStats: sStats, pets: petsList
             };
