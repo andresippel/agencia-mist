@@ -43,10 +43,12 @@
         .tactics-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #cbdceb; padding-bottom: 5px; }
         .tactics-title { font-weight: bold; color: #2980b9; text-transform: uppercase; font-size: 0.85em; }
         .btn-edit-tactics { background: none; border: none; color: #7f8c8d; cursor: pointer; font-size: 0.8em; text-decoration: underline; }
+        
         .tactics-content { color: #2c3e50; }
         .tactics-content strong { color: #2980b9; font-weight: 700; }
         .tactics-content ul { padding-left: 25px; margin: 10px 0; }
         .tactics-content li { margin-bottom: 5px; }
+        
         .tactics-editor { display: none; margin-top: 10px; }
         .tactics-textarea { width: 100%; height: 200px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; font-size: 0.9em; resize: vertical; }
         .btn-save-tactics { background-color: #27ae60; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 5px; }
@@ -64,6 +66,8 @@
         .section-title { background-color: #333; color: #fff; padding: 5px 10px; font-weight: bold; margin-top: 20px; border-radius: 3px; }
         .saves-row { display: flex; gap: 20px; margin: 10px 0; font-weight: bold; justify-content: space-around; }
         .abilities-row { display: flex; justify-content: space-between; margin: 10px 0; border-top: 1px solid #ddd; padding-top: 10px;}
+        
+        /* IMPORT */
         .import-section { display: flex; gap: 20px; margin-bottom: 20px; }
         .import-box { flex: 1; padding: 15px; background: #e8f4fd; border: 1px dashed #3498db; border-radius: 8px; }
         textarea.json-in { width: 100%; height: 60px; margin-top: 5px; font-family: monospace; font-size: 11px; }
@@ -97,9 +101,9 @@
             </div>
             <div class="import-box">
                 <label><b>Opção B: Colar JSON</b></label>
-                <input type="text" id="pathbuilder-id-input" placeholder="Link do Pathbuilder (Opcional)" style="width:100%; margin-bottom:5px; padding:5px;">
-                <textarea id="json-textarea" class="json-in" placeholder='Cole o código JSON do Pathbuilder aqui...'></textarea>
-                <button id="btn-import-text" style="margin-top:5px; cursor:pointer; width:100%; padding:5px;">Importar</button>
+                <input type="text" id="pathbuilder-id-input" placeholder="Link do Pathbuilder (ou cole apenas aqui para atualizar)" style="width:100%; margin-bottom:5px; padding:5px;">
+                <textarea id="json-textarea" class="json-in" placeholder='Cole o JSON aqui para importar a ficha completa...'></textarea>
+                <button id="btn-import-text" style="margin-top:5px; cursor:pointer; width:100%; padding:5px; background-color:#3498db; color:white; border:none; border-radius:4px; font-weight:bold;">Importar / Atualizar</button>
             </div>
         </div>
 
@@ -161,6 +165,45 @@
         let currentCharName = "";
         let currentRawTactics = ""; 
 
+        // --- LOGICA DO BOTÃO IMPORTAR/ATUALIZAR (NOVO!) ---
+        btnImportText.addEventListener('click', async () => {
+            const jsonText = textArea.value.trim();
+            const linkText = pathInput.value.trim();
+
+            // CASO 1: Apenas Link (Sem JSON) - Atualiza o Personagem SELECIONADO
+            if (!jsonText && linkText) {
+                if (!currentCharName) {
+                    alert("⚠️ Para atualizar apenas o Link:\n1. Selecione um personagem na lista à esquerda.\n2. Cole o link.\n3. Clique em Importar.");
+                    return;
+                }
+                
+                let pbId = linkText;
+                if (pbId.includes("build=")) pbId = pbId.split("build=")[1]; // Limpa o link, deixa só o ID
+                
+                try {
+                    await charsCollection.doc(currentCharName).update({ pathbuilderId: pbId });
+                    alert(`✅ Link do Pathbuilder atualizado para ${currentCharName}!`);
+                    pathInput.value = '';
+                } catch (e) {
+                    console.error(e);
+                    alert("Erro ao salvar link: " + e.message);
+                }
+                return; // Para por aqui
+            }
+
+            // CASO 2: Importação Completa (Com JSON)
+            if (jsonText) {
+                try {
+                    const json = JSON.parse(jsonText);
+                    await importCharData(json); // Chama a função completa
+                } catch(e) {
+                    alert("Erro no JSON: " + e.message);
+                }
+            } else {
+                alert("Cole o JSON para criar/atualizar a ficha, ou selecione um personagem e cole o Link para atualizar apenas o botão.");
+            }
+        });
+
         // --- TÁTICA MANUAL ---
         window.toggleTacticsEdit = () => {
             const editor = document.getElementById('tactics-editor');
@@ -188,22 +231,25 @@
             } catch (error) { console.error(error); alert("Erro ao salvar: " + error.message); }
         };
 
-        // --- IMPORTAÇÃO ---
+        // --- IMPORTAÇÃO COMPLETA ---
         async function importCharData(jsonData) {
             try {
                 if (!jsonData.build) throw new Error("JSON inválido.");
                 const rawData = extractPathbuilderData(jsonData.build);
                 const charData = JSON.parse(JSON.stringify(rawData));
+                
+                // Pega o link também se estiver preenchido durante a importação do JSON
                 let pbLink = pathInput.value.trim();
                 if (pbLink.includes("build=")) pbLink = pbLink.split("build=")[1];
                 if (pbLink) charData.pathbuilderId = pbLink;
+
                 await charsCollection.doc(charData.nome).set(charData, { merge: true });
-                alert(`Personagem ${charData.nome} atualizado!`);
+                alert(`Personagem ${charData.nome} atualizado com sucesso!`);
                 fileInput.value = ''; textArea.value = ''; pathInput.value = '';
             } catch (error) { console.error(error); alert("Erro: " + error.message); }
         }
 
-        // --- EXTRAÇÃO DE DADOS ---
+        // --- EXTRAÇÃO ---
         function extractPathbuilderData(build) {
             const safeNum = (v) => (v && !isNaN(v)) ? Number(v) : 0;
             const safeStr = (v) => (v) ? String(v) : "";
@@ -238,7 +284,7 @@
                 return { nome: w.display || w.name, ataque: `+${atk}`, dano: `${diceCount}${die} + ${dmgBonus}`, extras: `${pot?`+${pot} `:''}${w.str?'Striking ':''}${traitsFormatted}` };
             });
 
-            // CALCULA MAX SPELL DC
+            // MAX SPELL DC
             let maxSpellDC = 0;
             const spells = [];
             const mapAction = (act) => { if(!act) return "?"; const a=String(act).toLowerCase(); if(a.includes("reaction")) return "↶"; if(a.includes("3")) return "◆◆◆"; if(a.includes("2")) return "◆◆"; if(a.includes("1")) return "◆"; return "?"; };
@@ -248,7 +294,7 @@
                     const abil = caster.ability || "cha"; const prof = safeNum(caster.proficiency); const mod = getAbilMod(abil);
                     const dc = 10 + level + prof + mod; const atk = level + prof + mod; 
                     if (dc > sStats.dc) sStats = { dc: dc, attack: atk, ability: abil.toUpperCase() };
-                    if (dc > maxSpellDC) maxSpellDC = dc; // Guarda o maior Spell DC para comparar com Class DC
+                    if (dc > maxSpellDC) maxSpellDC = dc; 
 
                     if (caster.spells) caster.spells.forEach(obj => { const list = (obj.list || []).map(s => ({ nome: typeof s === 'string' ? s : s.name, acao: typeof s === 'object' ? mapAction(s.actions) : "?" })); if(list.length>0) spells.push({ nivel: obj.spellLevel===0?"Cantrips":`Nível ${obj.spellLevel}`, magias: list }); });
                 });
@@ -262,22 +308,13 @@
             processedSkills.sort((a, b) => a.name.localeCompare(b.name));
             const calcSave = (k, ab) => { const p = safeNum(build.proficiencies[k]); return (p>0 ? p+level : 0) + getAbilMod(ab); };
 
-            // --- CORREÇÃO DO CLASS DC (FINAL) ---
-            // 1. Tenta pegar o valor pronto do pathbuilder
+            // Class DC Fix
             let finalClassDC = safeNum(build.attributes.classDC);
-            
-            // 2. Se for 0, calcula a Class DC padrão
             if (finalClassDC === 0 && build.proficiencies.classDC) {
                 const mods = [getAbilMod('str'), getAbilMod('dex'), getAbilMod('int'), getAbilMod('wis'), getAbilMod('cha')];
                 finalClassDC = 10 + level + safeNum(build.proficiencies.classDC) + Math.max(...mods);
             }
-
-            // 3. TRUQUE MAGUS: Se o Spell DC for maior que o Class DC encontrado/calculado, usa ele.
-            if (maxSpellDC > finalClassDC) {
-                finalClassDC = maxSpellDC;
-            }
-
-            // 4. Fallback final (evita 0)
+            if (maxSpellDC > finalClassDC) finalClassDC = maxSpellDC;
             if (finalClassDC === 0) finalClassDC = 10 + level;
 
             return {
@@ -285,7 +322,7 @@
                 atributos: { for: getAbilVal('str'), des: getAbilVal('dex'), con: getAbilVal('con'), int: getAbilVal('int'), sab: getAbilVal('wis'), car: getAbilVal('cha') },
                 hp: hp, ca: safeNum(build.acTotal?.acTotal || build.acTotal)||10, 
                 percepcao: calcSave('perception','wis'), 
-                classDC: { val: finalClassDC }, // USANDO O VALOR CORRIGIDO
+                classDC: { val: finalClassDC }, 
                 saves: { fort: calcSave('fortitude','con'), ref: calcSave('reflex','dex'), vont: calcSave('will','wis') },
                 velocidade: safeNum(build.speed)||25, skills: processedSkills, armas: weapons, magias: spells, spellStats: sStats, pets: petsList
             };
@@ -350,8 +387,10 @@
         window.toggleEdit = () => { mEditor.style.display=mEditor.style.display==='none'?'block':'none'; if(mEditor.style.display==='block')mEditText.value=mDesc.innerText; };
         window.saveSpellDesc = async () => { await spellsCollection.doc(currentSpellName).set({name:currentSpellName, desc:mEditText.value},{merge:true}); mDesc.innerHTML=mEditText.value; mEditor.style.display='none'; };
         
+        // Listener de Arquivo
         fileInput.addEventListener('change', (e)=>{const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=(ev)=>{try{importCharData(JSON.parse(ev.target.result));}catch(e){}}; r.readAsText(f);});
-        btnImportText.addEventListener('click', ()=>{try{importCharData(JSON.parse(textArea.value.trim()));}catch(e){}});
+        
+        // Listener Inicial
         charsCollection.onSnapshot(snap=>{listContainer.innerHTML=''; snap.forEach(doc=>{const d=document.createElement('div'); d.className='char-item'; d.textContent=doc.data().nome; d.onclick=()=>renderSheet(doc.data()); listContainer.appendChild(d);});});
     });
     </script>
