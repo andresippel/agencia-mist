@@ -13,7 +13,6 @@
     <link rel="stylesheet" href="style.css">
 
     <style>
-        /* Layout de Colunas: Lista à esquerda, Ficha à direita */
         .content-wrapper {
             display: flex;
             gap: 20px;
@@ -45,49 +44,50 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
 
-        /* Estilo do Statblock Pathfinder 2e Simplificado */
-        .statblock-header {
-            border-bottom: 2px solid #333;
-            padding-bottom: 10px;
-            margin-bottom: 15px;
-        }
+        /* Estilo do Statblock */
+        .statblock-header { border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px; }
         .statblock-header h1 { margin: 0; font-size: 24px; color: #2c3e50; }
         .statblock-header .sub { font-style: italic; color: #666; }
-
-        .stat-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-            gap: 10px;
-            margin-bottom: 20px;
-            background: #f9f9f9;
-            padding: 10px;
-            border-radius: 5px;
-        }
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; margin-bottom: 20px; background: #f9f9f9; padding: 10px; border-radius: 5px; }
         .stat-box { text-align: center; }
         .stat-box .label { font-size: 12px; font-weight: bold; text-transform: uppercase; color: #555; }
         .stat-box .value { font-size: 18px; font-weight: bold; color: #000; }
-
-        .section-title {
-            background-color: #333;
-            color: #fff;
-            padding: 5px 10px;
-            font-weight: bold;
-            margin-top: 20px;
-            border-radius: 3px;
-        }
-
+        .section-title { background-color: #333; color: #fff; padding: 5px 10px; font-weight: bold; margin-top: 20px; border-radius: 3px; }
         .saves-row { display: flex; gap: 20px; margin: 10px 0; font-weight: bold; }
         .abilities-row { display: flex; justify-content: space-between; margin: 10px 0; border-top: 1px solid #ddd; padding-top: 10px;}
         
-        /* Botão de Importação */
-        .import-area {
+        /* Área de Importação atualizada */
+        .import-section {
+            display: flex;
+            gap: 20px;
             margin-bottom: 20px;
+        }
+        .import-box {
+            flex: 1;
             padding: 15px;
             background: #e8f4fd;
             border: 1px dashed #3498db;
             border-radius: 8px;
-            text-align: center;
         }
+        textarea {
+            width: 100%;
+            height: 80px;
+            margin-top: 10px;
+            font-family: monospace;
+            font-size: 11px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button.action-btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+        button.action-btn:hover { background-color: #2980b9; }
     </style>
 </head>
 <body>
@@ -100,9 +100,19 @@
             </nav>
         </header>
 
-        <div class="import-area">
-            <label for="json-file"><b>Adicionar Novo Personagem:</b> Selecione o JSON exportado do Pathbuilder</label><br><br>
-            <input type="file" id="json-file" accept=".json">
+        <div class="import-section">
+            <div class="import-box">
+                <label><b>Opção A: Upload de Arquivo</b></label>
+                <p style="font-size: 12px; margin: 5px 0;">Se você baixou o .json</p>
+                <input type="file" id="json-file" accept=".json">
+            </div>
+
+            <div class="import-box">
+                <label><b>Opção B: Colar Código (View JSON)</b></label>
+                <p style="font-size: 12px; margin: 5px 0;">No Pathbuilder, clique em "View JSON", copie tudo e cole aqui:</p>
+                <textarea id="json-textarea" placeholder='Cole o código que começa com {"build":{...}} aqui'></textarea>
+                <button class="action-btn" id="btn-import-text">Importar Texto</button>
+            </div>
         </div>
 
         <div class="content-wrapper">
@@ -115,46 +125,72 @@
                 <p style="text-align: center; color: #777; margin-top: 50px;">Selecione um personagem na lista para ver os detalhes.</p>
             </main>
         </div>
-
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const db = firebase.firestore();
             const charsCollection = db.collection("personagens");
+            
             const fileInput = document.getElementById('json-file');
+            const textArea = document.getElementById('json-textarea');
+            const btnImportText = document.getElementById('btn-import-text');
+            
             const listContainer = document.getElementById('list-container');
             const sheetDisplay = document.getElementById('sheet-display');
 
-            // --- LÓGICA DE IMPORTAÇÃO ---
+            // --- FUNÇÃO CENTRAL DE IMPORTAÇÃO ---
+            async function importCharData(jsonData) {
+                try {
+                    // Verifica se é válido
+                    if (!jsonData.build) throw new Error("JSON inválido. Certifique-se de copiar o conteúdo inteiro do 'View JSON'.");
+
+                    const charData = extractPathbuilderData(jsonData.build);
+                    
+                    // Salva no Firestore usando o nome como ID
+                    await charsCollection.doc(charData.nome).set(charData);
+                    alert(`Personagem ${charData.nome} importado com sucesso!`);
+                    
+                    // Limpa os campos
+                    fileInput.value = '';
+                    textArea.value = '';
+                } catch (error) {
+                    console.error(error);
+                    alert("Erro ao importar: " + error.message);
+                }
+            }
+
+            // --- OPÇÃO A: ARQUIVO ---
             fileInput.addEventListener('change', (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
-
                 const reader = new FileReader();
-                reader.onload = async (event) => {
+                reader.onload = (event) => {
                     try {
                         const json = JSON.parse(event.target.result);
-                        // Verifica se é um JSON do Pathbuilder (geralmente tem a chave 'build')
-                        if (!json.build) throw new Error("Formato inválido. Exporte o JSON do Pathbuilder.");
-
-                        const charData = extractPathbuilderData(json.build);
-                        
-                        // Salva no Firestore
-                        await charsCollection.doc(charData.nome).set(charData);
-                        alert(`Personagem ${charData.nome} importado com sucesso!`);
-                        fileInput.value = ''; // Limpa o input
-                    } catch (error) {
-                        console.error(error);
-                        alert("Erro ao importar: " + error.message);
-                    }
+                        importCharData(json);
+                    } catch (err) { alert("Erro ao ler arquivo JSON."); }
                 };
                 reader.readAsText(file);
             });
 
-            // --- FUNÇÃO PARA EXTRAIR DADOS DO PATHBUILDER ---
+            // --- OPÇÃO B: TEXTO COLADO ---
+            btnImportText.addEventListener('click', () => {
+                const text = textArea.value.trim();
+                if (!text) {
+                    alert("Por favor, cole o código JSON primeiro.");
+                    return;
+                }
+                try {
+                    const json = JSON.parse(text);
+                    importCharData(json);
+                } catch (err) {
+                    alert("O texto colado não é um JSON válido. Verifique se copiou tudo.");
+                }
+            });
+
+            // --- EXTRAÇÃO DE DADOS (Mantida igual) ---
             function extractPathbuilderData(build) {
-                // Pathbuilder tem uma estrutura aninhada complexa. Vamos simplificar.
                 return {
                     nome: build.name || "Sem Nome",
                     nivel: build.level || 1,
@@ -168,20 +204,17 @@
                         sab: build.abilities.wis,
                         car: build.abilities.cha
                     },
-                    // Nota: Pathbuilder às vezes exporta totais, às vezes precisa calcular.
-                    // Assumindo a versão Web mais recente que exporta totais:
                     hp: build.attributes.hp,
-                    ca: build.acTotal.acTotal || build.acTotal, 
-                    percepcao: build.proficiencies.perception + build.level + build.abilities.wis, // Cálculo aproximado se não vier pronto
+                    ca: build.acTotal.acTotal || build.acTotal || 10, 
+                    percepcao: (build.proficiencies.perception || 0) + build.level + build.abilities.wis,
                     saves: {
-                        fort: build.proficiencies.fortitude + build.level + build.abilities.con,
-                        ref: build.proficiencies.reflex + build.level + build.abilities.dex,
-                        vont: build.proficiencies.will + build.level + build.abilities.wis
+                        fort: (build.proficiencies.fortitude || 0) + build.level + build.abilities.con,
+                        ref: (build.proficiencies.reflex || 0) + build.level + build.abilities.dex,
+                        vont: (build.proficiencies.will || 0) + build.level + build.abilities.wis
                     },
                     velocidade: build.speed || 25,
-                    // Pega as 5 primeiras perícias treinadas para não poluir
                     pericias: build.proficiencies ? Object.keys(build.proficiencies)
-                        .filter(k => k !== 'fortitude' && k !== 'reflex' && k !== 'will' && k !== 'perception' && k !== 'classDC' && build.proficiencies[k] > 0)
+                        .filter(k => !['fortitude','reflex','will','perception','classDC'].includes(k) && build.proficiencies[k] > 0)
                         .slice(0, 10) : []
                 };
             }
@@ -199,9 +232,8 @@
                 });
             });
 
-            // --- RENDERIZAÇÃO DA FICHA (STATBLOCK) ---
+            // --- RENDERIZAÇÃO DA FICHA ---
             function renderSheet(char) {
-                // Cálculo simples de modificador (Valor - 10) / 2 arredondado pra baixo
                 const mod = (val) => Math.floor((val - 10) / 2);
                 const fmt = (val) => (val >= 0 ? `+${val}` : val);
 
@@ -210,14 +242,12 @@
                         <h1>${char.nome}</h1>
                         <div class="sub">Nível ${char.nivel} ${char.ancestralidade} ${char.classe}</div>
                     </div>
-
                     <div class="stat-grid">
                         <div class="stat-box"><div class="label">PV (HP)</div><div class="value">${char.hp}</div></div>
                         <div class="stat-box"><div class="label">CA (AC)</div><div class="value">${char.ca}</div></div>
                         <div class="stat-box"><div class="label">Velocidade</div><div class="value">${char.velocidade}ft</div></div>
                         <div class="stat-box"><div class="label">Percepção</div><div class="value">+${char.percepcao}</div></div>
                     </div>
-
                     <div class="abilities-row">
                         <div class="stat-box"><div class="label">FOR</div><div class="value">${char.atributos.for} (${fmt(mod(char.atributos.for))})</div></div>
                         <div class="stat-box"><div class="label">DES</div><div class="value">${char.atributos.des} (${fmt(mod(char.atributos.des))})</div></div>
@@ -226,20 +256,14 @@
                         <div class="stat-box"><div class="label">SAB</div><div class="value">${char.atributos.sab} (${fmt(mod(char.atributos.sab))})</div></div>
                         <div class="stat-box"><div class="label">CAR</div><div class="value">${char.atributos.car} (${fmt(mod(char.atributos.car))})</div></div>
                     </div>
-
                     <div class="section-title">Salvamentos (Saves)</div>
                     <div class="saves-row">
                         <span>Fortitude: +${char.saves.fort}</span>
                         <span>Reflexos: +${char.saves.ref}</span>
                         <span>Vontade: +${char.saves.vont}</span>
                     </div>
-
                     <div class="section-title">Perícias Treinadas</div>
                     <p style="text-transform: capitalize;">${char.pericias.join(', ').replace(/_/g, ' ')}</p>
-
-                    <div style="margin-top: 30px; font-size: 12px; color: #999;">
-                        *Valores simplificados importados do Pathbuilder. Bônus de itens específicos podem não ser calculados na importação básica.
-                    </div>
                 `;
             }
         });
