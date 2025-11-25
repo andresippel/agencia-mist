@@ -135,7 +135,12 @@
             const safeNum = (v) => (v && !isNaN(v)) ? Number(v) : 0;
             const safeStr = (v) => (v) ? String(v) : "";
             const level = safeNum(build.level);
-            const getAbilVal = (n) => safeNum(build.abilities[n]);
+            
+            // ATRIBUTOS (Segurança para maiúsculas/minúsculas)
+            const getAbilVal = (n) => {
+                const val = build.abilities[n] || build.abilities[n.charAt(0).toUpperCase() + n.slice(1)];
+                return safeNum(val);
+            };
             const getAbilMod = (n) => Math.floor((getAbilVal(n) - 10) / 2);
 
             // HP
@@ -155,7 +160,7 @@
             });
             const excludedKeys = ['fortitude', 'reflex', 'will', 'perception', 'classDC', ...standardSkills.map(s => s.id)];
             Object.keys(profs).forEach(key => {
-                if (!excludedKeys.includes(key) && !key.includes("Weapon") && !key.includes("Armor") && !key.includes("Unarmored")) {
+                if (!excludedKeys.includes(key) && !key.toLowerCase().includes("weapon") && !key.toLowerCase().includes("armor") && !key.toLowerCase().includes("unarmored")) {
                     const profValue = safeNum(profs[key]);
                     const total = (profValue > 0 ? (profValue + level) : 0) + getAbilMod('int');
                     const name = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1').trim();
@@ -171,35 +176,43 @@
                 classDC.val = 10 + level + safeNum(build.proficiencies.classDC) + Math.max(...mods);
             }
 
-            // --- ARMAS (LÓGICA CORRIGIDA) ---
+            // --- ARMAS (CORREÇÃO DA RAPIEIRA/FINESSE) ---
             const weapons = (build.weapons || []).map(w => {
                 const nameLower = (w.display || w.name || "").toLowerCase();
-                const traits = w.traits || [];
+                const traits = (w.traits || []).map(t => String(t).toLowerCase()); // Garante minúsculas
                 
-                // DETECÇÃO DE TIPO DE ARMA
-                // Verifica se é ranged procurando 'range' (ex: Range 30ft), 'thrown' ou nome da arma
-                const isRanged = traits.some(t => t.toLowerCase().includes('range')) 
+                // DETECÇÃO DE TIPO
+                const isRanged = traits.some(t => t.includes('range')) 
                                  || nameLower.includes('crossbow') 
                                  || nameLower.includes('bow')
                                  || nameLower.includes('gun')
                                  || nameLower.includes('sling');
-                                 
-                const isFinesse = traits.some(t => t.toLowerCase().includes('finesse'));
-                const isPropulsive = traits.some(t => t.toLowerCase().includes('propulsive'));
-                const isThrown = traits.some(t => t.toLowerCase().includes('thrown'));
+                
+                // Lista manual de armas Finesse comuns para garantir, além do Trait
+                const finesseNames = ['rapier', 'dagger', 'shortsword', 'whip', 'elven curve blade', 'aldori dueling sword'];
+                
+                const isFinesse = traits.includes('finesse') || finesseNames.some(n => nameLower.includes(n));
+                const isPropulsive = traits.includes('propulsive');
+                const isThrown = traits.includes('thrown');
 
                 // 1. ATRIBUTO DE ATAQUE
                 let atkAttr = 'str';
+                
                 if (isRanged) {
-                    atkAttr = 'dex'; // Bestas e Arcos SEMPRE usam Dex no ataque
+                    atkAttr = 'dex'; 
                 } else if (isFinesse) {
-                    if (getAbilVal('dex') > getAbilVal('str')) atkAttr = 'dex';
+                    // SE FOR FINESSE, SEMPRE PEGA O MAIOR ENTRE DES E FOR
+                    const dexScore = getAbilVal('dex');
+                    const strScore = getAbilVal('str');
+                    if (dexScore >= strScore) {
+                        atkAttr = 'dex';
+                    }
                 }
 
                 // 2. PROFICIÊNCIA
                 let profBonus = 0;
                 if (w.prof && build.proficiencies[w.prof]) profBonus = build.proficiencies[w.prof];
-                else profBonus = 2; // Fallback: Assume treinado (Nível 1+)
+                else profBonus = 2; // Fallback para Treinado
 
                 // 3. CÁLCULO DE ATAQUE
                 const pot = safeNum(w.pot);
@@ -208,12 +221,10 @@
                 // 4. CÁLCULO DE DANO
                 let dmgBonus = 0;
                 
-                // Força só entra em Melee, Propulsive ou Thrown
-                if (!isRanged) {
+                if (!isRanged || isThrown) {
                     dmgBonus += getAbilMod('str');
-                } else {
-                    if (isPropulsive) dmgBonus += Math.floor(getAbilMod('str') / 2);
-                    if (isThrown) dmgBonus += getAbilMod('str');
+                } else if (isPropulsive) {
+                    dmgBonus += Math.floor(getAbilMod('str') / 2);
                 }
 
                 // Weapon Spec
@@ -227,8 +238,9 @@
 
                 const die = w.die || "d4";
                 const diceCount = w.str ? 2 : 1; 
-                const traitsList = w.traits ? `(${w.traits.join(', ')})` : '';
-                const extraText = `${pot?`+${pot} `:''}${w.str?'Striking ':''}${traitsList}`;
+                // Formatação bonita dos Traits
+                const traitsFormatted = w.traits ? `(${w.traits.join(', ')})` : '';
+                const extraText = `${pot?`+${pot} `:''}${w.str?'Striking ':''}${traitsFormatted}`;
 
                 return { 
                     nome: w.display || w.name, 
