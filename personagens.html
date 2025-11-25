@@ -15,43 +15,30 @@
     <link rel="stylesheet" href="style.css">
 
     <style>
-        /* --- RESET E BASE --- */
+        /* --- ESTILOS GERAIS --- */
         * { box-sizing: border-box; }
         body { margin: 0; padding: 0; font-family: sans-serif; background-color: #f4f6f7; }
-        
-        /* Container */
         .container { max-width: 1200px; margin: 0 auto; padding: 15px; }
 
-        /* --- HEADER RESPONSIVO --- */
-        header { 
-            display: flex; justify-content: space-between; align-items: center; 
-            margin-bottom: 20px; background: white; padding: 15px; 
-            border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-            flex-wrap: wrap; gap: 10px;
-        }
+        /* Header */
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); flex-wrap: wrap; gap: 10px; }
         header h1 { margin: 0; font-size: 1.5rem; color: #2c3e50; }
         header nav { display: flex; gap: 15px; }
         header nav a { text-decoration: none; color: #3498db; font-weight: bold; font-size: 0.9rem; }
 
-        /* --- IMPORT SECTION --- */
+        /* Import Section */
         .import-section { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
-        .import-box { 
-            flex: 1; min-width: 280px; padding: 15px; 
-            background: #e8f4fd; border: 1px dashed #3498db; border-radius: 8px; 
-        }
+        .import-box { flex: 1; min-width: 280px; padding: 15px; background: #e8f4fd; border: 1px dashed #3498db; border-radius: 8px; }
         .import-box label { display: block; margin-bottom: 8px; font-weight: bold; color: #2c3e50; }
         input[type="file"], input[type="text"], textarea { width: 100%; margin-bottom: 8px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
         textarea.json-in { height: 60px; font-family: monospace; font-size: 11px; }
         button#btn-import-text { width: 100%; padding: 10px; background-color: #3498db; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
 
-        /* --- LAYOUT (LISTA E FICHA) --- */
+        /* Layout Wrapper */
         .content-wrapper { display: flex; gap: 20px; align-items: flex-start; }
         
-        /* Lista */
-        .char-list { 
-            flex: 1; background: #fff; padding: 15px; border-radius: 8px; 
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1); min-width: 200px; max-width: 250px;
-        }
+        /* Lista de Personagens */
+        .char-list { flex: 1; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); min-width: 200px; max-width: 250px; }
         .char-list h3 { margin-top: 0; color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px;}
         .char-item { padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; transition: background 0.2s; font-weight: 500; color: #333; }
         .char-item:hover { background-color: #f0f0f0; }
@@ -59,16 +46,12 @@
         /* Ficha */
         .char-sheet { flex: 3; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); width: 100%; }
 
-        /* --- MOBILE TWEAKS --- */
+        /* Mobile */
         @media (max-width: 768px) {
-            .container { padding: 10px; }
             header { flex-direction: column; text-align: center; }
             header nav { width: 100%; justify-content: center; margin-top: 10px; }
             .content-wrapper { flex-direction: column; }
-            .char-list { 
-                max-width: 100%; width: 100%; overflow-x: auto; display: flex; 
-                gap: 10px; padding: 10px; align-items: center; white-space: nowrap;
-            }
+            .char-list { max-width: 100%; width: 100%; overflow-x: auto; display: flex; gap: 10px; padding: 10px; align-items: center; white-space: nowrap; }
             .char-list h3 { display: none; }
             .char-item { flex: 0 0 auto; background: #f8f9fa; border: 1px solid #ddd; border-radius: 20px; padding: 8px 15px; font-size: 0.9rem; }
             .stat-grid { gap: 5px; }
@@ -76,36 +59,25 @@
             .skills-grid { grid-template-columns: 1fr 1fr; }
         }
 
-        /* --- ESTILOS INTERNOS DA FICHA --- */
+        /* Internos da Ficha */
         .statblock-header { border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px; text-align: center; }
         .statblock-header h1 { margin: 0; font-size: 1.8rem; color: #2c3e50; }
         
-        .stat-grid { 
-            display: flex; justify-content: space-around; align-items: center;
-            background: #f4f6f7; padding: 15px; border-radius: 8px; margin-bottom: 20px; 
-            border: 1px solid #e0e0e0; flex-wrap: wrap; gap: 15px;
-        }
+        /* Stats Grid */
+        .stat-grid { display: flex; justify-content: space-around; align-items: center; background: #f4f6f7; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e0e0e0; flex-wrap: wrap; gap: 15px; }
         .stat-box { text-align: center; flex: 1; min-width: 80px; }
         .stat-box .label { font-size: 0.7rem; font-weight: bold; text-transform: uppercase; color: #7f8c8d; margin-bottom: 2px;}
         .stat-box .value { font-size: 1.2rem; font-weight: bold; color: #2c3e50; }
         .stat-box.main-stat .value { font-size: 1.8rem; display: flex; align-items: center; justify-content: center; gap: 5px; }
 
-        /* --- TÁTICAS (CORREÇÃO DE VISIBILIDADE) --- */
+        /* Tactics Box */
         .tactics-box { background-color: #eaf2f8; border-left: 5px solid #3498db; padding: 15px; margin-bottom: 20px; border-radius: 4px; font-size: 0.95em; line-height: 1.6; }
         .tactics-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #cbdceb; padding-bottom: 5px; }
         .tactics-title { font-weight: bold; color: #2980b9; text-transform: uppercase; font-size: 0.85em; }
         .btn-edit-tactics { background: none; border: none; color: #7f8c8d; cursor: pointer; font-size: 0.8em; text-decoration: underline; }
-        
-        .tactics-content { color: #2c3e50; }
-        .tactics-content strong { color: #2980b9; }
         .tactics-content ul { padding-left: 25px; margin: 10px 0; }
-        
-        /* AQUI ESTÁ A CORREÇÃO: O !important FORÇA o fechamento inicial */
-        .tactics-editor { display: none !important; margin-top: 10px; }
-        
-        /* Classe auxiliar para quando quisermos mostrar via JS */
+        .tactics-editor { display: none !important; margin-top: 10px; } /* Force hide on load */
         .tactics-editor.is-visible { display: block !important; }
-
         .tactics-textarea { width: 100%; height: 200px; padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; }
         .btn-save-tactics { width: 100%; background: #27ae60; color: white; border: none; padding: 10px; margin-top: 5px; border-radius: 4px; font-weight: bold; }
 
@@ -177,7 +149,7 @@
             <div class="spell-body">
                 <div id="modal-spell-desc" style="line-height:1.5; color:#333;"></div>
                 <div style="margin-top:20px; border-top:1px solid #eee; padding-top:15px; display:flex; flex-direction:column; gap:10px;">
-                     <a href="#" id="modal-nethys-link" target="_blank" style="color:#3498db; text-decoration:none; font-weight:bold;">🔍 Ver no Nethys</a>
+                     <a href="#" id="modal-nethys-link" target="_blank" style="color:#3498db; text-decoration:none; font-weight:bold;">🔍 Ver no Archives of Nethys</a>
                      <button onclick="toggleEdit()" class="edit-btn">✎ Editar Descrição</button>
                 </div>
                 <div id="spell-editor" style="display:none; margin-top:10px;">
@@ -202,6 +174,7 @@
         const listContainer = document.getElementById('list-container');
         const sheetDisplay = document.getElementById('sheet-display');
         
+        // Elementos Modal
         const spellModal = document.getElementById('spell-modal');
         const mName = document.getElementById('modal-spell-name');
         const mAct = document.getElementById('modal-spell-action');
@@ -213,21 +186,18 @@
         let currentCharName = "";
         let currentRawTactics = ""; 
 
-        // --- LÓGICA DE TOGGLE CORRIGIDA (USA CLASSE CSS) ---
+        // --- TÁTICAS ---
         window.toggleTacticsEdit = () => {
             const editor = document.getElementById('tactics-editor');
             const display = document.getElementById('tactics-content');
             const btn = document.getElementById('btn-edit-tactics');
             const txtArea = document.getElementById('tactics-textarea');
             
-            // Verifica se tem a classe 'is-visible'
             if (editor.classList.contains('is-visible')) {
-                // FECHAR
                 editor.classList.remove('is-visible');
                 display.style.display = 'block';
                 btn.innerText = "✎ Editar Táticas";
             } else {
-                // ABRIR
                 editor.classList.add('is-visible');
                 display.style.display = 'none';
                 btn.innerText = "Cancelar";
@@ -268,18 +238,22 @@
             fileInput.value = ''; textArea.value = ''; pathInput.value = '';
         }
 
+        // --- EXTRAÇÃO E FILTRO DE PERÍCIAS (CORRIGIDO) ---
         function extractPathbuilderData(build) {
             const safeNum = (v) => (v && !isNaN(v)) ? Number(v) : 0;
             const safeStr = (v) => (v) ? String(v) : "";
             const level = safeNum(build.level);
             const getAbilVal = (n) => { const val = build.abilities[n] || build.abilities[n.charAt(0).toUpperCase() + n.slice(1)]; return safeNum(val); };
             const getAbilMod = (n) => Math.floor((getAbilVal(n) - 10) / 2);
+
             let hp = safeNum(build.attributes.hp);
             if (hp === 0) { const conMod = getAbilMod('con'); hp = safeNum(build.attributes.ancestryhp) + ((safeNum(build.attributes.classhp) + conMod) * level) + safeNum(build.attributes.bonushp); }
+
             const petsList = [];
             const processPet = (p, tipo) => ({ nome: p.name||"Pet", tipo: tipo, hp: safeNum(p.attributes?.hp)||(level*5), ca: safeNum(p.ac)||(10+level+2), atributos: { for: safeNum(p.abilities?.str), des: safeNum(p.abilities?.dex), con: safeNum(p.abilities?.con), int: safeNum(p.abilities?.int), sab: safeNum(p.abilities?.wis), car: safeNum(p.abilities?.cha) } });
             if(build.pets) build.pets.forEach(p=>petsList.push(processPet(p, p.type||"Comp.")));
             if(build.familiars) build.familiars.forEach(f=>petsList.push(processPet(f, "Fam.")));
+
             const weapons = (build.weapons || []).map(w => {
                 const nameLower = (w.display || w.name || "").toLowerCase();
                 const traits = (w.traits || []).map(t => String(t).toLowerCase());
@@ -296,6 +270,7 @@
                 const die = w.die || "d4"; const diceCount = w.str ? 2 : 1; const traitsFormatted = w.traits ? `(${w.traits.join(', ')})` : '';
                 return { nome: w.display || w.name, ataque: `+${atk}`, dano: `${diceCount}${die} + ${dmgBonus}`, extras: `${pot?`+${pot} `:''}${w.str?'Striking ':''}${traitsFormatted}` };
             });
+
             let maxSpellDC = 0;
             const spells = [];
             const mapAction = (act) => { if(!act) return "?"; const a=String(act).toLowerCase(); if(a.includes("reaction")) return "↶"; if(a.includes("3")) return "◆◆◆"; if(a.includes("2")) return "◆◆"; if(a.includes("1")) return "◆"; return "?"; };
@@ -309,12 +284,42 @@
                     if (caster.spells) caster.spells.forEach(obj => { const list = (obj.list || []).map(s => ({ nome: typeof s === 'string' ? s : s.name, acao: typeof s === 'object' ? mapAction(s.actions) : "?" })); if(list.length>0) spells.push({ nivel: obj.spellLevel===0?"Cantrips":`Nível ${obj.spellLevel}`, magias: list }); });
                 });
             }
-            const standardSkills = [{id:'acrobatics',name:'Acrobatics',attr:'dex'},{id:'arcana',name:'Arcana',attr:'int'},{id:'athletics',name:'Athletics',attr:'str'},{id:'crafting',name:'Crafting',attr:'int'},{id:'deception',name:'Deception',attr:'cha'},{id:'diplomacy',name:'Diplomacy',attr:'cha'},{id:'intimidation',name:'Intimidation',attr:'cha'},{id:'medicine',name:'Medicine',attr:'wis'},{id:'nature',name:'Nature',attr:'wis'},{id:'occultism',name:'Occultism',attr:'int'},{id:'performance',name:'Performance',attr:'cha'},{id:'religion',name:'Religion',attr:'wis'},{id:'society',name:'Society',attr:'int'},{id:'stealth',name:'Stealth',attr:'dex'},{id:'survival',name:'Survival',attr:'wis'},{id:'thievery',name:'Thievery',attr:'dex'}];
-            const processedSkills = []; const profs = build.proficiencies || {};
-            standardSkills.forEach(skill => { const profValue = safeNum(profs[skill.id]); const total = (profValue > 0 ? (profValue + level) : 0) + getAbilMod(skill.attr); processedSkills.push({ name: skill.name, total: total, prof: profValue }); });
-            const excludedKeys = ['fortitude', 'reflex', 'will', 'perception', 'classDC', ...standardSkills.map(s => s.id)];
-            Object.keys(profs).forEach(key => { if (!excludedKeys.includes(key) && !key.toLowerCase().includes("weapon") && !key.toLowerCase().includes("armor") && !key.toLowerCase().includes("unarmored")) { const profValue = safeNum(profs[key]); const total = (profValue > 0 ? (profValue + level) : 0) + getAbilMod('int'); const name = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1').trim(); processedSkills.push({ name: name.includes("Lore") ? name : `Lore: ${name}`, total: total, prof: profValue }); } });
+
+            // --- FILTRO DE PERÍCIAS (ATUALIZADO) ---
+            const standardSkills = [
+                {id:'acrobatics',name:'Acrobatics',attr:'dex'},{id:'arcana',name:'Arcana',attr:'int'},{id:'athletics',name:'Athletics',attr:'str'},{id:'crafting',name:'Crafting',attr:'int'},{id:'deception',name:'Deception',attr:'cha'},{id:'diplomacy',name:'Diplomacy',attr:'cha'},{id:'intimidation',name:'Intimidation',attr:'cha'},{id:'medicine',name:'Medicine',attr:'wis'},{id:'nature',name:'Nature',attr:'wis'},{id:'occultism',name:'Occultism',attr:'int'},{id:'performance',name:'Performance',attr:'cha'},{id:'religion',name:'Religion',attr:'wis'},{id:'society',name:'Society',attr:'int'},{id:'stealth',name:'Stealth',attr:'dex'},{id:'survival',name:'Survival',attr:'wis'},{id:'thievery',name:'Thievery',attr:'dex'}
+            ];
+            const processedSkills = []; 
+            const profs = build.proficiencies || {};
+            
+            // 1. Adiciona as 16 perícias padrão
+            standardSkills.forEach(skill => { 
+                const profValue = safeNum(profs[skill.id]); 
+                const total = (profValue > 0 ? (profValue + level) : 0) + getAbilMod(skill.attr); 
+                processedSkills.push({ name: skill.name, total: total, prof: profValue }); 
+            });
+
+            // 2. Filtra Lores (Exclui armas, armaduras, spellcasting e palavras proibidas)
+            const excludedExactKeys = ['fortitude', 'reflex', 'will', 'perception', 'classDC', ...standardSkills.map(s => s.id)];
+            // Lista de palavras que indicam que NÃO é uma perícia
+            const forbiddenSubstrings = ['weapon', 'armor', 'shield', 'unarmored', 'simple', 'martial', 'advanced', 'unarmed', 'casting', 'spell', 'light', 'medium', 'heavy'];
+
+            Object.keys(profs).forEach(key => { 
+                const keyLower = key.toLowerCase();
+                // Se está na lista exata de exclusão, pula
+                if (excludedExactKeys.includes(key)) return;
+                // Se contém qualquer palavra proibida, pula
+                if (forbiddenSubstrings.some(badWord => keyLower.includes(badWord))) return;
+
+                const profValue = safeNum(profs[key]); 
+                const total = (profValue > 0 ? (profValue + level) : 0) + getAbilMod('int'); 
+                let name = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1').trim(); 
+                if (!name.includes("Lore")) name = `Lore: ${name}`;
+                
+                processedSkills.push({ name: name, total: total, prof: profValue }); 
+            });
             processedSkills.sort((a, b) => a.name.localeCompare(b.name));
+
             const calcSave = (k, ab) => { const p = safeNum(build.proficiencies[k]); return (p>0 ? p+level : 0) + getAbilMod(ab); };
             let finalClassDC = safeNum(build.attributes.classDC);
             if (finalClassDC === 0 && build.proficiencies.classDC) { const mods = [getAbilMod('str'), getAbilMod('dex'), getAbilMod('int'), getAbilMod('wis'), getAbilMod('cha')]; finalClassDC = 10 + level + safeNum(build.proficiencies.classDC) + Math.max(...mods); }
@@ -335,21 +340,7 @@
             const mod = (v) => Math.floor((v-10)/2); const fmt = (v) => v>=0?`+${v}`:v; const fmtSave = (v) => `CD ${10+v} (${fmt(v)})`;
             let pbLinkHtml = ""; if (char.pathbuilderId) { pbLinkHtml = `<a href="https://pathbuilder2e.com/launch.html?build=${char.pathbuilderId}" target="_blank" class="pb-link">📜 Abrir Ficha Original no Pathbuilder</a>`; }
             let statusGridHtml = `<div class="stat-grid"><div class="stat-box main-stat"><div class="label">Pontos de Vida</div><div class="value" style="color:#c0392b;">❤️ ${char.hp}</div></div><div class="stat-box main-stat"><div class="label">Classe de Armadura</div><div class="value" style="color:#2980b9;">🛡️ ${char.ca}</div></div><div class="stat-box"><div class="label">Iniciativa (Perc)</div><div class="value">👁️ +${char.percepcao}</div></div><div class="stat-box"><div class="label">Velocidade</div><div class="value">🦶 ${char.velocidade} ft</div></div><div class="stat-box"><div class="label">Class DC</div><div class="value">🎓 ${char.classDC.val}</div></div></div>`;
-            
-            // HTML DA CAIXA DE TÁTICA (COM ID ÚNICO)
-            let tacticsHtml = `
-            <div class="tactics-box">
-                <div class="tactics-header">
-                    <span class="tactics-title">🧠 Resumo Tático & Anotações</span>
-                    <button id="btn-edit-tactics" class="btn-edit-tactics" onclick="toggleTacticsEdit()">✎ Editar Táticas</button>
-                </div>
-                <div id="tactics-content" class="tactics-content">${tacticsHtmlContent}</div>
-                <div id="tactics-editor" class="tactics-editor">
-                    <textarea id="tactics-textarea" class="tactics-textarea"></textarea>
-                    <button class="btn-save-tactics" onclick="saveTactics()">Salvar Alterações</button>
-                </div>
-            </div>`;
-
+            let tacticsHtml = `<div class="tactics-box"><div class="tactics-header"><span class="tactics-title">🧠 Resumo Tático & Anotações</span><button id="btn-edit-tactics" class="btn-edit-tactics" onclick="toggleTacticsEdit()">✎ Editar Táticas</button></div><div id="tactics-content" class="tactics-content">${tacticsHtmlContent}</div><div id="tactics-editor" class="tactics-editor" style="display:none;"><textarea id="tactics-textarea" class="tactics-textarea"></textarea><button class="btn-save-tactics" onclick="saveTactics()">Salvar Alterações</button></div></div>`;
             let petsHtml = ""; if (char.pets && char.pets.length > 0) { petsHtml = `<div class="section-title">Companheiros & Familiares</div>` + char.pets.map(p => `<div class="pet-block"><div class="pet-header"><span>${p.nome}</span> <span>${p.tipo}</span></div><div class="pet-stats"><span>❤️ <b>HP:</b> ${p.hp}</span><span>🛡️ <b>CA:</b> ${p.ca}</span></div><div class="abilities-row" style="font-size:0.8em; margin-top:5px; border-top:1px dashed #ccc;"><div>S: ${fmt(mod(p.atributos.for))}</div><div>D: ${fmt(mod(p.atributos.des))}</div><div>C: ${fmt(mod(p.atributos.con))}</div><div>I: ${fmt(mod(p.atributos.int))}</div><div>S: ${fmt(mod(p.atributos.sab))}</div><div>C: ${fmt(mod(p.atributos.car))}</div></div></div>`).join(''); }
             const getBadge = (prof) => { let l="U", c="prof-u"; if(prof>=2){l="T";c="prof-t";} if(prof>=4){l="E";c="prof-e";} if(prof>=6){l="M";c="prof-m";} if(prof>=8){l="L";c="prof-l";} return `<div class="prof-badge ${c}">${l}</div>`; };
             const skillsHtml = char.skills.map(s => `<div class="skill-row">${getBadge(s.prof)}<div class="skill-bonus">${fmt(s.total)}</div><div class="skill-name">${s.name}</div></div>`).join('');
