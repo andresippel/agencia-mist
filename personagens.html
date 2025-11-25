@@ -139,14 +139,19 @@
         const listContainer = document.getElementById('list-container');
         const sheetDisplay = document.getElementById('sheet-display');
 
-        // --- FUNÇÃO CENTRAL DE IMPORTAÇÃO ---
+        // --- FUNÇÃO CENTRAL DE IMPORTAÇÃO (AGORA BLINDADA) ---
         async function importCharData(jsonData) {
             try {
-                // Validação básica
-                if (!jsonData.build) throw new Error("JSON inválido ou incompleto.");
+                if (!jsonData.build) throw new Error("JSON inválido. Certifique-se de copiar o conteúdo inteiro.");
 
-                const charData = extractPathbuilderData(jsonData.build);
+                // 1. Extrai os dados
+                const rawData = extractPathbuilderData(jsonData.build);
                 
+                // 2. A MÁGICA: Remove qualquer campo 'undefined' que o Firebase odeia
+                // Isso converte o objeto para texto e volta para objeto, limpando erros automaticamente.
+                const charData = JSON.parse(JSON.stringify(rawData));
+                
+                // 3. Salva no Firestore
                 await charsCollection.doc(charData.nome).set(charData);
                 alert(`Personagem ${charData.nome} atualizado com sucesso!`);
                 
@@ -158,27 +163,26 @@
             }
         }
 
-        // --- EXTRAÇÃO DE DADOS (MINERAÇÃO PROFUNDA) ---
+        // --- EXTRAÇÃO DE DADOS ---
         function extractPathbuilderData(build) {
             const safeNum = (val) => (val !== undefined && val !== null && !isNaN(val)) ? Number(val) : 0;
             const safeStr = (val) => (val !== undefined && val !== null) ? String(val) : "";
 
-            // 1. CÁLCULO DE HP (Blindagem)
+            // CÁLCULO DE HP
             let hpValue = safeNum(build.attributes.hp);
             if (hpValue === 0) {
                  const ancHp = safeNum(build.attributes.ancestryhp);
                  const classHp = safeNum(build.attributes.classhp);
                  const bonusHp = safeNum(build.attributes.bonushp);
                  const conMod = safeNum(build.abilities.con) > 10 ? Math.floor((safeNum(build.abilities.con) - 10) / 2) : 0;
-                 // HP = Ancestralidade + (Classe + Con) * Nível + Bonus
                  hpValue = ancHp + ((classHp + conMod) * safeNum(build.level)) + bonusHp;
             }
 
-            // 2. EXTRAÇÃO DE ARMAS
+            // EXTRAÇÃO DE ARMAS
             const weaponsList = (build.weapons || []).map(w => {
                 const pot = w.pot ? `+${w.pot}` : ""; 
                 const str = w.str ? "Striking" : ""; 
-                const name = w.display || w.name; 
+                const name = w.display || w.name || "Arma"; 
                 const die = w.die ? w.die : ""; 
                 const traits = w.traits ? `(${w.traits.join(', ')})` : "";
                 return {
@@ -187,18 +191,17 @@
                 };
             });
 
-            // 3. EXTRAÇÃO DE MAGIAS COM AÇÕES
+            // EXTRAÇÃO DE MAGIAS
             const spellsList = [];
-            
-            // Função para converter texto de ação em ícone
             const mapAction = (act) => {
                 if (!act) return "";
-                if (act.includes("1") && !act.includes("to")) return "◆";
-                if (act.includes("2")) return "◆◆";
-                if (act.includes("3")) return "◆◆◆";
-                if (act.toLowerCase().includes("reaction")) return "↶";
-                if (act.toLowerCase().includes("free")) return "◇";
-                return act; // Retorna texto se não reconhecer (ex: "1 to 2")
+                const a = String(act).toLowerCase(); // Garante que é string
+                if (a.includes("1") && !a.includes("to")) return "◆";
+                if (a.includes("2")) return "◆◆";
+                if (a.includes("3")) return "◆◆◆";
+                if (a.includes("reaction")) return "↶";
+                if (a.includes("free")) return "◇";
+                return act;
             };
 
             if (build.spellCasters) {
@@ -208,7 +211,7 @@
                             const level = spellLevelObj.spellLevel;
                             const list = (spellLevelObj.list || []).map(s => {
                                 return {
-                                    nome: s.name,
+                                    nome: s.name || "Magia",
                                     acao: mapAction(s.actions)
                                 };
                             });
@@ -224,14 +227,14 @@
                 });
             }
 
-            // 4. EXTRAÇÃO DE PETS (COM STATS)
+            // EXTRAÇÃO DE PETS
             const petsList = [];
             const processPet = (p, tipo) => {
                 const pAbil = p.abilities || {str:10, dex:10, con:10, int:10, wis:10, cha:10};
                 return {
-                    nome: p.name || "Sem Nome",
+                    nome: p.name || "Pet",
                     tipo: tipo,
-                    hp: safeNum(p.attributes?.hp) || (safeNum(build.level) * 5), // Estimativa se faltar
+                    hp: safeNum(p.attributes?.hp) || (safeNum(build.level) * 5),
                     ca: safeNum(p.ac) || 10,
                     atributos: {
                         for: safeNum(pAbil.str),
@@ -247,18 +250,12 @@
             if (build.pets) build.pets.forEach(p => petsList.push(processPet(p, p.type || "Companheiro")));
             if (build.familiars) build.familiars.forEach(f => petsList.push(processPet(f, "Familiar")));
 
-            // 5. DEFESAS / SAVES
-            // Pathbuilder dá o proficiencies (2,4,6,8). Precisamos calcular o total:
-            // Total = Proficiencia + Nivel + Mod Atributo + Item(se tiver, mas o JSON nem sempre dá item bonus direto aqui)
-            // Nota: Para simplificar e garantir precisão, usaremos a lógica: 
-            // Se o JSON der o valor 'bonus', usamos ele. Senão calculamos.
+            // CÁLCULO DE SAVES
             const calcSave = (prof, abilityScore) => {
                 const mod = Math.floor((safeNum(abilityScore) - 10) / 2);
-                const profVal = safeNum(prof); // 0=Untrained, 2=Trained...
+                const profVal = safeNum(prof); 
                 const level = safeNum(build.level);
-                // Se for destreinado (0), não soma nível.
-                const total = (profVal > 0 ? (profVal + level) : 0) + mod; 
-                return total;
+                return (profVal > 0 ? (profVal + level) : 0) + mod; 
             };
 
             return {
@@ -278,7 +275,6 @@
                 ca: safeNum(build.acTotal ? (build.acTotal.acTotal || build.acTotal) : 10), 
                 percepcao: calcSave(build.proficiencies.perception, build.abilities.wis),
                 saves: {
-                    // Tenta pegar bonus direto ou calcula
                     fort: calcSave(build.proficiencies.fortitude, build.abilities.con),
                     ref: calcSave(build.proficiencies.reflex, build.abilities.dex),
                     vont: calcSave(build.proficiencies.will, build.abilities.wis)
@@ -293,22 +289,22 @@
             };
         }
 
-        // --- HANDLERS (Arquivo e Texto) ---
+        // HANDLERS
         fileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
             const reader = new FileReader();
-            reader.onload = (ev) => { try { importCharData(JSON.parse(ev.target.result)); } catch(err){alert("Erro JSON");} };
+            reader.onload = (ev) => { try { importCharData(JSON.parse(ev.target.result)); } catch(err){alert("Erro JSON: "+err);} };
             reader.readAsText(file);
         });
 
         btnImportText.addEventListener('click', () => {
             const text = textArea.value.trim();
             if(!text) return alert("Cole o JSON.");
-            try { importCharData(JSON.parse(text)); } catch(err){ alert("JSON inválido."); }
+            try { importCharData(JSON.parse(text)); } catch(err){ alert("JSON inválido: "+err); }
         });
 
-        // --- RENDERIZAÇÃO DA LISTA ---
+        // RENDERIZAÇÃO DA LISTA
         charsCollection.onSnapshot(snapshot => {
             listContainer.innerHTML = '';
             snapshot.forEach(doc => {
@@ -321,20 +317,14 @@
             });
         });
 
-        // --- RENDERIZAÇÃO DA FICHA ---
+        // RENDERIZAÇÃO DA FICHA
         function renderSheet(char) {
             const mod = (val) => Math.floor((val - 10) / 2);
             const fmt = (val) => (val >= 0 ? `+${val}` : val);
-
-            // Helpers para Saves com formato "CD 18 (+8)"
-            const fmtSave = (total) => {
-                const dc = 10 + total;
-                return `CD ${dc} (${fmt(total)})`;
-            };
+            const fmtSave = (total) => `CD ${10 + total} (${fmt(total)})`;
 
             const periciasTexto = (char.pericias && Array.isArray(char.pericias)) ? char.pericias.join(', ').replace(/_/g, ' ') : "Nenhuma";
 
-            // HTML Armas
             let armasHtml = '<p style="color:#777; font-style:italic;">Nenhuma arma equipada.</p>';
             if (char.armas && char.armas.length > 0) {
                 armasHtml = `<ul style="padding-left: 20px;">
@@ -342,7 +332,6 @@
                 </ul>`;
             }
 
-            // HTML Pets (Mini Ficha)
             let petsHtml = '';
             if (char.pets && char.pets.length > 0) {
                 petsHtml = `<div class="section-title">Companheiros / Pets</div>`;
@@ -366,7 +355,6 @@
                 });
             }
 
-            // HTML Magias (Com ícones)
             let magiasHtml = '';
             if (char.magias && char.magias.length > 0) {
                 magiasHtml = `<div class="section-title">Livro de Magias</div>`;
